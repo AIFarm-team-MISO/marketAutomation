@@ -1,0 +1,26 @@
+# Python 관련
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+*.myenv
+
+
+# 환경 설정 파일
+myenv/
+config/settings.py
+
+# 시스템 파일
+.DS_Store
+Thumbs.db
+*.log
+
+# Excel 관련
+*.xls*
+*.xlsx*
+
+# Credentials
+*.json
+credentials.json
+secrets/

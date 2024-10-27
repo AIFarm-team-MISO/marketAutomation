@@ -1,0 +1,33 @@
+def format_string(input_text):
+    # Split the input string by newlines to get each individual entry
+    entries = input_text.splitlines()
+    
+    # Join the entries with a comma and space, ignoring any empty lines
+    formatted_string = ", ".join(entry for entry in entries if entry.strip())
+    
+    return formatted_string
+
+# Example input
+input_text = '''
+
+ZEN_3273
+ZEN_3848
+ZEN_3589
+ZEN_3100
+ZEN_1091
+ZEN_3578
+ZEN_377
+ZEN_3790
+ZEN_1943
+ZEN_3169
+ZEN_1931
+ZEN_3529
+
+
+'''
+
+# Call the function and display the result
+if __name__ == "__main__":
+    formatted_output = format_string(input_text)
+    print("Formatted Output: ")
+    print(formatted_output)
