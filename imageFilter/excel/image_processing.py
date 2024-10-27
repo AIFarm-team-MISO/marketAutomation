@@ -160,7 +160,7 @@ def process_image_urls(sheet, image_column_index, seller_code_column_index, FILT
             else:
                 data.append(("중복-문자없음", image_url))  # 문자 없음 상태로 데이터에 추가
                 no_text_urls.append((seller_code, image_url))  # 문자 없음 목록에 추가
-                new_url_text_count += 1  # 새롭게 추가된 URL 갯수 증가
+                new_url_notext_count += 1  # 새롭게 추가된 URL 갯수 증가
 
     # 디버깅: 필터링된 URL 목록과 문자 없음 목록 출력
     print("\n[디버그] 문자 있음 필터링된 URL 목록 갯수 : " + str(len(filtered_urls)) + "개")

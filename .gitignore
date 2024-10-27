@@ -24,3 +24,6 @@ Thumbs.db
 *.json
 credentials.json
 secrets/
+
+# 이미지 관련
+*.jpg

@@ -71,7 +71,7 @@ def save_filtered_urls(filtered_urls, no_text_urls):
     # 변경사항 저장
     if new_entries_text_count > 0 or new_entries_notext_count > 0 :
         workbook.save(FILTERED_URL_FILE)
-        print(f"[디버그]문자있음 URL {len(new_entries_text_count)}개가 모음파일 글자있음탭에에 저장되었습니다.")
-        print(f"[디버그]문자없음 URL {len(new_entries_notext_count)}개가 모음파일 글자없음탭에에 저장되었습니다.")
+        print(f"[디버그]문자있음 URL {new_entries_text_count}개가 모음파일 글자있음탭에에 저장되었습니다.")
+        print(f"[디버그]문자없음 URL {new_entries_notext_count}개가 모음파일 글자없음탭에에 저장되었습니다.")
     else:
         print(f"[디버그]새로운 필터링된 URL이 없어 변경사항이 저장되지 않았습니다.")

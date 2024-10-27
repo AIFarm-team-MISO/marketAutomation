@@ -141,11 +141,19 @@ def apply_filter_and_sort_xls(output_file_path, sort_column, sort_direction='des
     - sort_direction (str): 정렬 방향 ('ascending' 또는 'descending', 기본값: 'descending')
     - sort_on (str): 정렬 기준 ('values' 또는 'color', 기본값: 'values')
     """
-    # 엑셀 애플리케이션 실행
-    excel = win32.Dispatch("Excel.Application")
-    excel.Visible = False  # 엑셀 창을 숨긴 상태로 실행
+
+    # COM 라이브러리 사용을 위한 초기화 (특히 멀티스레드 환경에서 안정적인 사용을 위해 필요)
+    pythoncom.CoInitialize()
+
+
+    
 
     try:
+
+        # 엑셀 애플리케이션 실행
+        excel = win32.Dispatch("Excel.Application")
+        excel.Visible = False  # 엑셀 창을 숨긴 상태로 실행
+
         # 엑셀 파일 열기
         workbook = excel.Workbooks.Open(output_file_path)
         sheet = workbook.Sheets(1)  # 첫 번째 시트 선택
@@ -215,6 +223,10 @@ def apply_filter_and_sort_xls(output_file_path, sort_column, sort_direction='des
         # 엑셀 파일을 닫고, 엑셀 프로세스 종료
         workbook.Close(False)
         excel.Quit()
+
+        # COM 객체 사용 종료 (자원 해제)
+        pythoncom.CoUninitialize()
+
         clean_up_excel_process()
 
 def clean_up_excel_process():
@@ -225,9 +237,17 @@ def clean_up_excel_process():
     1. 현재 실행 중인 프로세스 목록을 확인.
     2. 'excel.exe' 프로세스가 실행 중이면 이를 종료.
     """
-    for proc in psutil.process_iter():
-        if proc.name().lower() == 'excel.exe':  # 실행 중인 엑셀 프로세스를 찾아 종료
-            proc.kill()
+    for proc in psutil.process_iter(['pid', 'name']):
+        try:
+            # 'EXCEL.EXE' 프로세스를 찾기
+            if proc.info['name'].lower() == 'excel.exe':
+                # 프로세스가 여전히 실행 중인지 확인
+                if proc.is_running():
+                    proc.kill()  # 프로세스 종료
+                    print(f"[디버그] Excel 프로세스 종료됨 (pid={proc.info['pid']})")
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            # 프로세스가 이미 종료되었거나 접근 권한이 없는 경우 예외 처리
+            continue
 
 
 # RGB 값을 Excel 색상 코드로 변환하는 함수 추가
