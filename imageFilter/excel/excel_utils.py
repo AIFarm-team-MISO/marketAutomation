@@ -145,11 +145,12 @@ def insert_column_before(sheet, writable_sheet, column, new_column_title):
     # 첫 번째 행(헤더)에 새로운 열 제목 추가
     writable_sheet.write(0, column_index, new_column_title)
 
+import win32com.client as win32
+import pythoncom
+
 def apply_filter_and_sort_xls(output_file_path, sort_column, sort_direction='descending', sort_on='values'):
     """
-    엑셀 파일을 열고, 특정 열을 기준으로 필터링을 적용하고 정렬하는 함수.
-    문자있음을 위로 정렬하고 색상을 노란색으로 설정 
-    이후 순환파일에서 문자있음만을 삭제하기 위해서. 
+    엑셀 파일을 열고 특정 열을 기준으로 필터링을 적용하고 정렬한 후, 특정 조건에 따라 색상을 적용하는 함수.
     
     Parameters:
     - output_file_path (str): 정렬할 엑셀 파일 경로
@@ -157,15 +158,11 @@ def apply_filter_and_sort_xls(output_file_path, sort_column, sort_direction='des
     - sort_direction (str): 정렬 방향 ('ascending' 또는 'descending', 기본값: 'descending')
     - sort_on (str): 정렬 기준 ('values' 또는 'color', 기본값: 'values')
     """
-
+    
     # COM 라이브러리 사용을 위한 초기화 (특히 멀티스레드 환경에서 안정적인 사용을 위해 필요)
     pythoncom.CoInitialize()
 
-
-    
-
     try:
-
         # 엑셀 애플리케이션 실행
         excel = win32.Dispatch("Excel.Application")
         excel.Visible = False  # 엑셀 창을 숨긴 상태로 실행
@@ -174,76 +171,193 @@ def apply_filter_and_sort_xls(output_file_path, sort_column, sort_direction='des
         workbook = excel.Workbooks.Open(output_file_path)
         sheet = workbook.Sheets(1)  # 첫 번째 시트 선택
 
-        # 2행에 필터 적용 (A2부터 마지막 열까지)
-        last_column = sheet.UsedRange.Columns.Count  # 데이터가 포함된 마지막 열 찾기
-        sheet.Range(f"A2:{sheet.Cells(2, last_column).Address}").AutoFilter()  # 필터 적용 범위 설정
+        # 데이터가 포함된 마지막 열을 찾기
+        last_column = sheet.UsedRange.Columns.Count  # 예: 데이터의 마지막 열이 'G'열이라면 last_column은 7이 됨
+        
+        # 필터 적용 (2행부터 마지막 열까지 적용)
+        # A2 셀부터 마지막 열까지 범위를 지정하여 필터를 활성화
+        sheet.Range(f"A2:{sheet.Cells(2, last_column).Address}").AutoFilter()
 
         # 엑셀 내부 상수 정의 (정렬 방향, 정렬 기준 등)
         xlSortOnValues = 0  # 값 기준 정렬
         xlSortOnCellColor = 1  # 색상 기준 정렬
         xlDescending = 2  # 내림차순 정렬 상수
         xlAscending = 1  # 오름차순 정렬 상수
-        xlYes = 1  # 헤더 포함 상수
+        xlYes = 1  # 첫 번째 행을 헤더로 간주
         xlTopToBottom = 1  # 위에서 아래로 정렬
 
-        # 정렬 방향 설정
-        if sort_direction == 'descending':
-            order = xlDescending
-        else:
-            order = xlAscending
+        # 정렬 방향 설정: 기본은 내림차순이며, sort_direction에 따라 방향 변경
+        order = xlDescending if sort_direction == 'descending' else xlAscending
 
-        # 정렬 기준 설정 (값 또는 색상)
-        if sort_on == 'color':
-            sort_on_value = xlSortOnCellColor
-        else:
-            sort_on_value = xlSortOnValues
+        # 정렬 기준 설정: 기본은 값 기준이며, sort_on에 따라 색상 기준 설정 가능
+        sort_on_value = xlSortOnCellColor if sort_on == 'color' else xlSortOnValues
 
-        # 전체 데이터 범위 설정 (A3부터 마지막 열까지)
+        # 정렬할 범위 설정 (A2부터 마지막 행까지)
+        # A2 셀부터 마지막 데이터 행과 열까지 범위를 지정해 정렬 대상 영역 설정
         last_row = sheet.UsedRange.Rows.Count  # 데이터가 포함된 마지막 행 찾기
-        sort_range = sheet.Range(f"A3:{sheet.Cells(last_row, last_column).Address}")  # 정렬할 범위 설정
+        sort_range = sheet.Range(f"A2:{sheet.Cells(last_row, last_column).Address}")
 
-        # 정렬 필드 초기화 후 새 필드 추가
+        # 정렬 필드를 초기화한 후, 새 필드를 추가하여 정렬을 수행할 열과 조건을 설정
         sheet.Sort.SortFields.Clear()
         sheet.Sort.SortFields.Add(
-            Key=sheet.Range(f"{sort_column}3:{sort_column}{last_row}"),  # 정렬할 열만 기준으로 지정
-            SortOn=sort_on_value,  # 정렬 기준 (값 또는 색상)
-            Order=order,  # 정렬 방향 설정
+            Key=sheet.Range(f"{sort_column}2:{sort_column}{last_row}"),  # sort_column 기준으로 정렬
+            SortOn=sort_on_value,  # 값 또는 색상 기준
+            Order=order,  # 정렬 방향 (오름차순 또는 내림차순)
             DataOption=0  # 기본 정렬 옵션
         )
 
-        # 전체 범위를 기준으로 정렬 수행
-        sheet.Sort.SetRange(sort_range)
+        # 정렬 설정 적용
+        sheet.Sort.SetRange(sort_range)  # 정렬 범위 설정
         sheet.Sort.Header = xlYes  # 첫 번째 행을 헤더로 설정
-        sheet.Sort.MatchCase = False  # 대소문자 구분하지 않음
+        sheet.Sort.MatchCase = False  # 대소문자 구분 안 함
         sheet.Sort.Orientation = xlTopToBottom  # 위에서 아래로 정렬
         sheet.Sort.Apply()  # 정렬 적용
 
-        # 정렬이 완료되었다는 메시지 출력
+        # 정렬 완료 후 메시지 출력
         print(f"\n[디버그] 순환파일이 문자있음 우선으로 정렬 및 색상적용 완료\n")
 
+        # 노란색을 적용할 Excel VBA 색상 코드 (여기서는 노란색 65535로 설정)
+        yellow_excel_color = 65535
 
-        # << 추가된 부분: 노란색을 적용할 행 선택 및 색상 적용 >>
-        yellow_excel_color = rgb_to_excel_color(YELLOW_COLOR_RGB)  # RGB 값을 Excel VBA 색상 코드로 변환
+        # 색상 적용 루프: 조건에 맞는 셀에만 색상을 적용
+        for row in range(2, last_row + 1):  # 2행부터 마지막 행까지 반복
+            cell_value = sheet.Cells(row, 13).Value  # 13번째 열의 값을 가져와 조건 확인
+            if cell_value == "중복-문자있음":  # 특정 조건 만족 시
+                sheet.Rows(row).Interior.Color = yellow_excel_color  # 행 전체를 노란색으로 설정
 
-        for row in range(3, last_row + 1):  # 3행부터 마지막 행까지 반복
-            cell_value = sheet.Cells(row, 13).Value  # 13번째 열에서 '중복-문자있음' 확인
-            if cell_value == "중복-문자있음":  # 원하는 조건 확인
-                sheet.Rows(row).Interior.Color = yellow_excel_color  # 행 전체에 변환된 색상 적용
-
-        # 정렬된 파일 저장
+        # 정렬 및 색상 적용이 완료된 파일을 저장
         workbook.Save()
+
     except Exception as e:
         # 오류 발생 시 메시지 출력
         print(f"파일 처리 중 오류 발생: {e}")
+
     finally:
         # 엑셀 파일을 닫고, 엑셀 프로세스 종료
         workbook.Close(False)
         excel.Quit()
-
-        # COM 객체 사용 종료 (자원 해제)
         pythoncom.CoUninitialize()
 
+        # 기타 자원 해제 작업 (필요에 따라 추가)
         clean_up_excel_process()
+
+
+import xlwt
+
+def apply_row_color_by_condition(writable_sheet, target_column, naming_list, color_name='yellow', condition_value=None):
+    """
+    xlwt 기반의 시트에서 리스트에 따라 특정 열의 값에 대해 행 색상을 적용하는 함수.
+    
+    Parameters:
+    - writable_sheet: xlwt의 수정 가능한 sheet 객체
+    - target_column (int): 색상 적용할 열 인덱스 (예: 4 -> E열)
+    - naming_list (list): 행의 개수와 셀 값 참조용으로 사용
+    - color_name (str): 색상 이름 (예: 'yellow', 'red' 등) 
+    - condition_value (str, optional): 특정 문자열 값 (없을 경우 모든 값이 있는 행에 색상 적용)
+    """
+    # 색상 이름을 사용해 xlwt 스타일 생성
+    pattern = xlwt.Pattern()
+    pattern.pattern = xlwt.Pattern.SOLID_PATTERN
+    pattern.pattern_fore_colour = xlwt.Style.colour_map.get(color_name, xlwt.Style.colour_map['yellow'])  # 기본값 노란색
+
+    style = xlwt.XFStyle()
+    style.pattern = pattern
+
+    # 경고 메시지 출력 (모든 값이 있는 행에 색상을 적용할 때)
+    if condition_value is None:
+        print("[경고] condition_value=None이므로 해당 열의 모든 값이 있는 행에 색상을 적용합니다.")
+    
+    # naming_list의 길이를 사용하여 각 행에 조건에 따라 색상 적용
+    for row, cell_value in enumerate(naming_list, start=2):  # 3행부터 시작
+        if condition_value is None:
+            # 모든 값이 있는 셀에 색상 적용
+            if cell_value is not None and cell_value != "":
+                writable_sheet.write(row, target_column, cell_value, style)
+        else:
+            # 특정 조건을 만족하는 셀에만 색상 적용
+            if cell_value == condition_value:
+                writable_sheet.write(row, target_column, cell_value, style)
+
+    print("[디버그] 조건에 따라 색상 적용 완료")
+
+
+
+
+def apply_filter_only_xls(output_file_path, sort_column, sort_direction='descending', sort_on='values'):
+    """
+    특정 열을 기준으로 필터링 및 정렬을 적용하는 함수 (색상 변경 없음).
+    
+    Parameters:
+    - output_file_path (str): 정렬할 엑셀 파일 경로
+    - sort_column (str): 정렬할 열 (예: 'M'은 M열을 기준으로 정렬)
+    - sort_direction (str): 정렬 방향 ('ascending' 또는 'descending', 기본값: 'descending')
+    - sort_on (str): 정렬 기준 ('values' 또는 'color', 기본값: 'values')
+    """
+
+    pythoncom.CoInitialize()
+    try:
+        # 엑셀 애플리케이션 실행
+        excel = win32.Dispatch("Excel.Application")
+        excel.Visible = False
+
+        # 엑셀 파일 열기
+        workbook = excel.Workbooks.Open(output_file_path)
+        sheet = workbook.Sheets(1)
+
+        # 필터 적용
+        last_column = sheet.UsedRange.Columns.Count
+        sheet.Range(f"A2:{sheet.Cells(2, last_column).Address}").AutoFilter()
+
+        # 엑셀 상수 정의
+        xlSortOnValues = 0
+        xlSortOnCellColor = 1
+        xlDescending = 2
+        xlAscending = 1
+        xlYes = 1
+        xlTopToBottom = 1
+
+        # 정렬 방향 설정
+        order = xlDescending if sort_direction == 'descending' else xlAscending
+        sort_on_value = xlSortOnCellColor if sort_on == 'color' else xlSortOnValues
+
+        # 데이터 범위 설정
+        last_row = sheet.UsedRange.Rows.Count
+        sort_range = sheet.Range(f"A3:{sheet.Cells(last_row, last_column).Address}")
+
+        # 정렬 필드 초기화 후 새 필드 추가
+        sheet.Sort.SortFields.Clear()
+        sheet.Sort.SortFields.Add(
+            Key=sheet.Range(f"{sort_column}3:{sort_column}{last_row}"),
+            SortOn=sort_on_value,
+            Order=order,
+            DataOption=0
+        )
+
+        # 정렬 수행
+        sheet.Sort.SetRange(sort_range)
+        sheet.Sort.Header = xlYes
+        sheet.Sort.MatchCase = False
+        sheet.Sort.Orientation = xlTopToBottom
+        sheet.Sort.Apply()
+
+        # 정렬된 파일을 저장
+        workbook.Save()
+        print("[디버그] 정렬 작업 완료")
+
+    except Exception as e:
+        print(f"정렬 작업 중 오류 발생: {e}")
+    finally:
+        workbook.Close(False)
+        excel.Quit()
+        pythoncom.CoUninitialize()
+
+
+
+
+
+
+
+
 
 def clean_up_excel_process():
     """
