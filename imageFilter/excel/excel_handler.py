@@ -2,8 +2,8 @@ import os
 from imageFilter.excel.file_handler import read_excel_file, save_excel_file
 from imageFilter.excel.image_processing import process_image_urls
 from imageFilter.excel.url_filter import save_filtered_urls
-from imageFilter.excel.excel_utils import apply_filter_and_sort_xls, insert_column_before
-from config.settings import FILE_EXTENSION, FILTERED_URL_FILE
+from imageFilter.excel.excel_utils import apply_filter_and_sort_xls, insert_column_before, column_letter_to_index
+from config.settings import FILE_EXTENSION_xls, FILTERED_URL_FILE
 from openpyxl import load_workbook
 
 import win32com.client as win32
@@ -12,7 +12,7 @@ import time
 import psutil  # 추가로 프로세스를 확인하기 위한 라이브러리
 
 
-def process_excel_file(file_path, file_name):
+def process_imageFiltering_excel_file(file_path, file_name):
     """
 
     1. 폴더에 있는 기존 파일을 복사해 내용을 수정하여 output 파일(순환파일) 을 생성함
@@ -32,28 +32,30 @@ def process_excel_file(file_path, file_name):
 
     """ 
 
-    sheet, writable_book, writable_sheet = read_excel_file(file_path, file_name, FILE_EXTENSION)
+    sheet, writable_book, writable_sheet = read_excel_file(file_path, file_name, FILE_EXTENSION_xls)
     if sheet is None:
         return
 
-    image_column_index = 12       # '목록이미지' 열번호 (썸네일)
+    # '목록이미지' 열번호 (썸네일url)
+    image_column_index = 'M'
+    image_column_index_int = column_letter_to_index(image_column_index)
     seller_code_column_index = 1  # 판매자관리코드가 위치한 열 인덱스 (예: 1열)
 
     # 12열 앞에 새로운 열 삽입 (필터링의 결과를 작성하기 위해)
-    insert_column_before(sheet, writable_sheet, 12)
+    insert_column_before(sheet, writable_sheet, image_column_index, "필터링결과")
 
 
     # 이미지 URL 처리 및 필터링된 URL 목록 획득 (기존 필터링된 URL 파일과 비교)
     # FILTERED_URL_FILE (str): 기존에 필터링된 URL 목록을 포함한 파일 경로
-    data, filtered_urls, no_text_urls  = process_image_urls(sheet, image_column_index, seller_code_column_index, FILTERED_URL_FILE)
+    data, filtered_urls, no_text_urls  = process_image_urls(sheet, image_column_index_int, seller_code_column_index, FILTERED_URL_FILE)
     
 
     # 데이터를 엑셀에 다시 쓰기
     for new_idx, (result, image_url) in enumerate(data):
 
         # 새로운 열에 필터링 상태 기록 ('목록이미지' 는 유지하고 그앞열 '필터링결과' 필터링상태를 기록 )
-        writable_sheet.write(new_idx + 2, image_column_index, result)  # 필터링 상태 기록
-        writable_sheet.write(new_idx + 2, image_column_index + 1, image_url)  # 기존 이미지 URL 유지
+        writable_sheet.write(new_idx + 2, image_column_index_int, result)  # 필터링 상태 기록
+        writable_sheet.write(new_idx + 2, image_column_index_int + 1, image_url)  # 기존 이미지 URL 유지
 
     # 결과 파일 저장 (output 파일(순환파일) 생성)
     output_file_path = os.path.join(file_path, f"{file_name}_output.xls")

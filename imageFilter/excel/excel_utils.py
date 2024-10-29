@@ -9,11 +9,13 @@ from config.settings import YELLOW_COLOR_RGB  # 예시: (255, 255, 0)와 같은 
 
 
 import os
-from config.settings import FILE_EXTENSION
+from config.settings import FILE_EXTENSION_xls
 
 from openpyxl.styles import PatternFill
 import win32com.client
 import pythoncom
+
+from openpyxl.utils import column_index_from_string, get_column_letter
 
 
 def close_open_excel_files(file_name):
@@ -72,11 +74,11 @@ def process_all_excel_files(file_path):
             continue
         
         # 엑셀 파일 확장자에 맞는 파일만 처리
-        if file_name.endswith(FILE_EXTENSION):
+        if file_name.endswith(FILE_EXTENSION_xls):
             base_file_name = os.path.splitext(file_name)[0]
 
             # output 파일 경로 설정
-            output_file_path = os.path.join(file_path, f"{base_file_name}_output{FILE_EXTENSION}")
+            output_file_path = os.path.join(file_path, f"{base_file_name}_output{FILE_EXTENSION_xls}")
 
             # 기존 output 파일이 있으면 삭제
             if os.path.exists(output_file_path):
@@ -99,26 +101,40 @@ def process_all_excel_files(file_path):
 
     return file_list
 
+def column_letter_to_index(column_letter):
+    """
+    엑셀 열 문자 ('A', 'B', ..., 'AA', ...)를 0부터 시작하는 열 인덱스로 변환
+    
+    Parameters:
+    - column_letter (str): 열 문자 (예: 'A', 'M', 'AA')
 
-def insert_column_before(sheet, writable_sheet, column_index):
+    Returns:
+    - int: 0부터 시작하는 열 인덱스 (예: 'A' -> 0, 'M' -> 12)
+    """
+    index = 0
+    for char in column_letter:
+        index = index * 26 + (ord(char.upper()) - ord('A')) + 1
+    return index - 1  # 0부터 시작하도록 -1
+
+def insert_column_before(sheet, writable_sheet, column, new_column_title):
     """
     엑셀 시트에서 특정 열 앞에 새로운 열을 삽입하고, 첫 번째 행에 열 이름을 추가하는 함수.
     
     Parameters:
     - sheet: 읽기 전용 엑셀 시트 객체 (xlrd로 읽어들인 시트)
     - writable_sheet: 쓰기 가능한 엑셀 시트 객체 (xlutils.copy로 생성된 객체)
-    - column_index (int): 새로운 열을 삽입할 위치 (1부터 시작, 예: 12는 12번째 열 앞에 열을 삽입)
-    
-    작업 순서:
-    1. 기존 데이터를 오른쪽으로 이동하여 새로운 열을 삽입.
-    2. 새로 삽입된 열의 데이터를 비어있는 값으로 초기화.
-    3. 첫 번째 행(열 제목)에 "필터링결과"라는 값을 추가.
+    - column (int 또는 str): 열 위치 (숫자 인덱스 또는 문자열 열 이름, 예: 'M' 또는 12)
+    - new_column_title (str): 새 열의 제목 (예: "필터링결과")
     """
+    # column이 문자열이면 숫자 인덱스로 변환
+    if isinstance(column, str):
+        column_index = column_letter_to_index(column)
+    else:
+        column_index = column
+
     # 모든 행에 대해, 기존 데이터를 오른쪽으로 이동하여 새로운 열 삽입
     for row_idx in range(1, sheet.nrows + 1):
-        # 현재 행의 데이터를 가져옴
         current_row_data = [sheet.cell_value(row_idx - 1, col_idx) for col_idx in range(sheet.ncols)]
-        # 새 열 삽입 후 기존 데이터를 오른쪽으로 이동
         for col_idx in range(column_index, sheet.ncols):
             writable_sheet.write(row_idx - 1, col_idx + 1, current_row_data[col_idx])
     
@@ -126,8 +142,8 @@ def insert_column_before(sheet, writable_sheet, column_index):
     for row_idx in range(1, sheet.nrows + 1):
         writable_sheet.write(row_idx - 1, column_index, '')
     
-    # 첫 번째 행(헤더)에 "필터링결과"라는 열 제목 추가
-    writable_sheet.write(0, column_index, "필터링결과")
+    # 첫 번째 행(헤더)에 새로운 열 제목 추가
+    writable_sheet.write(0, column_index, new_column_title)
 
 def apply_filter_and_sort_xls(output_file_path, sort_column, sort_direction='descending', sort_on='values'):
     """

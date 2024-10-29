@@ -1,11 +1,14 @@
 # main.py
-from imageFilter.excel.excel_handler import process_excel_file
+from imageFilter.excel.excel_handler import process_imageFiltering_excel_file
 from imageFilter.excel.excel_utils import process_all_excel_files 
 from rotationAuto.login.zsm_login import login_and_navigate, close_driver
 from rotationAuto.workflow.page_workflow import navigate_to_download_page
 from rotationAuto.workflow.page_workflow import select_radio_button
 from rotationAuto.workflow.page_workflow import click_download_button
 from config.settings import EXCEL_PATH
+
+from config.settings import NAMING_EXCEL_PATH
+from productNaming.name_handler import process_namingChange_excel_file
 
 def zsm_login():
     # 로그인 및 드라이버 설정
@@ -42,14 +45,22 @@ def process_all_files(file_path):
     # 파일 리스트에서 각 파일에 대해 처리
     for file_path, base_file_name in file_list:
         print(f"파일 처리 중: {base_file_name}")  # 디버깅: 현재 파일 이름 출력
-        process_excel_file(file_path, base_file_name)
+
+        # 파일 경로가 NAMING_EXCEL_PATH이면 상품명 가공 처리
+        if file_path.startswith(NAMING_EXCEL_PATH):
+            process_namingChange_excel_file(file_path, base_file_name)
+        else: # 파일경로가 EXCEL_PATH 면 이미지필터링 처리
+            process_imageFiltering_excel_file(file_path, base_file_name)
+
+        
     
 
 if __name__ == "__main__":
     # zsm_login()
 
 
-    # '이미지필터링' 폴더의 엑셀 파일 처리
+    # EXCEL_PATH : '이미지필터링' 폴더의 엑셀 파일 처리
+    # NAMING_EXCEL_PATH : '#상품명가공' 폴더의 엑셀파일 처리 
     process_all_files(EXCEL_PATH)
 
 
