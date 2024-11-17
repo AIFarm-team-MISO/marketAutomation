@@ -141,8 +141,8 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
 
     # 상품명을 단어 단위로 분리하고 공백 및 대소문자 처리하여 리스트로 저장
     words = [word.strip().lower() for word in product_name.split()]
-    print(f"[디버그] 기본상품명 분리 시작")
-    print(f"[디버그] 상품명 분리 단어 리스트: {words}")
+    print(f"[디버그] 기본상품명 분석 시작")
+    # print(f"[디버그] 상품명 분리 단어 리스트: {words}")
     print("-" * 50)  # 구분선 추가
 
     # 사전에서 상품명과 일치하는 메인 키워드 검색
@@ -201,8 +201,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
     # 최종 반환할 메인 키워드, 보조 키워드 정보, remaining_words 디버그 출력
     print(f"[디버그] 최종 반환 main_keyword: {main_keyword}")
     print(f"[디버그] 고정키워드: {remaining_words}")
-    print(f"[디버그] 최종 반환 sub_keywords: {sub_keywords}")
-    print("-" * 50)  # 구분선 추가
+    #print(f"[디버그] 최종 반환 보조키워드: {sub_keywords}")
 
     # 사전 업데이트 후 저장
     save_dictionary(dictionary)  # 기존 키워드가 업데이트된 경우 저장

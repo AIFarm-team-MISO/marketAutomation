@@ -246,7 +246,7 @@ import xlwt
 
 def apply_row_color_by_condition(
     writable_sheet, target_column, naming_list, 
-    color_name="yellow", condition_value=None
+    color_name, condition_value=None
 ):
     """
     xlwt 기반의 시트에서 리스트에 따라 특정 열의 값에 대해 행 색상을 적용하는 함수.
@@ -268,7 +268,7 @@ def apply_row_color_by_condition(
 
     # 경고 메시지 출력 (모든 값이 있는 행에 색상을 적용할 때)
     if condition_value is None:
-        print("[경고] condition_value=None이므로 해당 열의 모든 값이 있는 행에 색상을 적용합니다.")
+        print("해당 열의 모든 값이 있는 행에 색상을 " + str(color_name)+ "색으로 적용!")
     
     # naming_list의 길이를 사용하여 각 행에 조건에 따라 색상 적용
     for row, cell_value in enumerate(naming_list, start=2):  # 3행부터 시작
@@ -280,8 +280,6 @@ def apply_row_color_by_condition(
             # 특정 조건을 만족하는 셀에만 색상 적용
             if cell_value == condition_value:
                 writable_sheet.write(row, target_column, cell_value, style)
-
-    print("[디버그] 조건에 따라 색상 적용 완료")
 
 
 
@@ -370,7 +368,6 @@ def update_seller_codes(sheet, writable_sheet, number_column_index, ptype):
     Returns:
     - None
     """
-    print("[디버그] 판매자코드 업데이트 시작")
 
     for row_idx in range(2, sheet.nrows):  # 3행부터 시작
         existing_seller_code = sheet.cell_value(row_idx, number_column_index)
@@ -382,7 +379,9 @@ def update_seller_codes(sheet, writable_sheet, number_column_index, ptype):
         # 업데이트
         writable_sheet.write(row_idx, number_column_index, new_seller_code)
 
-    print("[디버그] 판매자코드 업데이트 완료")
+    print("="*50)
+    print("[디버그] 판매자코드 가공타입으로 업데이트")
+
 
 
 

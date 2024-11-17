@@ -55,10 +55,44 @@ def analyze_patterns(keyword_list, top_n=10, shuffle=True, randomize_length=True
     )
 
     # 디버깅 정보 출력
-    print("[디버그] 검색결과 패턴분석")
-    print("[디버그] 전체 키워드 빈도:", keyword_counts)
-    print(f"[디버그] 상위 Top{top_n} 키워드:", most_common_keywords)
-    print(f"[디버그] 랜덤화된 패턴: {randomized_patterns}")
+    print("="*50)
+    print("🔍 [디버그] 검색 결과 패턴 분석")
+    print("="*50)
+
+    # 전체 키워드 빈도 출력
+    print("\n📊 [키워드 빈도]")
+    sorted_keyword_counts = sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)
+    for rank, (keyword, count) in enumerate(sorted_keyword_counts, start=1):
+        if rank <= 3:
+            # 1~3위는 세로로 출력
+            print(f"  {rank}. {keyword}: {count}회")
+        else:
+            # 나머지는 가로로 출력
+            break
+
+    if len(sorted_keyword_counts) > 3:
+        print("  -- 나머지:")
+        print("   " + ", ".join([f"{keyword}: {count}회" for keyword, count in sorted_keyword_counts[3:]]))
+
+    # 상위 Top N 키워드 출력
+    print(f"\n🏆 [상위 Top {top_n} 키워드]")
+    for rank, keyword in enumerate(most_common_keywords, start=1):
+        if rank <= 3:
+            # 1~3위는 세로로 출력
+            print(f"  {rank}. {keyword}")
+        else:
+            # 나머지는 가로로 출력
+            break
+
+    if len(most_common_keywords) > 3:
+        print("  4~10:")
+        print("   " + ", ".join(most_common_keywords[3:]))
+
+    # 랜덤화된 패턴 출력
+    print("\n🎲 [랜덤화된 패턴]")
+    print("  " + ", ".join(randomized_patterns))
+
+    print("="*50 + "\n")
 
     return randomized_patterns
 
@@ -120,7 +154,9 @@ def combine_keywords(main_keyword, fixed_keywords, sub_keywords, patterns, varia
     """
 
     # 전달된 파라미터 디버깅 출력
+    print("\n" + "="*100)
     print("[디버그] 검색에 따른 상품명 키워드 조합시작")
+    print("="*100)
     print(f"[디버그] 조합전 키워드")
     print(f"[디버그] 메인키워드: {main_keyword}")
     print(f"[디버그] 고정키워드: {fixed_keywords}")
@@ -135,21 +171,26 @@ def combine_keywords(main_keyword, fixed_keywords, sub_keywords, patterns, varia
     if isinstance(fixed_keywords, str):
         fixed_keywords = [kw.strip() for kw in fixed_keywords.split(",") if kw.strip()]
     
-    print(f"[디버그] 리스트로 변환된 고정키워드: {fixed_keywords}")
-
-    
-
     # 최종 키워드 리스트 생성: 메인 키워드 + 패턴 + 보조 키워드
     combined_keywords = [main_keyword] + patterns + fixed_keywords
 
-    print(f"[디버그] 1번째 패턴생성 ")
-    print(f"[디버그] 1번째 패턴 키워드 리스트: {combined_keywords}")
+    # 첫 번째 패턴 생성
+    print("="*50)
+    print("🎨 [디버그] 1번째 패턴 생성")
+    print("- 키워드 리스트 (2줄 표시):")
+    half = len(combined_keywords) // 2
+    print("  상단:", ", ".join(combined_keywords[:half]))
+    print("  하단:", ", ".join(combined_keywords[half:]))
 
-    # variation 옵션이 활성화된 경우 패턴과 메인 키워드의 순서를 변경
+    # variation 옵션이 활성화된 경우
     if variation:
-        print(f"[디버그] 2번째 패턴생성 ")
+        print("="*50)
+        print("🎨 [디버그] 2번째 패턴 생성 (Variation 활성화)")
         combined_keywords = patterns + [main_keyword] + fixed_keywords
-        print(f"[디버그] 2번째 패턴 키워드 리스트: {combined_keywords}")
+        print("- 키워드 리스트 (2줄 표시):")
+        half = len(combined_keywords) // 2
+        print("  상단:", ", ".join(combined_keywords[:half]))
+        print("  하단:", ", ".join(combined_keywords[half:]))
 
 
     # 중복을 제거하고 최적화된 상품명 생성
@@ -157,9 +198,18 @@ def combine_keywords(main_keyword, fixed_keywords, sub_keywords, patterns, varia
     unique_combined_keywords = list(dict.fromkeys(combined_keywords))  # 중복 순서 유지 제거
     optimized_name = remove_duplicates_and_optimize(unique_combined_keywords)
 
-    print(f"[디버그] 중복 제거 및 최적화 전 키워드 리스트: {combined_keywords}")
-    print(f"[디버그] 최적화된 상품명 생성: {optimized_name}")
-    print("-" * 50)  # 구분선 추가
+    # 중복 제거 및 최적화 전 키워드 리스트 출력
+    print("="*50)
+    print("🔍 [디버그] 중복 제거 및 최적화 키워드 리스트")
+    half = len(combined_keywords) // 2
+    print("- 키워드 리스트 (2줄 표시):")
+    print("  상단:", ", ".join(combined_keywords[:half]))
+    print("  하단:", ", ".join(combined_keywords[half:]))
+
+    # 최적화된 상품명 출력
+    print("\n✨ [디버그] 최적화된 상품명 생성")
+    print(f"  - 최적화된 상품명: {optimized_name}")
+    print("="*50)
     
     return optimized_name
 

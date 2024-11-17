@@ -97,6 +97,7 @@ def save_dictionary(dictionary: Dict[str, KeywordInfo], file_path="keywordDictio
         df.to_excel(writer, index=False, sheet_name="키워드사전")  # 시트 이름 지정
 
     print(f"[디버그] 사전 저장 완료: {file_path}")
+    print("="*100)
 
 
 

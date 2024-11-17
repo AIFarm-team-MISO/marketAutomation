@@ -51,7 +51,7 @@ def save_excel_file(writable_book, output_file_path):
     try:
         # 변경된 내용을 저장
         writable_book.save(output_file_path)
-        print(f"[디버그] 필터링 결과가 순환파일로 저장되었습니다.")
+        print(f"[디버그] 변경내용이 엑셀파일에 저장되었습니다.")
         print(f"[디버그] 파일경로 : {output_file_path}")
 
     except Exception as e:
