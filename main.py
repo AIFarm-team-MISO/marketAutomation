@@ -6,6 +6,7 @@ from rotationAuto.workflow.page_workflow import navigate_to_download_page
 from rotationAuto.workflow.page_workflow import select_radio_button
 from rotationAuto.workflow.page_workflow import click_download_button
 from config.settings import EXCEL_PATH
+from keywordOptimization.naver_api import generate_optimized_names
 
 from config.settings import NAMING_EXCEL_PATH
 from productNaming.name_handler import process_namingChange_excel_file
@@ -61,7 +62,10 @@ if __name__ == "__main__":
 
     # EXCEL_PATH : '이미지필터링' 폴더의 엑셀 파일 처리
     # NAMING_EXCEL_PATH : '#상품명가공' 폴더의 엑셀파일 처리 
-    process_all_files(EXCEL_PATH)
+    process_all_files(NAMING_EXCEL_PATH)
+
+    
+    
 
 
 

@@ -244,7 +244,10 @@ def apply_filter_and_sort_xls(output_file_path, sort_column, sort_direction='des
 
 import xlwt
 
-def apply_row_color_by_condition(writable_sheet, target_column, naming_list, color_name='yellow', condition_value=None):
+def apply_row_color_by_condition(
+    writable_sheet, target_column, naming_list, 
+    color_name="yellow", condition_value=None
+):
     """
     xlwt 기반의 시트에서 리스트에 따라 특정 열의 값에 대해 행 색상을 적용하는 함수.
     
@@ -350,6 +353,38 @@ def apply_filter_only_xls(output_file_path, sort_column, sort_direction='descend
         workbook.Close(False)
         excel.Quit()
         pythoncom.CoUninitialize()
+
+import xlrd
+from xlutils.copy import copy
+
+def update_seller_codes(sheet, writable_sheet, number_column_index, ptype):
+    """
+    엑셀 시트의 특정 열(B열)의 판매자코드를 업데이트하는 함수.
+
+    Parameters:
+    - sheet: 읽기 전용으로 열려 있는 엑셀의 첫 번째 시트를 나타내는 객체 (xlrd)
+    - writable_sheet: 수정 가능한 sheet 객체 (xlwt)
+    - number_column_index (int): 판매자코드가 위치한 열 인덱스
+    - ptype (str): 접두사로 추가할 문자열 (예: '상위판매자분석')
+
+    Returns:
+    - None
+    """
+    print("[디버그] 판매자코드 업데이트 시작")
+
+    for row_idx in range(2, sheet.nrows):  # 3행부터 시작
+        existing_seller_code = sheet.cell_value(row_idx, number_column_index)
+        new_seller_code = f"{ptype}-{existing_seller_code}" if existing_seller_code else ptype
+
+        # 디버깅 정보 출력
+        # print(f"[디버그] 행: {row_idx + 1}, 기존코드: {existing_seller_code}, 새코드: {new_seller_code}")
+
+        # 업데이트
+        writable_sheet.write(row_idx, number_column_index, new_seller_code)
+
+    print("[디버그] 판매자코드 업데이트 완료")
+
+
 
 
 
