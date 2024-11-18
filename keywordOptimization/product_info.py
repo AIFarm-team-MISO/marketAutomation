@@ -92,6 +92,10 @@ class ProcessedProductInfo(ProductInfo):
     
     processed_names: Dict[str, List[str]] = field(default_factory=dict)
 
+    def get_processing_types(self) -> List[str]:
+        """가공명 타입 목록을 반환합니다."""
+        return list(self.processed_names.keys())
+
     def add_processed_name(self, processing_type: str, name: str):
         """특정 가공 타입에 가공된 상품명을 추가합니다."""
         if processing_type not in self.processed_names:

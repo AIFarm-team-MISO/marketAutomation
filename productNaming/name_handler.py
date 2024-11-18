@@ -60,16 +60,16 @@ def process_namingChange_excel_file(file_path, file_name):
     dictionary = load_dictionary()
 
     # # 사전 내용을 출력
-    # print("\n[사전 내용 출력]")
-    # if not dictionary:
-    #     print("[디버그] 사전에 로드된 데이터가 없습니다.")
-    # else:
-    #     for main_keyword, keyword_info in dictionary.items():
-    #         print(f"메인 키워드: {main_keyword}")
-    #         print(f"용도: {', '.join(keyword_info.use)}")
-    #         print(f"사양: {', '.join(keyword_info.spec)}")
-    #         print(f"스타일: {', '.join(keyword_info.style)}")
-    #         print(f"기타 카테고리: {', '.join(keyword_info.extra)}\n")
+    print("\n[사전 내용 출력]")
+    if not dictionary:
+        print("[디버그] 사전에 로드된 데이터가 없습니다.")
+    else:
+        for main_keyword, keyword_info in dictionary.items():
+            print(f"메인 키워드: {main_keyword}")
+            print(f"용도: {', '.join(keyword_info.use)}")
+            print(f"사양: {', '.join(keyword_info.spec)}")
+            print(f"스타일: {', '.join(keyword_info.style)}")
+            print(f"기타 카테고리: {', '.join(keyword_info.extra)}\n")
 
     # 기본상품명 분석, 메인과 보조키워드 추출
     optimized_naming_list = []
@@ -119,7 +119,7 @@ def process_namingChange_excel_file(file_path, file_name):
         print(f"[디버그] 처리 중인 상품명: {item.original_name}")
         print(f"[디버그] 메인 키워드: {item.main_keyword}")
         print(f"[디버그] 고정 키워드: {item.fixed_keywords}")
-        print(f"[디버그] 보조 키워드: {item.use}, {item.spec}, {item.style}, {item.extra}")
+        # print(f"[디버그] 보조 키워드: {item.sub_keywords.use}, {item.sub_keywords.spec}, {item.sub_keywords.style}, {item.sub_keywords.extra}")
         
 
         optimized_name = generate_optimized_names(item)  # API 호출 및 이름 최적화
@@ -155,73 +155,55 @@ def process_namingChange_excel_file(file_path, file_name):
     for idx, result in enumerate(filtered_results, start=1):
         print(f"{idx}. 기본상품명: {result.original_name}")  # 기본 상품명 출력
         
+
         print(f"   메인키워드: {result.main_keyword}")  # 가공된 상품명 출력
         print(f"   고정키워드: {result.get_fixed_keywords()}")  # 가공된 상품명 출력
 
-        # 가공 상품명
+        # 가공타입
+        print(f"   가공명타입: {result.get_processing_types()}")  # 가공된 상품명 출력
+
+        # 필터링된 가공 상품명
         processed_names = result.processed_names.get("상위판매자분석", [])
         print(f"   가공상품명: {', '.join(processed_names)}")  # 가공된 상품명 출력
 
-        # 필터링된 상품명
-        filtered_names = result.processed_names.get("filtered", [])
-        print(f"   필터상품명: {', '.join(filtered_names)}" )  # 필터링된 상품명 출력
         print("-"*50)
+
+    # 가공타입
+    processing_type = list(filtered_results[0].processed_names.keys())[0]
+    
 
 
     # 상품명 중복체크 
     final_optimized_naming_list= process_duplicates_with_variation(filtered_results)
 
 
-    # 엑셀에 쓰기
+    # 엑셀에 가공상품명에 가공된 상품명을 입력
     for new_idx, result in enumerate(final_optimized_naming_list):
         # 기본 상품명
         base_name = result.original_name
-        # 필터링된 상품명 리스트 (필터링 결과 중 첫 번째 사용)
-        filtered_name = ", ".join(result.processed_names.get("filtered", []))
+        
         # 가공된 상품명 (예: '상위판매자분석'의 첫 번째 결과)
         processed_name = ", ".join(result.processed_names.get("상위판매자분석", []))
 
         # 디버깅 출력
-        # print(f"[디버그] 엑셀 기록 - 행 {new_idx + 2}")
-        # print(f"기본상품명: {base_name}")
-        # print(f"가공상품명: {processed_name}")
-        # print(f"필터상품명: {filtered_name}")
-        # print(f"ptype('{ptype}')의 가공된 상품명: {processed_name}")
-
-        # print(f"[디버그] writable_sheet.write() 호출 직전 데이터 타입 확인")
-        # print(f"filtered_name 타입: {type(filtered_name)}, 내용: {filtered_name}")
-
+        print(f"[디버그] 엑셀 기록 - 행 {new_idx + 2}")
+        print(f"기본상품명: {base_name}")
+        print(f"가공상품명: {processed_name}")
+        print(f"ptype('{ptype}')의 가공된 상품명: {processed_name}")
         # 각 데이터를 엑셀의 해당 열에 기록
-        writable_sheet.write(new_idx + 2, name_column_index_int, filtered_name)  # 필터상품명
+        writable_sheet.write(new_idx + 2, name_column_index_int, processed_name)  # 필터상품명
 
-
-    processed_naming_list = []
-    ptype = ''
-    
-
-    for product in final_optimized_naming_list:
-        if isinstance(product, ProcessedProductInfo):
-            # 'filtered' 타입 상품명을 가져옴
-            filtered_name = ", ".join(product.processed_names.get("filtered", []))
-            processed_naming_list.append(filtered_name)
-
-            # ptype 추출 및 출력
-            ptype = next((ptype for ptype, names in product.processed_names.items() if filtered_name in names), None)
-            ptype = ptype
-        else:
-            # 일반 문자열 처리
-            processed_naming_list.append(str(product))
 
 
     # 가공타입을 판매자관리코드에 접두사로 추가 
-    update_seller_codes(sheet, writable_sheet, number_column_index_int, ptype)
+    update_seller_codes(sheet, writable_sheet, number_column_index_int, processing_type)
 
 
     # 가공된 상품명 열을 노란색으로 칠함 
     apply_row_color_by_condition(
         writable_sheet=writable_sheet,
         target_column=name_column_index_int,
-        naming_list=processed_naming_list,
+        final_optimized_naming_list=final_optimized_naming_list,
         color_name="yellow"
     )
 

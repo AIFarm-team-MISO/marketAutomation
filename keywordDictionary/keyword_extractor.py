@@ -114,8 +114,18 @@ def gpt_extract_main_and_sub_keywords(product_name, dictionary, model="gpt-3.5-t
         return main_keyword, sub_keywords
 
     except openai.OpenAIError as e:
-        print(f"OpenAI API 호출 에러: {e}")
-        return None
+        # OpenAI API 호출 실패 시 처리
+        print(f"[오류] OpenAI API 호출 실패: {e}")
+        return None, KeywordInfo(main_keyword="", fixed_keywords=[], use=[], spec=[], style=[], extra=[])
+    except (AttributeError, IndexError, KeyError) as e:
+        # GPT 응답 형식 오류 시 처리
+        print(f"[오류] GPT 응답 처리 실패: {e}")
+        print(f"[디버그] 원본 응답: {response.choices[0].message['content'].strip() if 'response' in locals() else '응답 없음'}")
+        return None, KeywordInfo(main_keyword="", fixed_keywords=[], use=[], spec=[], style=[], extra=[])
+    except Exception as e:
+        # 기타 예외 처리
+        print(f"[오류] 예기치 않은 에러 발생: {e}")
+        return None, KeywordInfo(main_keyword="", fixed_keywords=[], use=[], spec=[], style=[], extra=[])
 
 def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
     """
@@ -134,80 +144,93 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
     - remaining_words (List[str]): 메인 키워드를 제외한 나머지 단어들.
     """
     
-    # 초기 변수 설정
-    main_keyword = None
-    remaining_words = []
-    sub_keywords = SubKeywordInfo()  # SubKeywordInfo 객체 생성 (보조 키워드 정보만 저장)
+    try:
 
-    # 상품명을 단어 단위로 분리하고 공백 및 대소문자 처리하여 리스트로 저장
-    words = [word.strip().lower() for word in product_name.split()]
-    print(f"[디버그] 기본상품명 분석 시작")
-    # print(f"[디버그] 상품명 분리 단어 리스트: {words}")
-    print("-" * 50)  # 구분선 추가
+        # 초기 변수 설정
+        main_keyword = None
+        remaining_words = []
+        sub_keywords = SubKeywordInfo()  # SubKeywordInfo 객체 생성 (보조 키워드 정보만 저장)
 
-    # 사전에서 상품명과 일치하는 메인 키워드 검색
-    for dict_key, keyword_info in dictionary.items():
-        # 사전의 키워드들을 쉼표로 구분하여 리스트로 변환한 후 대소문자 처리
-        dict_main_keywords = [key.strip().lower() for key in dict_key.split(',')]
+        # 상품명을 단어 단위로 분리하고 공백 및 대소문자 처리하여 리스트로 저장
+        words = [word.strip().lower() for word in product_name.split()]
+        print(f"[디버그] 기본상품명 분석 시작")
+        # print(f"[디버그] 상품명 분리 단어 리스트: {words}")
+        print("-" * 50)  # 구분선 추가
 
-        # 상품명에 사전의 메인 키워드가 포함된 경우를 찾음
-        if any(word in dict_main_keywords for word in words):
-            main_keyword = dict_key
-            print(f"[디버그] 사전에 존재하는 메인 키워드 발견: {main_keyword}")
+        # 사전에서 상품명과 일치하는 메인 키워드 검색
+        for dict_key, keyword_info in dictionary.items():
+            # 사전의 키워드들을 쉼표로 구분하여 리스트로 변환한 후 대소문자 처리
+            dict_main_keywords = [key.strip().lower() for key in dict_key.split(',')]
 
-            # remaining_words 설정: 메인 키워드를 제외한 나머지 단어들로 구성
-            remaining_words = [w for w in words if w not in dict_main_keywords]
+            # 상품명에 사전의 메인 키워드가 포함된 경우를 찾음
+            if any(word in dict_main_keywords for word in words):
+                main_keyword = dict_key
+                print(f"[디버그] 사전에 존재하는 메인 키워드 발견: {main_keyword}")
+
+                # remaining_words 설정: 메인 키워드를 제외한 나머지 단어들로 구성
+                remaining_words = [w for w in words if w not in dict_main_keywords]
+                
+                # 사전에 고정 키워드 추가 (기존 고정 키워드에 누적)
+                dictionary[main_keyword].add_keywords(fixed=remaining_words)
+                
+                # 현재 상품명에 한정된 고정 키워드 정보로 SubKeywordInfo 생성
+                sub_keywords = SubKeywordInfo(
+                    use=keyword_info.use,
+                    spec=keyword_info.spec,
+                    style=keyword_info.style,
+                    extra=keyword_info.extra,
+                    fixed_keywords=remaining_words  # 반환 시 현재 상품명에 한정된 고정 키워드만 포함
+                )
+                break  # 사전에서 메인 키워드를 찾으면 반복 종료
+
+        # 사전에 메인 키워드가 없는 경우 GPT 호출을 통해 키워드 생성
+        if not main_keyword:
+            print("[디버그] 사전에 메인 키워드가 없으므로 GPT 호출 시작.")
             
-            # 사전에 고정 키워드 추가 (기존 고정 키워드에 누적)
-            dictionary[main_keyword].add_keywords(fixed=remaining_words)
+            # GPT 호출하여 메인 키워드와 보조 키워드 생성
+            main_keyword, gpt_output = gpt_extract_main_and_sub_keywords(product_name, dictionary, model=model)
             
-            # 현재 상품명에 한정된 고정 키워드 정보로 SubKeywordInfo 생성
-            sub_keywords = SubKeywordInfo(
-                use=keyword_info.use,
-                spec=keyword_info.spec,
-                style=keyword_info.style,
-                extra=keyword_info.extra,
-                fixed_keywords=remaining_words  # 반환 시 현재 상품명에 한정된 고정 키워드만 포함
-            )
-            break  # 사전에서 메인 키워드를 찾으면 반복 종료
+            # GPT 응답이 있을 경우 응답 내용을 처리
+            if main_keyword:
+                print(f"[디버그] GPT 응답 - main_keyword: {main_keyword}, sub_keywords: {gpt_output}")
 
-    # 사전에 메인 키워드가 없는 경우 GPT 호출을 통해 키워드 생성
-    if not main_keyword:
-        print("[디버그] 사전에 메인 키워드가 없으므로 GPT 호출 시작.")
-        
-        # GPT 호출하여 메인 키워드와 보조 키워드 생성
-        main_keyword, gpt_output = gpt_extract_main_and_sub_keywords(product_name, dictionary, model=model)
-        
-        # GPT 응답이 있을 경우 응답 내용을 처리
-        if main_keyword:
-            print(f"[디버그] GPT 응답 - main_keyword: {main_keyword}, sub_keywords: {gpt_output}")
+                # remaining_words 설정: GPT가 반환한 메인 키워드를 제외한 단어들로 구성
+                remaining_words = [w for w in words if w != main_keyword]
 
-            # remaining_words 설정: GPT가 반환한 메인 키워드를 제외한 단어들로 구성
-            remaining_words = [w for w in words if w != main_keyword]
+                # GPT 결과를 사전에 고정 키워드로 추가
+                gpt_output.fixed_keywords = remaining_words
+                dictionary[main_keyword] = gpt_output  # GPT 응답을 사전에 저장
 
-            # GPT 결과를 사전에 고정 키워드로 추가
-            gpt_output.fixed_keywords = remaining_words
-            dictionary[main_keyword] = gpt_output  # GPT 응답을 사전에 저장
+                # 현재 상품명에 한정된 고정 키워드 정보로 SubKeywordInfo 생성
+                sub_keywords = SubKeywordInfo(
+                    use=gpt_output.use,
+                    spec=gpt_output.spec,
+                    style=gpt_output.style,
+                    extra=gpt_output.extra,
+                    fixed_keywords=remaining_words  # 반환 시 현재 상품명에 한정된 고정 키워드만 포함
+                )
 
-            # 현재 상품명에 한정된 고정 키워드 정보로 SubKeywordInfo 생성
-            sub_keywords = SubKeywordInfo(
-                use=gpt_output.use,
-                spec=gpt_output.spec,
-                style=gpt_output.style,
-                extra=gpt_output.extra,
-                fixed_keywords=remaining_words  # 반환 시 현재 상품명에 한정된 고정 키워드만 포함
-            )
+        # 최종 반환할 메인 키워드, 보조 키워드 정보, remaining_words 디버그 출력
+        print(f"[디버그] 최종 반환 main_keyword: {main_keyword}")
+        print(f"[디버그] 고정키워드: {remaining_words}")
+        #print(f"[디버그] 최종 반환 보조키워드: {sub_keywords}")
 
-    # 최종 반환할 메인 키워드, 보조 키워드 정보, remaining_words 디버그 출력
-    print(f"[디버그] 최종 반환 main_keyword: {main_keyword}")
-    print(f"[디버그] 고정키워드: {remaining_words}")
-    #print(f"[디버그] 최종 반환 보조키워드: {sub_keywords}")
+        # 사전 업데이트 후 저장
+        save_dictionary(dictionary)  # 기존 키워드가 업데이트된 경우 저장
 
-    # 사전 업데이트 후 저장
-    save_dictionary(dictionary)  # 기존 키워드가 업데이트된 경우 저장
+        # 메인 키워드, 보조 키워드 정보 (SubKeywordInfo), 메인 키워드를 제외한 나머지 단어 리스트 반환
+        return main_keyword, sub_keywords, remaining_words
 
-    # 메인 키워드, 보조 키워드 정보 (SubKeywordInfo), 메인 키워드를 제외한 나머지 단어 리스트 반환
-    return main_keyword, sub_keywords, remaining_words
+    except openai.OpenAIError as e:
+        print(f"[오류] OpenAI API 호출 실패: {e}")
+    except KeyError as e:
+        print(f"[오류] 키 처리 실패: {e}")
+    except Exception as e:
+        print(f"[오류] 예기치 못한 에러 발생: {e}")
+
+    # 실패 시 기본값 반환 (상품명 그대로 반환)
+    print("[경고] 키워드 추출 실패, 기본값으로 반환.")
+    return product_name, SubKeywordInfo(), product_name.split()
 
 
 

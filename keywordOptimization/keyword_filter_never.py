@@ -152,7 +152,7 @@ def remove_extra_spaces(name):
     return re.sub(r"\s{2,}", " ", name).strip()
 
 
-def apply_filters(processed_products, spam_keywords, unrelated_keywords, max_length=49):
+def apply_filters(processed_products, spam_keywords, unrelated_keywords, max_length=99):
     """
     필터링을 적용하여 가공된 상품명을 업데이트.
     
@@ -166,9 +166,6 @@ def apply_filters(processed_products, spam_keywords, unrelated_keywords, max_len
     - list of ProcessedProductInfo: 필터링된 상품 정보 객체 리스트.
     """
     for product in processed_products:  # ProcessedProductInfo 객체
-        if "filtered" in product.processed_names:
-            print(f"[디버그] 이미 필터링된 데이터가 있습니다: {product.original_name}")
-            continue
 
         # '상위판매자분석' 가공 타입의 이름을 가져와 필터링
         processed_names = product.processed_names.get("상위판매자분석", [])
@@ -196,7 +193,7 @@ def apply_filters(processed_products, spam_keywords, unrelated_keywords, max_len
             filtered_names.append(filtered_name)
 
         # 필터링 결과 저장
-        product.processed_names["filtered"] = filtered_names
+        product.processed_names["상위판매자분석"] = filtered_names
 
     return processed_products  # 필터링 완료된 객체 리스트 반환
 
@@ -204,7 +201,6 @@ def apply_filters(processed_products, spam_keywords, unrelated_keywords, max_len
 def process_duplicates_with_variation(filtered_results, max_attempts=10):
     """
     중복된 필터링된 상품명을 변형하여 고유한 이름 생성.
-    셔플 최대 시도를 초과하면 '신상' 키워드를 추가하여 유일성을 보장.
     
     Parameters:
     - filtered_results (list of ProcessedProductInfo): 필터링된 결과 리스트.

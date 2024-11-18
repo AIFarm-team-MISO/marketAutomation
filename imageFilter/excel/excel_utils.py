@@ -245,7 +245,7 @@ def apply_filter_and_sort_xls(output_file_path, sort_column, sort_direction='des
 import xlwt
 
 def apply_row_color_by_condition(
-    writable_sheet, target_column, naming_list, 
+    writable_sheet, target_column, final_optimized_naming_list, 
     color_name, condition_value=None
 ):
     """
@@ -266,12 +266,18 @@ def apply_row_color_by_condition(
     style = xlwt.XFStyle()
     style.pattern = pattern
 
+    # 'filtered' 타입의 상품명 리스트 추출
+    processed_naming_list = [
+        ", ".join(product.processed_names.get("상위판매자분석", []))
+        for product in final_optimized_naming_list
+    ]
+
     # 경고 메시지 출력 (모든 값이 있는 행에 색상을 적용할 때)
     if condition_value is None:
         print("해당 열의 모든 값이 있는 행에 색상을 " + str(color_name)+ "색으로 적용!")
     
     # naming_list의 길이를 사용하여 각 행에 조건에 따라 색상 적용
-    for row, cell_value in enumerate(naming_list, start=2):  # 3행부터 시작
+    for row, cell_value in enumerate(processed_naming_list, start=2):  # 3행부터 시작
         if condition_value is None:
             # 모든 값이 있는 셀에 색상 적용
             if cell_value is not None and cell_value != "":
@@ -374,7 +380,7 @@ def update_seller_codes(sheet, writable_sheet, number_column_index, ptype):
         new_seller_code = f"{ptype}-{existing_seller_code}" if existing_seller_code else ptype
 
         # 디버깅 정보 출력
-        # print(f"[디버그] 행: {row_idx + 1}, 기존코드: {existing_seller_code}, 새코드: {new_seller_code}")
+        print(f"[디버그] 행번호: {row_idx + 1}, 기존코드: {existing_seller_code}, 새코드: {new_seller_code}")
 
         # 업데이트
         writable_sheet.write(row_idx, number_column_index, new_seller_code)

@@ -79,14 +79,14 @@ def save_dictionary(dictionary: Dict[str, KeywordInfo], file_path="keywordDictio
         "고정 키워드": []
     }
 
-    # 딕셔너리에서 각 키워드 정보를 가져와 데이터에 추가
-    for main_keyword, keyword_info in dictionary.items():
-        data["메인키워드"].append(keyword_info.main_keyword)
-        data["용도"].append(", ".join(keyword_info.use))
-        data["사양"].append(", ".join(keyword_info.spec))
-        data["스타일"].append(", ".join(keyword_info.style))
-        data["기타 카테고리"].append(", ".join(keyword_info.extra))
-        data["고정 키워드"].append(", ".join(keyword_info.fixed_keywords))
+    for main_keyword, sub_keyword_info in dictionary.items():
+        # main_keyword는 딕셔너리 키에서 가져오기
+        data["메인키워드"].append(main_keyword)
+        data["용도"].append(", ".join(sub_keyword_info.use))
+        data["사양"].append(", ".join(sub_keyword_info.spec))
+        data["스타일"].append(", ".join(sub_keyword_info.style))
+        data["기타 카테고리"].append(", ".join(sub_keyword_info.extra))
+        data["고정 키워드"].append(", ".join(sub_keyword_info.fixed_keywords))
 
     # 폴더 경로가 없을 경우 자동 생성
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
