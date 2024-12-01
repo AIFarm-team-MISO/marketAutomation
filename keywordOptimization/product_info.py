@@ -13,6 +13,8 @@ class KeywordInfo:
         spec (List[str]): 사양에 해당하는 보조 키워드 목록.
         style (List[str]): 스타일에 해당하는 보조 키워드 목록.
         extra (List[str]): 기타 카테고리에 해당하는 추가 정보.
+        related_keywords (List[str]): 연관 검색어 키워드 목록.
+        brand_keywords (List[str]): 브랜드 키워드 목록.
     """
     main_keyword: str = ""
     fixed_keywords: List[str] = field(default_factory=list)  # 고정 키워드가 메인 키워드 아래로 이동
@@ -20,6 +22,8 @@ class KeywordInfo:
     spec: List[str] = field(default_factory=list)
     style: List[str] = field(default_factory=list)
     extra: List[str] = field(default_factory=list)
+    related_keywords: List[str] = field(default_factory=list)  # 연관 검색어
+    brand_keywords: List[str] = field(default_factory=list)  # 브랜드 키워드
 
     def get_categories(self) -> Dict[str, List[str]]:
         """KeywordInfo 객체의 모든 카테고리를 딕셔너리 형태로 반환합니다."""
@@ -28,10 +32,13 @@ class KeywordInfo:
             "사양": self.spec,
             "스타일": self.style,
             "기타 카테고리": self.extra,
-            "고정 키워드": self.fixed_keywords  # 고정 키워드도 반환에 포함
+            "고정 키워드": self.fixed_keywords,  # 고정 키워드도 반환에 포함
+            "연관검색어": self.related_keywords,  # 연관 검색어 포함
+            "브랜드키워드": self.brand_keywords  # 브랜드 키워드 포함
         }
 
-    def add_keywords(self, use=None, spec=None, style=None, extra=None, fixed=None):
+    def add_keywords(self, use=None, spec=None, style=None, extra=None, fixed=None, related=None, brand=None):
+
         """중복 없이 키워드를 추가하는 메서드."""
         if use:
             self.use.extend([u for u in use if u not in self.use])
@@ -43,6 +50,10 @@ class KeywordInfo:
             self.extra.extend([e for e in extra if e not in self.extra])
         if fixed:
             self.fixed_keywords.extend([f for f in fixed if f not in self.fixed_keywords])  # 고정 키워드 추가
+        if related:
+            self.related_keywords.extend([r for r in related if r not in self.related_keywords])  # 연관 검색어 추가
+        if brand:
+            self.brand_keywords.extend([b for b in brand if b not in self.brand_keywords])  # 브랜드 키워드 추가
 
 
 @dataclass

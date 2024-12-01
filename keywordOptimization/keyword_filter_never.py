@@ -1,62 +1,80 @@
 import re
 import random
 
+from utils.log_utils import Logger
+
+# logs 디렉터리에 로그 파일이 생성됩니다.
+logger = Logger(log_file="logs/debug.log", enable_console=True)
+
+import random  # 고정 키워드를 랜덤으로 섞기 위해 사용
+
 def filter_length(name, max_length=49, main_keyword=None, fixed_keywords=None, low_priority_keywords=None):
     """
-    메인 키워드와 고정 키워드를 분리하여 보호하고, 글자 수 제한을 적용.
-    
+    상품명을 필터링하여 메인 키워드와 고정 키워드를 보호하며,
+    남은 글자 수 내에서 키워드를 결합하는 함수.
+
     Parameters:
-    - name (str): 원본 문자열.
-    - max_length (int): 글자 수 제한.
-    - main_keyword (str): 메인 키워드 (항상 보호되는 최우선 키워드).
-    - fixed_keywords (list of str): 고정 키워드 (보호되지만 순서 고정 없음).
-    - low_priority_keywords (list of str): 우선 제거 대상 키워드.
-    
+    - name (str): 필터링할 상품명.
+    - max_length (int): 상품명 최대 글자 수 제한 (기본값: 49).
+    - main_keyword (str): 메인 키워드 (예: 제품군 이름).
+    - fixed_keywords (list): 항상 포함해야 할 고정 키워드 리스트.
+    - low_priority_keywords (list): 우선순위가 낮은 키워드 리스트 (제거 대상).
+
     Returns:
-    - str: 필터링된 결과.
+    - str: 필터링된 상품명.
     """
-    if len(name) <= max_length:
-        return name  # 이미 제한 길이 이내면 그대로 반환
-    
+    # 고정 키워드 평탄화 및 중복 제거
+    flat_fixed_keywords = list(set(
+        item for sublist in fixed_keywords
+        for item in (sublist if isinstance(sublist, list) else [sublist])
+    )) if fixed_keywords else []
+    random.shuffle(flat_fixed_keywords)  # 고정 키워드 랜덤화
 
-    # 메인 키워드와 고정 키워드 병합 및 랜덤화
-    all_keywords = [main_keyword] if main_keyword else []
-    if fixed_keywords:
-        all_keywords.extend(fixed_keywords)
+    # 고정 키워드 문자열로 결합
+    fixed_keywords_part = " ".join(flat_fixed_keywords)
 
-    # 중복 제거 및 랜덤 섞기
-    all_keywords = list(dict.fromkeys(all_keywords))  # 중복 제거
-    random.shuffle(all_keywords)  # 랜덤화
+    # 메인 키워드와 고정 키워드의 초기 길이 계산
+    protected_length = len(main_keyword + " " + fixed_keywords_part)
 
-    # 랜덤화된 키워드로 protected_part 생성
-    protected_part = " ".join(kw for kw in all_keywords if kw in name)
+    # 1. 글자 수 제한 확인
+    if len(name) <= max_length and len(name) >= protected_length:
+        logger.log(f"🌀필터 완료: '{name}' (글자 수: {len(name)})")
+        return name  # 글자 수 제한을 초과하지 않으면 그대로 반환
 
-    # 나머지 부분 추출 (모든 키워드를 정확히 제거)
+    # logger.log(f"🌀main_keyword: '{main_keyword}' (fixed_keywords: {flat_fixed_keywords})")
+
+    # 나머지 키워드 처리 (고정 키워드와 메인 키워드 제거)
     remaining_part = name
-    for kw in all_keywords:
+    protected_keywords = [main_keyword] + flat_fixed_keywords  # 보호할 키워드
+    for kw in protected_keywords:
         remaining_part = re.sub(rf"\b{re.escape(kw)}\b", "", remaining_part).strip()
 
-    # 불필요한 키워드 제거
-    if low_priority_keywords is not None:
+    # 우선순위가 낮은 키워드 제거
+    if low_priority_keywords:
         for kw in low_priority_keywords:
             remaining_part = re.sub(rf"\b{re.escape(kw)}\b", "", remaining_part).strip()
 
-    # 글자 수 초과 시 단어 단위로 자르기
+    # 남은 글자 수 계산
+    remaining_length = max_length - protected_length - 1  # 1은 공백을 고려
+
+    # 나머지 키워드 단어 단위로 처리
     words = remaining_part.split()
     filtered_remaining = ""
     for word in words:
-        if len(protected_part + " " + filtered_remaining + " " + word) > max_length:
+        if len(filtered_remaining + " " + word) > remaining_length:
             break
         filtered_remaining += " " + word
 
-    # 최종 결과 생성
-    filtered_name = (protected_part + " " + filtered_remaining).strip()
+    # 최종 결과 조합
+    final_name = f"{main_keyword} {filtered_remaining.strip()} {fixed_keywords_part}".strip()
 
-    # 글자 수 제한 준수 확인
-    if len(filtered_name) > max_length:
-        filtered_name = filtered_name[:max_length].rstrip()
+    # logger.log(f"🌀 최종 필터링 결과: '{final_name}' (글자 수: {len(final_name)})")
+    return final_name
 
-    return filtered_name
+
+
+
+
 
 
 
@@ -73,11 +91,11 @@ def remove_special_characters(name):
     - str: 특수문자가 제거된 문자열.
     
     특징:
-    - 한글(가-힣), 영어(a-z, A-Z), 숫자(0-9), 공백(\s)을 제외한 모든 문자를 제거.
+    - 한글(가-힣), 영어(a-z, A-Z), 숫자(0-9), 공백을 제외한 모든 문자를 제거.
     - 특수문자(예: #, !, (, ), 등)를 삭제하여 깔끔한 텍스트를 반환.
     
     예시:
-    >>> remove_special_characters("상품명 #특가 (신상품) 50% 할인!!")
+    remove_special_characters("상품명 #특가 (신상품) 50% 할인!!")
     '상품명 특가 신상품 50 할인'
     """
     return re.sub(r"[^가-힣a-zA-Z0-9\s]", "", name)
@@ -152,92 +170,69 @@ def remove_extra_spaces(name):
     return re.sub(r"\s{2,}", " ", name).strip()
 
 
-def apply_filters(processed_products, spam_keywords, unrelated_keywords, max_length=99):
+def find_related_data(processed_name, dictionary):
+    """
+    가공상품명을 기준으로 관련 메인 키워드와 데이터를 탐색.
+
+    Parameters:
+    - processed_name (str): 가공상품명.
+    - dictionary (dict): 데이터 사전.
+
+    Returns:
+    - dict: 관련 데이터 (메인 키워드, 기본상품명, 고정 키워드 등) 또는 None.
+    """
+    for main_keyword, data in dictionary.items():
+        # 연관검색어-가공상품명 리스트에서 가공상품명을 탐색
+        processed_names = data.get("연관검색어-가공상품명", [])
+        if processed_name in processed_names:
+            # 해당 가공상품명의 인덱스를 기준으로 기본상품명과 고정키워드 매핑
+            index = processed_names.index(processed_name)
+            basic_name = data["기본상품명"][index]
+            fixed_keywords = data["고정키워드"][index]
+            
+            return {
+                "main_keyword": main_keyword,
+                "basic_name": basic_name,
+                "fixed_keywords": fixed_keywords,
+            }
+    return None
+
+def apply_filters(processed_names, spam_keywords, unrelated_keywords, dictionary, max_length=49):
     """
     필터링을 적용하여 가공된 상품명을 업데이트.
-    
+
     Parameters:
-    - processed_products (list of ProcessedProductInfo): 상품 정보 객체 리스트.
+    - processed_names (list of str): 가공된 상품명 리스트.
     - spam_keywords (list of str): 스팸 키워드 리스트.
     - unrelated_keywords (list of str): 불필요한 키워드 리스트.
+    - dictionary (dict): 데이터 사전 (메인키워드, 기본상품명, 고정키워드 등 포함).
     - max_length (int): 글자 수 제한.
-    
+
     Returns:
-    - list of ProcessedProductInfo: 필터링된 상품 정보 객체 리스트.
+    - list of str: 필터링된 상품명 리스트.
     """
-    for product in processed_products:  # ProcessedProductInfo 객체
-
-        # '상위판매자분석' 가공 타입의 이름을 가져와 필터링
-        processed_names = product.processed_names.get("상위판매자분석", [])
-        filtered_names = []
-
-        for name in processed_names:
-            # 메인 키워드와 고정 키워드 분리
-            main_keyword = product.main_keyword
-            fixed_keywords = product.get_fixed_keywords()
-
-
-            # 필터링 단계별 적용
-            filtered_name = filter_length(
-                name=name,
-                max_length=max_length,
-                main_keyword=main_keyword,
-                fixed_keywords=fixed_keywords,
-                low_priority_keywords=spam_keywords + unrelated_keywords,
-            )
-
-            # 추가 클린업 단계
-            filtered_name = remove_special_characters(filtered_name)
-            filtered_name = remove_extra_spaces(filtered_name)
-
-            filtered_names.append(filtered_name)
-
-        # 필터링 결과 저장
-        product.processed_names["상위판매자분석"] = filtered_names
-
-    return processed_products  # 필터링 완료된 객체 리스트 반환
-
-
-def process_duplicates_with_variation(filtered_results, max_attempts=10):
-    """
-    중복된 필터링된 상품명을 변형하여 고유한 이름 생성.
+    filtered_results = []
     
-    Parameters:
-    - filtered_results (list of ProcessedProductInfo): 필터링된 결과 리스트.
-    - max_attempts (int): 키워드 셔플 최대 시도 횟수 (기본값: 10).
-    
-    Returns:
-    - list of ProcessedProductInfo: 변형된 결과 리스트.
-    """
-    seen_names = set()  # 중복된 상품명을 추적
-    unique_results = []
-
-    for product in filtered_results:
-        unique_filtered = []
-        for name in product.processed_names.get("filtered", []):
-            if name in seen_names:
-                # 중복된 상품명을 변형
-                attempts = 0
-                modified_name = shuffle_keywords(name)  # 키워드 셔플
-                while modified_name in seen_names and attempts < max_attempts:
-                    modified_name = shuffle_keywords(name)
-                    attempts += 1
-
-                # 셔플 최대 시도 초과 시 '신상' 키워드 추가
-                if modified_name in seen_names:
-                    modified_name += " 신상"
-
-                unique_filtered.append(modified_name)
-                seen_names.add(modified_name)  # 새로운 이름 저장
-            else:
-                unique_filtered.append(name)
-                seen_names.add(name)
+    for name in processed_names:
+        # 메타 정보 찾기
+        related_data = find_related_data(name, dictionary)
+        if not related_data:
+            continue  # 관련 데이터가 없으면 무시
         
-        # 업데이트된 필터된 이름 리스트 저장
-        product.processed_names["filtered"] = unique_filtered
-        unique_results.append(product)
+        main_keyword = related_data["main_keyword"]
+        fixed_keywords = related_data["fixed_keywords"]
 
-    return unique_results
+        # 필터링 실행
+        filtered_name = filter_length(
+            name=name,
+            max_length=max_length,
+            main_keyword=main_keyword,
+            fixed_keywords=fixed_keywords,
+            low_priority_keywords=spam_keywords + unrelated_keywords,
+        )
+        filtered_results.append(filtered_name)
+
+    return filtered_results
 
 
 def shuffle_keywords(name):

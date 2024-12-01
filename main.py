@@ -8,8 +8,10 @@ from rotationAuto.workflow.page_workflow import click_download_button
 from config.settings import EXCEL_PATH
 from keywordOptimization.naver_api import generate_optimized_names
 
-from config.settings import NAMING_EXCEL_PATH
+from config.settings import NAMING_EXCEL_PATH, CODE_EXCEL_PATH
 from productNaming.name_handler import process_namingChange_excel_file
+
+from utils.prefix_to_excel import process_add_prefix_to_excel_in_folder_with_sheets
 
 def zsm_login():
     # 로그인 및 드라이버 설정
@@ -29,7 +31,7 @@ def zsm_login():
     # 드라이버 종료
     close_driver(driver)
 
-def process_all_files(file_path):
+def process_all_files(file_path, process_type = None):
     """
     모든 파일을 처리하는 함수. process_all_excel_files를 호출하고, 반환된 파일 리스트를 이용해 처리.
     
@@ -49,20 +51,26 @@ def process_all_files(file_path):
 
         # 파일 경로가 NAMING_EXCEL_PATH이면 상품명 가공 처리
         if file_path.startswith(NAMING_EXCEL_PATH):
-            process_namingChange_excel_file(file_path, base_file_name)
+            process_namingChange_excel_file(file_path, base_file_name, process_type)
         else: # 파일경로가 EXCEL_PATH 면 이미지필터링 처리
             process_imageFiltering_excel_file(file_path, base_file_name)
 
-        
-    
+
+
+
 
 if __name__ == "__main__":
     # zsm_login()
 
-
     # EXCEL_PATH : '이미지필터링' 폴더의 엑셀 파일 처리
+    #process_all_files(EXCEL_PATH)
+    
     # NAMING_EXCEL_PATH : '#상품명가공' 폴더의 엑셀파일 처리 
-    process_all_files(NAMING_EXCEL_PATH)
+    process_all_files(NAMING_EXCEL_PATH, '연관검색어')
+
+    # process_add_prefix_to_excel_in_folder_with_sheets(CODE_EXCEL_PATH, 'B' , 'ES')
+
+    
 
     
     

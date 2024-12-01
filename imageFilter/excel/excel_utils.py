@@ -17,6 +17,11 @@ import pythoncom
 
 from openpyxl.utils import column_index_from_string, get_column_letter
 
+from utils.log_utils import Logger
+
+# logs 디렉터리에 로그 파일이 생성됩니다.
+logger = Logger(log_file="logs/debug.log", enable_console=True)
+
 
 def close_open_excel_files(file_name):
     """
@@ -267,14 +272,11 @@ def apply_row_color_by_condition(
     style.pattern = pattern
 
     # 'filtered' 타입의 상품명 리스트 추출
-    processed_naming_list = [
-        ", ".join(product.processed_names.get("상위판매자분석", []))
-        for product in final_optimized_naming_list
-    ]
+    processed_naming_list = final_optimized_naming_list
 
     # 경고 메시지 출력 (모든 값이 있는 행에 색상을 적용할 때)
     if condition_value is None:
-        print("해당 열의 모든 값이 있는 행에 색상을 " + str(color_name)+ "색으로 적용!")
+        logger.log("💾해당 열의 모든 값이 있는 행에 색상을 " + str(color_name)+ "색으로 적용!")
     
     # naming_list의 길이를 사용하여 각 행에 조건에 따라 색상 적용
     for row, cell_value in enumerate(processed_naming_list, start=2):  # 3행부터 시작
@@ -380,13 +382,10 @@ def update_seller_codes(sheet, writable_sheet, number_column_index, ptype):
         new_seller_code = f"{ptype}-{existing_seller_code}" if existing_seller_code else ptype
 
         # 디버깅 정보 출력
-        print(f"[디버그] 행번호: {row_idx + 1}, 기존코드: {existing_seller_code}, 새코드: {new_seller_code}")
+        logger.log(f"💾행번호: {row_idx + 1}, 기존코드: {existing_seller_code}, 새코드: {new_seller_code}")
 
         # 업데이트
         writable_sheet.write(row_idx, number_column_index, new_seller_code)
-
-    print("="*50)
-    print("[디버그] 판매자코드 가공타입으로 업데이트")
 
 
 

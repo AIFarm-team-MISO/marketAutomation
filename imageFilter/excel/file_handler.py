@@ -2,6 +2,11 @@ import os
 import xlrd
 from xlutils.copy import copy
 
+from utils.log_utils import Logger
+
+# logs 디렉터리에 로그 파일이 생성됩니다.
+logger = Logger(log_file="logs/debug.log", enable_console=True)
+
 # 엑셀 파일을 읽는 함수
 def read_excel_file(file_path, file_name, file_extension):
     """
@@ -51,9 +56,10 @@ def save_excel_file(writable_book, output_file_path):
     try:
         # 변경된 내용을 저장
         writable_book.save(output_file_path)
-        print(f"[디버그] 변경내용이 엑셀파일에 저장되었습니다.")
-        print(f"[디버그] 파일경로 : {output_file_path}")
+        logger.log(f"💾엑셀파일 저장완료! 파일경로 : {output_file_path} ")
+        logger.log_separator()
+        
 
     except Exception as e:
         # 저장 중 오류 발생 시 출력
-        print(f"파일 저장 중 오류 발생: {e}")
+        logger.log(f"파일 저장 중 오류 발생: {e}")
