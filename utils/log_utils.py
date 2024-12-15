@@ -100,6 +100,11 @@ class Logger:
         :param data: 딕셔너리 데이터
         :param level: 로그 레벨
         """
+
+        if data is None:
+            self.log(f"{title}: 데이터가 None입니다.", level="WARNING")
+            return
+    
         emoji = self._get_emoji(title)
         if title.startswith(emoji):
             emoji = ""  # 중복 방지

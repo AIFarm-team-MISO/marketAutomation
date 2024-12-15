@@ -65,8 +65,18 @@ def filter_length(name, max_length=49, main_keyword=None, fixed_keywords=None, l
             break
         filtered_remaining += " " + word
 
+    filtered_remaining = filtered_remaining.strip()
+
+    # 단어 단위로 랜덤 섞기
+    words = filtered_remaining.split()
+    random.shuffle(words)
+    filtered_remaining = " ".join(words)
+
+    # 메인 키워드 추가
+    filtered_remaining += f" {main_keyword}"
+
     # 최종 결과 조합
-    final_name = f"{main_keyword} {filtered_remaining.strip()} {fixed_keywords_part}".strip()
+    final_name = f"{filtered_remaining} {fixed_keywords_part}".strip()
 
     # logger.log(f"🌀 최종 필터링 결과: '{final_name}' (글자 수: {len(final_name)})")
     return final_name

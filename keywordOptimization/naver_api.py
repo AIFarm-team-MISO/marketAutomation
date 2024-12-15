@@ -9,6 +9,7 @@ import base64
 import time
 from .related_keywords_filter import filter_related_keywords
 from keywordDictionary.dictionary_loader import load_dictionary, save_dictionary
+import urllib.parse
 
 
 # 이후 이곳을 모듈로서 불러오게 되면 아래의 경로를 지우고 이것을 주석 해제하자. 
@@ -216,6 +217,38 @@ def find_main_keyword_by_basic_name(dictionary, basic_product_name):
                 return main_keyword
     return None  # 찾지 못한 경우
 
+import re
+from urllib.parse import quote
+
+def preprocess_keyword(keyword, min_length=2):
+    """
+    키워드를 API 요청에 적합한 형식으로 전처리하고 유효성 검사.
+
+    Parameters:
+    - keyword (str): 전처리할 키워드.
+    - min_length (int): 키워드 최소 길이 (기본값: 2).
+
+    Returns:
+    - str: 전처리된 키워드 또는 '#API오류발생#'.
+    """
+    try:
+        if not keyword or len(keyword.strip()) < min_length:
+            return '#API오류발생#'
+
+        # 특수 문자 제거 (한글, 영문, 숫자, 띄어쓰기만 허용)
+        sanitized_keyword = re.sub(r"[^가-힣a-zA-Z0-9\s]", "", keyword.strip())
+
+        # 중복 공백 제거
+        normalized_keyword = re.sub(r"\s+", " ", sanitized_keyword)
+
+        # URL 인코딩
+        # encoded_keyword = quote(normalized_keyword)
+
+        return normalized_keyword if normalized_keyword else '#API오류발생#'
+    except Exception as e:
+        # 예외 발생 시 API 오류로 간주
+        return '#API오류발생#'
+
 def generate_optimized_names(basic_product_name, source_type, dictionary, display=10):
     """
     네이버 API를 통해 최적화된 상품명을 생성.
@@ -230,6 +263,9 @@ def generate_optimized_names(basic_product_name, source_type, dictionary, displa
     Returns:
     - optimized_name: 네이버검색을 통한 키워드조합후 최종상품명
     """
+
+    # 0. 기본상품명 체크 
+    # basic_product_name = preprocess_keyword(basic_product_name)
 
     # 1. 기본상품명을 통해 그데이터의 메인키워드 추출
     main_keyword = find_main_keyword_by_basic_name(dictionary, basic_product_name)
@@ -354,9 +390,11 @@ def generate_optimized_names(basic_product_name, source_type, dictionary, displa
             return filtered_final_name
 
     else:
-        error_message = f"Error fetching keywords for {main_keyword} with status {response.status_code}: {response.text}"
-        logger.log(error_message, level="ERROR")
-        return {"type": "오류처리", "original_name": basic_product_name, "error": error_message}
+        # 디버깅을 위해 응답 전체 출력
+        print("API 응답 원본:", response.text)
+        error_result = handle_api_error(response, main_keyword, basic_product_name, logger)
+        print(error_result)
+        return error_result
 
     
 
@@ -372,3 +410,57 @@ if __name__ == "__main__":
     print("최적화된 상품명 리스트:")
     for idx, optimized_name in enumerate(optimized_naming_list, start=1):
         print(f"{idx}. {optimized_name}")
+
+
+
+def parse_error_response(response):
+    """
+    API 오류 응답을 파싱하여 오류 메시지와 코드를 추출합니다.
+
+    Parameters:
+    - response (requests.Response): API 응답 객체.
+
+    Returns:
+    - dict: {"errorMessage": str, "errorCode": str}.
+    """
+    try:
+        error_data = response.json()
+        return {
+            "errorMessage": error_data.get("detail", "Unknown error"),
+            "errorCode": error_data.get("status", "Unknown code"),  # status를 코드로 대체
+            "parameters": error_data.get("parameters", {})          # 잘못된 파라미터 정보 추가
+        }
+    except ValueError:
+        # JSON 파싱 실패 시 일반 텍스트 반환
+        return {
+            "errorMessage": f"Unable to parse error response: {response.text[:100]}",
+            "errorCode": "Unknown code",
+        }
+
+
+
+def handle_api_error(response, main_keyword, basic_product_name, logger):
+    error_info = parse_error_response(response)
+    error_message = (
+        f"Error fetching keywords for {main_keyword} "
+        f"with status {response.status_code}: {error_info['errorMessage']}"
+    )
+
+    # 로그 기록
+    logger.log(f"#API오류# {error_message}", level="ERROR")
+    logger.log(f"응답 원본: {response.text}", level="DEBUG")  # 응답 원본 로그
+
+    # 반환값에 오류 정보 구조화
+    return {
+        "type": "오류처리",
+        "original_name": basic_product_name,
+        "error": {
+            "message": error_message,
+            "status_code": response.status_code,
+            "keyword": main_keyword,
+            "error_code": error_info["errorCode"],
+            "parameters": error_info.get("parameters", {}),
+        },
+    }
+
+    

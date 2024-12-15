@@ -248,7 +248,7 @@ def remove_duplicates_and_optimize(keywords: List[str]) -> str:
     return optimized_name
 
 
-def combine_keywords(existing_data, basic_product_name):
+def combine_keywords(existing_data, basic_product_name, max_length=49):
     """
     네이밍 아이템을 기반으로 최적화된 상품명을 생성.
     
@@ -264,11 +264,50 @@ def combine_keywords(existing_data, basic_product_name):
     gpt_related_keywords = existing_data.get("GPT연관검색어", [])
     patterns = existing_data.get("패턴", [])
 
+
     # 기본상품명에서 메인키워드를 제외한 나머지를 고정 키워드로 설정
     fixed_keywords = [kw for kw in basic_product_name.split() if kw != main_keyword]
 
+
+
+    # 고정 키워드 중 "X" 또는 "x"를 제거하고 분리
+    processed_fixed_keywords = []
+    for keyword in fixed_keywords:
+
+        # 숫자+문자, 숫자-숫자, 숫자x숫자 등 특정 조합을 하나의 단위로 처리
+        # 숫자와 문자로 이루어진 키워드 분리
+        split_keywords = re.findall(
+            r'\d+x\d+[a-zA-Z]*|\d+-\d+[^\s]*|\d+[a-zA-Z]+|[^\s]+', keyword
+        )
+        
+        # 'x' 또는 'X'를 숫자 사이에 있는 경우만 유지하고, 그 외에는 제거
+        processed_keywords = []
+        for kw in split_keywords:
+            if re.match(r'\d+x\d+[a-zA-Z]*', kw, re.IGNORECASE):  # 숫자x숫자+문자 유지
+                processed_keywords.append(kw)
+            elif re.match(r'\d+x\d+', kw, re.IGNORECASE):  # 숫자x숫자 유지
+                processed_keywords.append(kw)
+            else:  # 특수문자 제거
+                kw = re.sub(r'[^\w\s-]', '', kw)  # 알파벳, 숫자, 하이픈만 남김
+                processed_keywords.append(kw)
+        
+        # 공백 제거 및 빈 문자열 필터링
+        processed_keywords = [kw.strip() for kw in processed_keywords if kw.strip()]
+        
+        # 4자리 이상 숫자 제거
+        filtered_keywords = [kw for kw in processed_keywords if not re.search(r'\b\d{4,}\b', kw)]
+
+    
+        # 나눠진 키워드 추가
+        processed_fixed_keywords.extend(filtered_keywords)  # 나눠진 키워드 추가
+
+
+
     # 패턴에서 상위 10개만 선택
     top_patterns = patterns[:10] if isinstance(patterns, list) else []
+
+    # 랜덤화를 gpt_related_keywords에 먼저 적용
+    random.shuffle(gpt_related_keywords)
 
     # 조합할 키워드 리스트 생성
     combined_keywords = [main_keyword]
@@ -288,40 +327,51 @@ def combine_keywords(existing_data, basic_product_name):
     # if not top_patterns and not related_keywords:
     #     combined_keywords += gpt_related_keywords
 
-    # 고정 키워드는 맨 마지막에 추가
-    combined_keywords += fixed_keywords
 
-        # 디버깅용: 결합된 키워드 출력
-    logger.log(f"🔍 결합된 키워드: {combined_keywords}", level="DEBUG")
+    # combined_keywords와 fixed_keywords 간 중복 제거
+    combined_keywords = list(dict.fromkeys(combined_keywords))  # 중복 제거
+    # processed_fixed_keywords = [kw for kw in processed_fixed_keywords if kw not in combined_keywords]
 
-    # 데이터 검증: 중첩 리스트 평탄화 및 문자열만 포함
-    validated_keywords = []
+    # 랜덤성 추가: combined_keywords 섞기
+    random.shuffle(combined_keywords)
+    random.shuffle(processed_fixed_keywords)  # 고정 키워드 랜덤화는 processed_fixed_keywords를 사용
+    
+
+    # 글자 수 제한 계산
+    protected_length = len(main_keyword) + len(" ".join(processed_fixed_keywords)) + 1  # 공백 1개만 고려
+    remaining_length = max_length - protected_length
+
+    # 글자 수 제한 내에서 키워드 필터링
+    filtered_keywords = []
+    current_length = 0
     for keyword in combined_keywords:
-        if isinstance(keyword, list):  # 리스트가 중첩된 경우
-            logger.log(f"⚠️ 중첩 리스트 발견 및 평탄화: {keyword}", level="WARNING")
-            validated_keywords.extend(keyword)  # 리스트를 평탄화
-        elif isinstance(keyword, str):  # 문자열인 경우
-            validated_keywords.append(keyword)  # 문자열 추가
-        else:
-            logger.log(f"⚠️ 예상치 못한 데이터 타입 무시: {keyword}", level="ERROR")
+        if current_length + len(keyword) + 1 > remaining_length:  # +1은 공백 고려
+            break
+        filtered_keywords.append(keyword)
+        current_length += len(keyword) + 1
 
-    # "없음" 키워드 제거
-    validated_keywords = [kw for kw in validated_keywords if kw != "없음"]
 
-    # 중복 제거 및 순서 유지
-    unique_combined_keywords = list(dict.fromkeys(validated_keywords))
 
+    # 최종 조합
+    filtered_part = " ".join(filtered_keywords)
+    fixed_keywords_part = " ".join(processed_fixed_keywords)
+
+    # 완전히 동일한 키워드만 중복 제거
+    final_keywords = f"{filtered_part} {fixed_keywords_part} {main_keyword}".split()
+    final_keywords_unique = list(dict.fromkeys(final_keywords))
 
     # 최적화된 상품명 생성
-    optimized_name = " ".join(unique_combined_keywords)
+    optimized_name = " ".join(final_keywords_unique).strip()
+
 
     # 디버깅 정보 출력
     logger.log_separator()
-    logger.log_list("🔑최종 조합키워드 리스트🔑", unique_combined_keywords, level="DEBUG")
-    logger.log(f"✨최적화된 상품명✨: {optimized_name}")
+    logger.log_list("🔑최종 조합키워드 리스트🔑", final_keywords_unique, level="DEBUG")
+    logger.log(f"✨최적화된 상품명✨: '{optimized_name}' (글자 수: {len(optimized_name)})", level="INFO")
     logger.log("기본상품명 : ", basic_product_name)
     logger.log("제품군 : ", main_keyword)
     logger.log_list("고정키워드 : ", fixed_keywords)
+    logger.log_list("필터 및 랜덤화된 고정키워드 : ", processed_fixed_keywords)
     logger.log_list("네이버연관검색어 : ", related_keywords)
     logger.log_list("연관검색어 : ", gpt_related_keywords)
     logger.log_list("패턴 : ", patterns)

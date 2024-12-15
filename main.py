@@ -62,13 +62,17 @@ def process_all_files(file_path, process_type = None):
 if __name__ == "__main__":
     # zsm_login()
 
+    # NAMING_EXCEL_PATH : '#상품명가공' 폴더의 엑셀파일 처리 
+    # process_all_files(NAMING_EXCEL_PATH, '연관검색어')
+
     # EXCEL_PATH : '이미지필터링' 폴더의 엑셀 파일 처리
     #process_all_files(EXCEL_PATH)
     
     # NAMING_EXCEL_PATH : '#상품명가공' 폴더의 엑셀파일 처리 
-    process_all_files(NAMING_EXCEL_PATH, '연관검색어')
+    process_all_files(NAMING_EXCEL_PATH, 'GPT조합')
 
-    # process_add_prefix_to_excel_in_folder_with_sheets(CODE_EXCEL_PATH, 'B' , 'ES')
+    #process_add_prefix_to_excel_in_folder_with_sheets(CODE_EXCEL_PATH, 'B' , 'XT_')
+    # GT_ , GK_ , XT_
 
     
 

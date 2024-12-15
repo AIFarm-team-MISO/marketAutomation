@@ -10,6 +10,9 @@ from keywordOptimization.keyword_filter_never import apply_filters
 
 from keywordDictionary.dictionary_loader import load_dictionary, save_dictionary
 from keywordDictionary.keyword_extractor import extract_keywords
+from keywordOptimization.gpt_result_generating import gpt_result_generate_name
+
+
 from utils.log_utils import Logger
 
 # logs 디렉터리에 로그 파일이 생성됩니다.
@@ -62,6 +65,9 @@ def process_namingChange_excel_file(file_path, file_name, flag):
     name_column_index_int = column_letter_to_index(name_column_index)
     number_column_index_int = column_letter_to_index(number_column_index)
 
+    # 가공타입 설정 : 현재 연관검색어 
+    opt_tpye = flag
+
     # '상품명*' 앞에 새로운 열 삽입 (가공상품명의 결과를 추가하기 위해)
     insert_column_before(sheet, writable_sheet, name_column_index, "가공결과")
 
@@ -73,9 +79,12 @@ def process_namingChange_excel_file(file_path, file_name, flag):
         if pd.notna(sheet.cell_value(idx, name_column_index_int))
     ]
     logger.log_separator()
+
+    # 총 상품 개수 로그 및 저장
+    total_items = sheet.nrows - 2
     # 행 개수를 직접 로그 출력
-    logger.log(f"기본상품명 행 갯수: {sheet.nrows-2}", level="DEBUG")
-    logger.log_list("기본상품명가공 목록", naming_list)
+    logger.log(f"기본상품명 행 갯수: {total_items}", level="DEBUG")
+    # logger.log_list("기본상품명가공 목록", naming_list)
     logger.log_separator()
 
     # 키워드사전 로드
@@ -87,53 +96,108 @@ def process_namingChange_excel_file(file_path, file_name, flag):
 
     # 기본상품명 분석, 메인과 보조키워드 추출
     extract_namingData_list = []
-    for original_name in naming_list:
+    for index, original_name in enumerate(naming_list, start=1):
+        logger.log(f"▶️ [{index}/{total_items}] '{original_name}' 처리 시작", level="INFO")
+
+
         namingData = extract_keywords(original_name, dictionary)
 
-         # 디버깅: 각 gpt_data 출력
-        logger.log_dict(f" - {original_name}- 에 대한 gpt_data", namingData)
-        logger.log_separator()
-    
-        extract_namingData_list.append(namingData)
+        if namingData is not None:
+            # 디버깅: 각 gpt_data 출력
+            logger.log_dict(f" - {original_name}- 에 대한 gpt_data", namingData)
+            logger.log_separator()
+            extract_namingData_list.append(namingData)
+        else:
+            logger.log(f"⚠️ {original_name}에 대한 namingData가 없습니다.", level="WARNING")
 
-    # logger.log_list('메인키워드를 통한 네이버검색 시작', extract_namingData_list)
+    # extract_namingData_list와 기본상품명 리스트 길이 비교: 최초갯수와 같지않으면 실행종료 
+    if len(naming_list) != len(extract_namingData_list):
+        error_message = (
+            f"❌ 데이터 불일치: 기본상품명 리스트의 길이 ({len(naming_list)}) "
+            f"와 extract_namingData_list의 길이 ({len(extract_namingData_list)})가 다릅니다."
+        )
+        logger.log(error_message, level="ERROR")
+        raise ValueError(error_message)  # 프로그램 종료     
+    
+    # 작업 완료 로그
+    logger.log(f"✅ 모든 데이터 처리 완료! 처리된 데이터 수: {len(extract_namingData_list)} / {total_items}", level="INFO")
+    
+    
+
+    # logger.log_list('GPT의 결과에 데이터', extract_namingData_list)
     print('\n')
     logger.log_separator()
-    logger.log('메인키워드를 통한 네이버검색 시작')
+    logger.log('GPT의 결과에 따른 조합시작')
     logger.log_separator()
 
-    # 가공타입 설정 : 현재 연관검색어 
-    opt_tpye = flag
-    
-     # 각 상품명에 대해 네이버 API 호출하여 최적화된 이름 생성
-    final_optimized_name_list = []  # 최종 결과를 담을 리스트
+
+    gpt_optimized_name_list = []  # 최종 결과를 담을 리스트
     basic_product_names = []  # 기본상품명 리스트
 
     for namingData in extract_namingData_list:
 
-        # 현재 namingData에는 딕셔너리 값이 하나만 있으므로 메인키워드 데이터에 바로 접근
-        main_keyword = list(namingData.keys())[0]  # 첫 번째 키 가져오기
-        product_data = namingData[main_keyword]
+        try:
+            # 현재 namingData에는 딕셔너리 값이 하나만 있으므로 메인키워드 데이터에 바로 접근
+            main_keyword = list(namingData.keys())[0]  # 첫 번째 키 가져오기
+            product_data = namingData[main_keyword]
 
-        # 기본상품명 가져오기
-        basic_product_name = product_data["기본상품명"]
-        logger.log(f"검색타입 : {opt_tpye} , 처리 중인 메인 키워드: {main_keyword}, 상품명: {basic_product_name}")
+            # 기본상품명 가져오기
+            basic_product_name = product_data["기본상품명"]
+            logger.log(f"검색타입 : {opt_tpye} , 처리 중인 메인 키워드: {main_keyword}, 상품명: {basic_product_name}")
 
-         # 기본상품명 리스트에 저장
-        basic_product_names.append(basic_product_name)
+            # 기본상품명 리스트에 저장
+            basic_product_names.append(basic_product_name)
 
-        optimized_name = generate_optimized_names(basic_product_name, opt_tpye, dictionary)  # 네이버 API 호출 및 이름 최적화
-        final_optimized_name_list.append(optimized_name)
+            # 최적화된 상품명 생성
+            optimized_name = gpt_result_generate_name(basic_product_name, dictionary) 
+            gpt_optimized_name_list.append(optimized_name)
+        
+        except Exception as e:  # 모든 예외 처리
+            logger.log(f"⚠️ 예외 발생: {e}. namingData: {namingData}", level="ERROR")
+            basic_product_names.append('#오류#')
+            continue
+
+
+
+    
+
+    # logger.log_list('메인키워드를 통한 네이버검색 시작', extract_namingData_list)
+    # print('\n')
+    # logger.log_separator()
+    # logger.log('메인키워드를 통한 네이버검색 시작')
+    # logger.log_separator()
+    
+    #  # 각 상품명에 대해 네이버 API 호출하여 최적화된 이름 생성
+    # final_optimized_name_list = []  # 최종 결과를 담을 리스트
+    # basic_product_names = []  # 기본상품명 리스트
+
+    # for namingData in extract_namingData_list:
+
+    #     # 현재 namingData에는 딕셔너리 값이 하나만 있으므로 메인키워드 데이터에 바로 접근
+    #     main_keyword = list(namingData.keys())[0]  # 첫 번째 키 가져오기
+    #     product_data = namingData[main_keyword]
+
+    #     # 기본상품명 가져오기
+    #     basic_product_name = product_data["기본상품명"]
+    #     logger.log(f"검색타입 : {opt_tpye} , 처리 중인 메인 키워드: {main_keyword}, 상품명: {basic_product_name}")
+
+    #      # 기본상품명 리스트에 저장
+    #     basic_product_names.append(basic_product_name)
+
+    #     optimized_name = generate_optimized_names(basic_product_name, opt_tpye, dictionary)  # 네이버 API 호출 및 이름 최적화
+    #     final_optimized_name_list.append(optimized_name)
+
+    
 
     # 결과를 확인하거나 이후 단계에서 사용
     logger.log_separator()
-    logger.log_processed_data(basic_product_names, final_optimized_name_list, title="네이버 연관검색, 필터링 이후 가공상품명가공 리스트")
+    logger.log_processed_data(basic_product_names, gpt_optimized_name_list, title="네이버 연관검색, 필터링 이후 가공상품명가공 리스트")
 
     logger.log(f"💾가공상품명 엑셀 기록시작")
     logger.log_separator()
     # 엑셀에 가공상품명에 가공된 상품명을 입력
-    for new_idx, name in enumerate(final_optimized_name_list):
-        logger.log(f"💾{opt_tpye} 의 가공된 상품명: {name}")
+    for new_idx, name in enumerate(gpt_optimized_name_list):
+        logger.log(f"💾{opt_tpye}상품명: {name} (글자 수: {len(name)})", level="INFO")
         writable_sheet.write(new_idx + 2, name_column_index_int, name)  # 각 데이터를 엑셀의 해당 열에 기록
 
     # 가공타입을 판매자관리코드에 접두사로 추가 
@@ -143,7 +207,7 @@ def process_namingChange_excel_file(file_path, file_name, flag):
     apply_row_color_by_condition(
         writable_sheet=writable_sheet,
         target_column=name_column_index_int,
-        final_optimized_naming_list=final_optimized_name_list,
+        final_optimized_naming_list=gpt_optimized_name_list,
         color_name="yellow"
     )
 
