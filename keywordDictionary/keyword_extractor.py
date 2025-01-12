@@ -268,7 +268,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
             
             # 기존 데이터에서 기본상품명을 확인하고 관련 데이터 반환
             if product_name in data.get("기본상품명", []):
-                logger.log(f"기본상품명 '{product_name}' 을 사전에서 발견", level="INFO")
+                logger.log(f"📝기본상품명 '{product_name}' 을 사전에서 발견", level="INFO")
                 main_keyword = key
 
                 # 인덱스 확인으로 기본상품명과 고정키워드가 맞는지를 확인
@@ -282,7 +282,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
 
                     # 매칭된 고정키워드 가져오기
                     fixed_keywords = data["고정키워드"][idx]
-                    logger.log(f"🔑 매칭된 고정키워드: {fixed_keywords}", level="DEBUG")
+                    logger.log(f"🔑매칭된 고정키워드: {fixed_keywords}", level="DEBUG")
 
                 except (ValueError, IndexError) as e:
                     logger.log(f"⚠️ 기본상품명 '{product_name}'의 인덱스 처리 중 오류 발생: {e}", level="ERROR")
@@ -308,7 +308,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
     
     # 2️⃣ 메인키워드 기준 추가 조회 (기본상품명이 사전에 없는 경우)
     if not gpt_data:
-        logger.log(f"기본상품명 '{product_name}' 사전에 없음. 메인키워드 기준 추가 조회", level="INFO")
+        logger.log(f"기본상품명 '{product_name}' 사전에 없음. 메인키워드 위해 GPT조회 시작", level="INFO")
 
         import time  # 재시도 간 대기 시간을 위해
 

@@ -20,13 +20,29 @@ class Logger:
             "스타일": "🎨",
             "기타 카테고리": "📂",
             "연관검색어": "🔍",
-            "브랜드키워드": "🏷️ "
+            "브랜드키워드": "🏷️ ",
+            "음식 카테고리 체크": "🍴",
+            "이미지 필터링": "🖼️",
+            "상품명 가공": "🛒",
+            "도매토피아 가공": "🏷️",
+            "순환 파일 테스트": "🔄",
+            "모든 마켓 폴더 생성": "🔄",
+            "스마트스토어": "💚",
+            "옥션/지마켓": "💙",
+            "11번가": "❤️",
+            "고도몰": "⚪"
+
         }
 
-        # 로그 디렉토리 확인 및 생성
+        # 로그 파일 열기
         log_dir = os.path.dirname(log_file)
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir)
+        self.log_file_handle = open(log_file, "a", encoding="utf-8")
+
+    def __del__(self):
+        if self.log_file_handle:
+            self.log_file_handle.close()
 
     def _get_emoji(self, text):
         """
@@ -39,7 +55,7 @@ class Logger:
     def log(self, message, data=None, level="INFO", emoji_key=None, include_emoji=True):
         """
         메시지를 로그 파일과 콘솔에 출력
-        :param message: 출력할 메시지 (기본 텍스트)
+        :param message: 출력할 메시지 (기본 텍스트, 여러 줄 가능)
         :param data: 추가 데이터 (ex: 변수 값 등)
         :param level: 로그 레벨 (INFO, DEBUG, ERROR 등)
         :param emoji_key: 이모지 키 (self.emojis에서 가져옴)
@@ -51,19 +67,35 @@ class Logger:
 
         # 메시지와 추가 데이터를 조합
         full_message = f"{message}{data}" if data else message
-        log_message = f"[{timestamp}] [{level}] {emoji} {full_message}".strip()
+
+        # 여러 줄 메시지 처리
+        lines = full_message.split("\n")
+        formatted_lines = [f"[{timestamp}] [{level}] {emoji} {line}".strip() for line in lines]
 
         # 콘솔 출력
         if self.enable_console:
-            print(log_message)
+            for line in formatted_lines:
+                print(line)
 
         # 로그 파일 저장
         with open(self.log_file, "a", encoding="utf-8") as f:
-            f.write(log_message + "\n")
+            f.write("\n".join(formatted_lines) + "\n")
+
+    def log_choices(self, choices, messege=None):
+        """
+        선택지를 로그와 콘솔에 출력하는 메서드.
+        :param choices: 선택지 딕셔너리 (key: 선택 번호, value: 선택 항목)
+        """
+        self.log_separator(char="=", level="INFO")
+
+        self.log(f"< {messege} > 작업을 선택!", level="INFO")
+        for key, value in choices.items():
+            emoji = self._get_emoji(value)
+            self.log(f"{key}. {emoji} {value}", level="INFO")
 
     def log_list(self, title, data, level="DEBUG"):
         """
-        리스트 데이터를 쉼표로 구분된 문자열 형태로 로그에 출력
+        리스트 데이터를 한 줄씩 출력하도록 로그에 기록.
         :param title: 출력 제목
         :param data: 리스트 데이터
         :param level: 로그 레벨
@@ -73,8 +105,9 @@ class Logger:
             emoji = ""  # 제목에 이미 이모지가 포함된 경우 빈 문자열로 설정
 
         if data:
-            formatted_data = ", ".join(map(str, data))
-            self.log(f"{emoji} {title}: {formatted_data}".strip(), level=level)
+            self.log(f"{emoji} {title}:".strip(), level=level)  # 제목 출력
+            for item in data:
+                self.log(f"  - {item}", level=level)  # 리스트의 각 항목 출력
         else:
             self.log(f"{emoji} {title}: 없음".strip(), level=level)
 
@@ -141,4 +174,7 @@ class Logger:
             self.log(f"    - 가공상품명 -> {processed_name}", level=level)
 
         self.log_separator(char="=", level=level)
+
+
+
 

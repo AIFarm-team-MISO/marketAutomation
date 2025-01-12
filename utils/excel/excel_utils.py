@@ -1,26 +1,255 @@
-from openpyxl import load_workbook
-import win32com.client as win32
-import psutil
-import xlrd
-from xlutils.copy import copy
-
-import win32com.client as win32
-from config.settings import YELLOW_COLOR_RGB  # 예시: (255, 255, 0)와 같은 RGB 값으로 설정 필요
-
+from utils.global_logger import logger
 
 import os
-from config.settings import FILE_EXTENSION_xls
-
-from openpyxl.styles import PatternFill
+import win32com.client as win32
+import psutil
+import pandas as pd
 import win32com.client
 import pythoncom
+from config.settings import FILE_EXTENSION_xls
 
-from openpyxl.utils import column_index_from_string, get_column_letter
 
-from utils.log_utils import Logger
+def save_excel_with_sheets(sheets, output_file_name, modified_df=None, modified_sheet_name=None):
+    """
+    수정된 시트를 포함하여 모든 시트를 저장하는 함수.
+    특정 시트만 수정 가능하며, 두 번째 행에 빈 줄을 추가합니다.
 
-# logs 디렉터리에 로그 파일이 생성됩니다.
-logger = Logger(log_file="logs/debug.log", enable_console=True)
+    Parameters:
+        sheets (dict): 시트 이름을 키로, DataFrame을 값으로 갖는 딕셔너리.
+                      모든 시트의 데이터를 포함.
+        output_file_name (str): 저장할 출력 파일 경로. 저장될 파일의 전체 경로.
+        modified_df (pd.DataFrame, optional): 수정된 DataFrame. 기본값은 None.
+                                              수정된 시트 데이터를 포함.
+        modified_sheet_name (str, optional): 수정된 시트 이름. 기본값은 None.
+                                             수정 대상 시트 이름.
+
+    Returns:
+        None
+    """
+    try:
+        # 출력 파일 이름이 지정되지 않은 경우 예외 처리
+        if output_file_name is None:
+            raise ValueError("출력 파일 이름이 지정되지 않았습니다.")
+
+        logger.log_separator()
+        # logger.log("엑셀 저장 작업을 시작합니다.", level="INFO")
+
+        # 수정된 시트를 반영
+        if modified_df is not None:
+            if modified_sheet_name is None:
+                # 수정된 시트 이름이 지정되지 않은 경우 첫 번째 시트를 사용
+                modified_sheet_name = list(sheets.keys())[0]
+            # logger.log(f"수정된 첫번째 시트 {modified_sheet_name} 에 반영", level="INFO")
+            # 수정된 시트를 sheets 딕셔너리에 반영
+            sheets[modified_sheet_name] = modified_df
+
+        # 엑셀 파일 저장
+        with pd.ExcelWriter(output_file_name, engine="openpyxl") as writer:
+            # 모든 시트를 순회
+            for sheet_name, sheet_df in sheets.items():
+                # 1. 두 번째 행에 빈 줄을 추가
+                #    - 빈 DataFrame 생성: [[""] * len(sheet_df.columns)]
+                #    - columns=sheet_df.columns: 원본 DataFrame의 열 이름 유지
+                #    - pd.concat: 빈 행을 원본 데이터의 첫 번째 행 앞에 삽입
+                sheet_df_with_empty_row = pd.concat(
+                    [
+                        sheet_df.iloc[:0],  # 기존 데이터의 첫 행 이전 부분
+                        pd.DataFrame([[""] * len(sheet_df.columns)], columns=sheet_df.columns),  # 빈 행 추가
+                        sheet_df  # 원본 데이터
+                    ],
+                    ignore_index=True  # 인덱스를 초기화하여 정렬
+                )
+                # 2. 처리된 DataFrame을 엑셀로 저장
+                sheet_df_with_empty_row.to_excel(writer, sheet_name=sheet_name, index=False)
+
+        file_name = os.path.basename(output_file_name)
+
+        logger.log(f"변경된 파일 저장완료 : {file_name}", level="INFO")
+
+    except Exception as e:
+        # 예외 발생 시 에러 로그 출력
+        logger.log(f"엑셀 저장 중 오류 발생: {e}", level="ERROR")
+        raise
+
+
+def read_and_clean_first_sheet(sheets):
+    """
+    첫 번째 시트를 읽어 반환
+    쓰지 않는 2번째 행을 제거하여 반환
+
+    :param sheets: 엑셀 시트 딕셔너리
+    :return: 첫 번째 시트 이름과 정리된 데이터프레임
+    """
+    try:
+        
+
+        # 첫 번째 시트 가져오기
+        first_sheet_name = list(sheets.keys())[0]
+        first_sheet_data = sheets[first_sheet_name]
+        
+        # 2행 비어있는 행 제거 (비어있는 행 전체 삭제)
+        cleaned_data = first_sheet_data.dropna(how='all')  # 모든 열이 NaN인 행 제거
+        logger.log(f"첫 번째 시트 '{first_sheet_name}'를 읽어오고 비어있는 2번행 제거완료 ", level="INFO")
+
+        # 인덱스를 0부터 다시 설정
+        cleaned_data.reset_index(drop=True, inplace=True)
+        logger.log(f"첫번째 시트데이터 인덱스 정렬완료 : {cleaned_data.index}", level="DEBUG")
+
+        return first_sheet_name, cleaned_data
+
+    except Exception as e:
+        logger.log(f"첫 번째 시트를 읽고 정리하는 중 에러 발생: {e}", level="ERROR")
+        raise ValueError(f"첫 번째 시트를 읽고 정리하는 중 문제가 발생했습니다: {e}")
+
+
+def read_xls_all_sheets(file_path):
+    """
+    엑셀 파일의 모든 시트를 읽어와 시트 이름과 내용을 반환하는 함수.
+
+    Parameters:
+        file_path (str): 읽을 엑셀 파일 경로.
+
+    Returns:
+        dict: 시트 이름을 키로, DataFrame을 값으로 갖는 딕셔너리.
+
+    Raises:
+        FileNotFoundError: 파일이 존재하지 않을 경우.
+        Exception: 파일 읽기 중 발생한 기타 예외.
+    """
+    try:
+        # 파일이 존재하는지 확인
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"파일을 찾을 수 없습니다: {file_path}")
+
+        # 모든 시트 읽기
+        sheets = pd.read_excel(file_path, sheet_name=None, engine="xlrd")
+        # print(f"파일에서 읽은 시트: {list(sheets.keys())}")
+
+        return sheets
+
+    except Exception as e:
+        logger.log(f"엑셀 파일 읽기 중 오류 발생: {e}")
+        raise
+
+import os
+import pandas as pd
+
+def read_xlsx_all_sheets(file_path):
+    """
+    .xlsx 파일의 모든 시트를 읽어와 시트 이름과 내용을 반환하는 함수.
+
+    Parameters:
+        file_path (str): 읽을 엑셀 파일 경로.
+
+    Returns:
+        dict: 시트 이름을 키로, DataFrame을 값으로 갖는 딕셔너리.
+
+    Raises:
+        FileNotFoundError: 파일이 존재하지 않을 경우.
+        Exception: 파일 읽기 중 발생한 기타 예외.
+    """
+    try:
+        # 파일이 존재하는지 확인
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"파일을 찾을 수 없습니다: {file_path}")
+
+        # 모든 시트 읽기 (openpyxl 엔진 사용)
+        sheets = pd.read_excel(file_path, sheet_name=None, engine="openpyxl")
+
+        print(f"[INFO] 파일에서 읽은 시트: {list(sheets.keys())}")
+
+        return sheets
+
+    except FileNotFoundError as fnf_error:
+        print(f"[ERROR] {fnf_error}")
+        raise
+    except Exception as e:
+        print(f"[ERROR] 엑셀 파일 읽기 중 오류 발생: {e}")
+        raise
+
+
+def make_output_file_path(file_path, base_file_name, suffix, file_extension):
+    """
+    입력받은 파일 경로, 파일 이름, 추가 문자, 확장자를 기반으로 출력 파일 경로를 생성.
+
+    Parameters:
+        file_path (str): 디렉토리 경로.
+        base_file_name (str): 기본 파일 이름.
+        suffix (str): 추가 문자 (예: '_rotate').
+        file_extension (str): 파일 확장자 (예: '.xls', '.xlsx').
+
+    Returns:
+        str: 생성된 출력 파일 경로.
+
+    Raises:
+        ValueError: 입력값이 유효하지 않을 경우.
+    """
+    try:
+        # 입력값 검증
+        if not file_path or not isinstance(file_path, str):
+            raise ValueError("file_path가 유효한 문자열이 아닙니다.")
+        
+        if not base_file_name or not isinstance(base_file_name, str):
+            raise ValueError("base_file_name이 유효한 문자열이 아닙니다.")
+
+        if not file_extension.startswith("."):
+            raise ValueError("file_extension은 '.'으로 시작해야 합니다.")
+
+        if not suffix or not isinstance(suffix, str):
+            raise ValueError("suffix가 유효한 문자열이 아닙니다.")
+
+        # 출력 파일 이름 생성
+        output_file_name = f"{base_file_name}{suffix}{file_extension}"
+
+        # 전체 경로 생성
+        output_file_path = os.path.join(file_path, output_file_name)
+
+        return output_file_path
+
+    except Exception as e:
+        logger.log(f"엑셀 파일 읽기 중 오류 발생: {e}")
+        raise
+
+def make_input_file_path(file_path, file_name):
+    """
+    파일 경로, 파일 이름, 확장자를 받아 전체 파일 경로를 반환하는 함수.
+
+    Parameters:
+        file_path (str): 디렉토리 경로.
+        file_name (str): 파일 이름.
+        file_extension (str): 파일 확장자 (예: '.xls', '.xlsx').
+
+    Returns:
+        str: 전체 파일 경로.
+
+    Raises:
+        ValueError: 입력값이 유효하지 않을 경우.
+        FileNotFoundError: 생성된 경로가 실제 파일과 일치하지 않을 경우.
+    """
+    try:
+        # 입력값 검증
+        if not file_path or not isinstance(file_path, str):
+            raise ValueError("file_path가 유효한 문자열이 아닙니다.")
+        
+        if not file_name or not isinstance(file_name, str):
+            raise ValueError("file_name이 유효한 문자열이 아닙니다.")
+
+        # 전체 경로 생성
+        excel_file_path = os.path.join(file_path, f"{file_name}")
+
+        # 경로 정리 및 디버깅 메시지 출력
+        full_path = os.path.abspath(excel_file_path)
+        # print(f"생성된 파일 경로: {full_path}")
+
+        # 파일 존재 여부 확인 (필요 시 제거 가능)
+        if not os.path.exists(full_path):
+            raise FileNotFoundError(f"파일이 존재하지 않습니다: {full_path}")
+
+        return full_path
+
+    except Exception as e:
+        logger.log(f"엑셀 파일 읽기 중 오류 발생: {e}")
+        raise
 
 
 def close_open_excel_files(file_name):
@@ -47,11 +276,11 @@ def close_open_excel_files(file_name):
             if file_name in wb.FullName:
                 # 변경사항 저장 없이 워크북 닫기
                 wb.Close(SaveChanges=False)
-                print(f"엑셀 파일 닫힘: {wb.FullName}")
+                logger.log(f"엑셀 파일 닫힘: {wb.FullName}")
 
     except Exception as e:
         # 엑셀 파일 닫기 중 오류 발생 시 오류 메시지 출력
-        print(f"엑셀 파일 닫기 중 오류 발생: {e}")
+        logger.log(f"엑셀 파일 닫기 중 오류 발생: {e}")
 
     finally:
         # Excel Application 종료 (모든 워크북 닫기 후 엑셀 프로그램 자체 종료)
@@ -89,16 +318,16 @@ def process_all_excel_files(file_path):
             if os.path.exists(output_file_path):
                 try:
                     os.remove(output_file_path)
-                    print(f"기존 output 파일 삭제 완료: {output_file_path}")
+                    logger.log(f"기존 output 파일 삭제 완료: {output_file_path}")
                 except PermissionError:
                     # 파일이 사용 중인 경우 엑셀 인스턴스를 닫고 다시 시도
-                    print(f"파일이 열려있어 삭제할 수 없습니다. 엑셀 파일을 닫습니다: {output_file_path}")
+                    logger.log(f"파일이 열려있어 삭제할 수 없습니다. 엑셀 파일을 닫습니다: {output_file_path}")
                     close_open_excel_files(output_file_path)
                     try:
                         os.remove(output_file_path)
-                        print(f"다시 시도 후 삭제 완료: {output_file_path}")
+                        logger.log(f"다시 시도 후 삭제 완료: {output_file_path}")
                     except Exception as e:
-                        print(f"output 파일 삭제 중 오류 발생: {e}")
+                        logger.log(f"output 파일 삭제 중 오류 발생: {e}")
                         continue  # 삭제 실패 시 파일 리스트에 추가하지 않음
 
             # 파일 리스트에 추가
@@ -360,9 +589,6 @@ def apply_filter_only_xls(output_file_path, sort_column, sort_direction='descend
         excel.Quit()
         pythoncom.CoUninitialize()
 
-import xlrd
-from xlutils.copy import copy
-
 def update_seller_codes(sheet, writable_sheet, number_column_index, ptype):
     """
     엑셀 시트의 특정 열(B열)의 판매자코드를 업데이트하는 함수.
@@ -386,16 +612,6 @@ def update_seller_codes(sheet, writable_sheet, number_column_index, ptype):
 
         # 업데이트
         writable_sheet.write(row_idx, number_column_index, new_seller_code)
-
-
-
-
-
-
-
-
-
-
 
 
 def clean_up_excel_process():

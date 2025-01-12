@@ -1,8 +1,11 @@
 import os
+import sys
 import pandas as pd
 from imageFilter.excel.file_handler import read_excel_file, save_excel_file
 from config.settings import FILE_EXTENSION_xls
-from imageFilter.excel.excel_utils import apply_filter_and_sort_xls, insert_column_before, column_letter_to_index, apply_row_color_by_condition, update_seller_codes
+from utils.excel.excel_utils import apply_filter_and_sort_xls, insert_column_before, apply_row_color_by_condition, update_seller_codes
+from utils.excel.excel_utils import column_letter_to_index
+
 from imageFilter.excel.url_filter import save_filtered_urls
 from keywordOptimization.naver_api import generate_optimized_names
 from keywordOptimization.product_info import ProductInfo, ProcessedProductInfo
@@ -11,6 +14,8 @@ from keywordOptimization.keyword_filter_never import apply_filters
 from keywordDictionary.dictionary_loader import load_dictionary, save_dictionary
 from keywordDictionary.keyword_extractor import extract_keywords
 from keywordOptimization.gpt_result_generating import gpt_result_generate_name
+from utils.progress.calculate_progress import calculate_estimates, run_filtering_item_process, print_progress_bar
+
 
 
 from utils.log_utils import Logger
@@ -83,7 +88,7 @@ def process_namingChange_excel_file(file_path, file_name, flag):
     # 총 상품 개수 로그 및 저장
     total_items = sheet.nrows - 2
     # 행 개수를 직접 로그 출력
-    logger.log(f"기본상품명 행 갯수: {total_items}", level="DEBUG")
+    logger.log(f"처리할 기본상품명 행 갯수: {total_items}", level="DEBUG")
     # logger.log_list("기본상품명가공 목록", naming_list)
     logger.log_separator()
 
@@ -94,33 +99,110 @@ def process_namingChange_excel_file(file_path, file_name, flag):
     # logger.log_dict("키워드 사전 데이터", dictionary)
     # logger.log_separator()
 
-    # 기본상품명 분석, 메인과 보조키워드 추출
-    extract_namingData_list = []
-    for index, original_name in enumerate(naming_list, start=1):
-        logger.log(f"▶️ [{index}/{total_items}] '{original_name}' 처리 시작", level="INFO")
+    task_type = "상품명가공"
+    # gpt 비용, 시간 확인, 프로그램실행유무
+    if run_filtering_item_process(naming_list, dictionary, task_type):
+
+        # 초기 사전 상태 저장
+        initial_dictionary_snapshot = {
+            key: set(data.get("기본상품명", []))
+            for key, data in dictionary.items()
+        }
+
+        # 기본상품명 분석, 메인과 보조키워드 추출
+        extract_namingData_list = []
+        initial_existing_count = 0  # 사전에 이미 등록된 기본상품명 수
+        added_to_dictionary_count = 0  # 사전에 새로 추가된 기본상품명 수
+        # 처리되지 못한 기본상품명을 저장할 리스트
+        missing_after_processing = []  # >> 이 리스트에 저장되지 않은 상품명을 추적
+        # 임계치 설정
+        MISSING_THRESHOLD = 50  # 사전에 기록되지 않은 상품명이 이 값을 초과하면 종료
+
+        for index, original_name in enumerate(naming_list, start=1):
+            logger.log(f"▶️ [{index}/{total_items}] '{original_name}' 처리 시작", level="INFO")
+
+            # 진행률 표시
+            print_progress_bar(index, total_items)
+            
+            # 기본상품명으로 사전데이터를 얻음 
+            namingData = extract_keywords(original_name, dictionary)
+
+            if namingData is not None:
+                # 디버깅: 각 gpt_data 출력
+                logger.log_dict(f" - {original_name}- 에 대한 gpt_data", namingData)
+                logger.log_separator()
+                extract_namingData_list.append(namingData)
 
 
-        namingData = extract_keywords(original_name, dictionary)
+                # 사전에서 기본상품명 여부 확인 (extract_keywords 호출 전 상태 기준)
+                is_existing = any(
+                    original_name in initial_dictionary_snapshot.get(key, set())
+                    for key in initial_dictionary_snapshot
+                )
 
-        if namingData is not None:
-            # 디버깅: 각 gpt_data 출력
-            logger.log_dict(f" - {original_name}- 에 대한 gpt_data", namingData)
-            logger.log_separator()
-            extract_namingData_list.append(namingData)
-        else:
-            logger.log(f"⚠️ {original_name}에 대한 namingData가 없습니다.", level="WARNING")
+                if is_existing:
+                    initial_existing_count += 1  # 이미 사전에 등록된 기본상품명
+                else:
+                    # 사전에 새로 추가된 기본상품명 확인 (extract_keywords 호출 후 상태 기준)
+                    is_added = any(
+                        original_name in set(data.get("기본상품명", []))
+                        for key, data in dictionary.items()
+                    )
 
-    # extract_namingData_list와 기본상품명 리스트 길이 비교: 최초갯수와 같지않으면 실행종료 
-    if len(naming_list) != len(extract_namingData_list):
-        error_message = (
-            f"❌ 데이터 불일치: 기본상품명 리스트의 길이 ({len(naming_list)}) "
-            f"와 extract_namingData_list의 길이 ({len(extract_namingData_list)})가 다릅니다."
-        )
-        logger.log(error_message, level="ERROR")
-        raise ValueError(error_message)  # 프로그램 종료     
+                    if is_added:
+                        added_to_dictionary_count += 1  # 사전에 새로 추가된 기본상품명
+                    else:
+                        # 처리 후에도 사전에 기록되지 않은 상품명 추적
+                        missing_after_processing.append(original_name)
+
+                        # 임계치 초과 확인
+                        if len(missing_after_processing) >= MISSING_THRESHOLD:
+                            logger.log(
+                                f"❌ 임계치 초과: 사전에 기록되지 않은 상품명 수가 {MISSING_THRESHOLD}개를 초과했습니다. 프로그램을 종료합니다.",
+                                level="CRITICAL"
+                            )
+                            logger.log(f"❌ 기록되지 않은 상품명: {missing_after_processing}", level="ERROR")
+                            raise SystemExit("프로그램이 종료되었습니다. 문제를 확인하세요.")
+
+
+
+            else:
+                logger.log(f"⚠️ {original_name}에 대한 namingData가 없습니다.", level="WARNING")
+
+
+        # extract_namingData_list와 기본상품명 리스트 길이 비교: 최초갯수와 같지않으면 실행종료 
+        if len(naming_list) != len(extract_namingData_list):
+            error_message = (
+                f"❌ 데이터 불일치: 기본상품명 리스트의 길이 ({len(naming_list)}) "
+                f"와 extract_namingData_list의 길이 ({len(extract_namingData_list)})가 다릅니다."
+            )
+            logger.log(error_message, level="ERROR")
+            raise ValueError(error_message)  # 프로그램 종료     
+        
+
+        # 최종 결과 출력
+        print_progress_bar(total_items, total_items)
+        sys.stdout.write("\n")  # 로그 메시지가 진행률 바를 덮지 않도록 처리
+
+        # 최종 통계 출력
+        logger.log(f"✅ 모든 데이터 처리 완료! 처리된 데이터 수: {len(extract_namingData_list)} / {len(naming_list)}", level="INFO")
+        logger.log(f"✅ 사전에 이미 존재했던 기본상품명 수: {initial_existing_count}", level="INFO")
+        logger.log(f"✅ 사전에 새로 추가된 기본상품명 수: {added_to_dictionary_count}", level="INFO")
+        # logger.log(f"✅ 최종 사전 내 총 기본상품명 수: {sum(len(data.get('기본상품명', [])) for data in dictionary.values())}", level="INFO")
+
+        #만약 사전에 기록되지 않은경우 ->  처리되지 못한 기본상품명 출력
+        if missing_after_processing:
+            logger.log(
+                f"❌ 처리 후에도 사전에 기록되지 않은 상품명 수: {len(missing_after_processing)}",
+                level="ERROR"
+            )
+            logger.log(f"❌ 기록되지 않은 상품명 리스트: {missing_after_processing}", level="ERROR")
+
+
     
-    # 작업 완료 로그
-    logger.log(f"✅ 모든 데이터 처리 완료! 처리된 데이터 수: {len(extract_namingData_list)} / {total_items}", level="INFO")
+    else:
+        print("프로그램을 중단했습니다.")
+        sys.exit()  # 프로그램 종료
     
     
 

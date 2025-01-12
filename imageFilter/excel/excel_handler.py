@@ -1,15 +1,27 @@
+from utils.global_logger import logger
+
 import os
+
 from imageFilter.excel.file_handler import read_excel_file, save_excel_file
 from imageFilter.excel.image_processing import process_image_urls
 from imageFilter.excel.url_filter import save_filtered_urls
-from imageFilter.excel.excel_utils import apply_filter_and_sort_xls, insert_column_before, column_letter_to_index
+from utils.excel.excel_utils import column_letter_to_index, apply_filter_and_sort_xls, insert_column_before
 from config.settings import FILE_EXTENSION_xls, FILTERED_URL_FILE
-from openpyxl import load_workbook
 
-import win32com.client as win32
-import os
-import time
-import psutil  # 추가로 프로세스를 확인하기 위한 라이브러리
+
+
+def debug_file_permission(file_path):
+    logger.log(f"디버깅 경로: {file_path}")
+    logger.log(f"존재 여부: {os.path.exists(file_path)}")
+    logger.log(f"쓰기 권한: {os.access(file_path, os.W_OK)}")
+    logger.log(f"읽기 권한: {os.access(file_path, os.R_OK)}")
+    logger.log(f"절대 경로: {os.path.abspath(file_path)}")
+    try:
+        with open(file_path, 'w') as f:
+            f.write("테스트 파일 쓰기")
+            logger.log("테스트 파일 쓰기 성공")
+    except Exception as e:
+        logger.log(f"테스트 파일 쓰기 실패: {e}")
 
 
 def process_imageFiltering_excel_file(file_path, file_name):
@@ -48,14 +60,24 @@ def process_imageFiltering_excel_file(file_path, file_name):
     # 이미지 URL 처리 및 필터링된 URL 목록 획득 (기존 필터링된 URL 파일과 비교)
     # FILTERED_URL_FILE (str): 기존에 필터링된 URL 목록을 포함한 파일 경로
     data, filtered_urls, no_text_urls  = process_image_urls(sheet, image_column_index_int, seller_code_column_index, FILTERED_URL_FILE)
-    
+
+
 
     # 데이터를 엑셀에 다시 쓰기
     for new_idx, (result, image_url) in enumerate(data):
 
+
         # 새로운 열에 필터링 상태 기록 ('목록이미지' 는 유지하고 그앞열 '필터링결과' 필터링상태를 기록 )
         writable_sheet.write(new_idx + 2, image_column_index_int, result)  # 필터링 상태 기록
         writable_sheet.write(new_idx + 2, image_column_index_int + 1, image_url)  # 기존 이미지 URL 유지
+
+    output_file_path = os.path.join(file_path, f"{file_name}_output.xls")
+    save_excel_file(writable_book, output_file_path)
+
+
+    # remove_rows_with_value_in_column(file_path, output_file_path, '필터링결과', "중복-문자있음")
+
+
 
     # 결과 파일 저장 (output 파일(순환파일) 생성)
     output_file_path = os.path.join(file_path, f"{file_name}_output.xls")
@@ -70,3 +92,5 @@ def process_imageFiltering_excel_file(file_path, file_name):
 
     # 필터링된 URL '필터링url모음파일.xlsx' 에 저장
     save_filtered_urls(filtered_urls, no_text_urls)
+
+

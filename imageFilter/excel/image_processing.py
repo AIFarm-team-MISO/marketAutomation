@@ -1,9 +1,6 @@
 import pandas as pd
 from imageFilter.ocr_google.myImageFiltering import is_text_in_image
 from utils.url_checker import log_processing
-
-from config.settings import FILTERED_URL_FILE
-from openpyxl import load_workbook
 import openpyxl
 
 import openpyxl
@@ -181,3 +178,8 @@ def process_image_urls(sheet, image_column_index, seller_code_column_index, FILT
 
     # 처리 결과 반환
     return data, filtered_urls, no_text_urls
+
+
+
+
+

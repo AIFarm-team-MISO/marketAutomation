@@ -51,6 +51,43 @@ def load_dictionary(file_path="keywordDictionary/dictionary.json") -> Dict[str, 
 
 def save_dictionary(new_data: Dict[str, dict], file_path="keywordDictionary/dictionary.json") -> bool:
     """
+    JSON 형식의 키워드 사전을 파일에 저장하고 검증하는 함수.
+    저장 후 파일을 다시 읽어 데이터 무결성을 확인.
+
+    Parameters:
+    - new_data (Dict[str, dict]): 저장할 데이터.
+    - file_path (str): JSON 파일 경로 (기본값: "keywordDictionary/dictionary.json").
+
+    Returns:
+    - bool: 저장 성공 여부.
+    """
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+    try:
+        # 데이터를 JSON 파일로 저장
+        with open(file_path, "w", encoding="utf-8") as file:
+            json.dump(new_data, file, ensure_ascii=False, indent=4)
+
+        logger.log(f"✅ 데이터가 JSON 파일에 저장되었습니다: {file_path}", level="INFO")
+
+        # 저장 후 검증: 파일을 다시 읽어서 데이터 무결성 확인
+        with open(file_path, "r", encoding="utf-8") as file:
+            loaded_data = json.load(file)
+
+        # 데이터 일치 검증
+        if new_data == loaded_data:
+            logger.log("✅ 저장된 데이터가 원본과 일치합니다. 무결성 검증 완료.", level="INFO")
+            return True
+        else:
+            logger.log("❌ 저장된 데이터가 원본과 일치하지 않습니다. 무결성 검증 실패.", level="ERROR")
+            return False
+
+    except Exception as e:
+        logger.log(f"❌ [오류] JSON 저장 실패: {e}", level="ERROR")
+        return False
+
+def save_dictionary_old(new_data: Dict[str, dict], file_path="keywordDictionary/dictionary.json") -> bool:
+    """
     JSON 형식의 키워드 사전을 파일에 저장하는 함수. 병합 로직은 호출 측에서 처리하며,
     이 함수는 데이터를 파일에 기록하는 역할만 수행.
 
