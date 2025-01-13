@@ -11,7 +11,11 @@ from utils.validate.validate_dataframe import validate_data_integrity
 from utils.excel.excel_utils import read_and_clean_first_sheet
 from utils.report.report_handler import initialize_report_file, add_str_log, update_process_report, add_separator_line
 
-def process_imageFiltering_excel_file_xlsx(report_path, file_path, base_file_name, task_type="single", sheets=None):
+# 현재 파일 위치 기준으로 JSON 파일 경로 설정
+current_dir = os.path.dirname(__file__)
+config_path = os.path.join(current_dir, "rotationInfo.json")
+
+def process_imageFiltering_excel_file_xlsx(file_path, base_file_name, report_path, task_type="single", sheets=None):
     """
     이미지 필터링 작업을 처리하는 함수 (단독 작업 및 자동화 작업 지원)
     :param file_path: 파일 경로
@@ -21,6 +25,12 @@ def process_imageFiltering_excel_file_xlsx(report_path, file_path, base_file_nam
 
     existing_column_name = "목록 이미지*"
     new_column_name = "필터링결과"
+
+
+    # 리포트 생성
+    if report_path =="":
+        report_path = initialize_report_file(current_dir, base_file_name+"rotation_report", ".txt")
+        logger.log(f"{base_file_name} 의 리포트 파일 생성완료")
 
     # 파일 확장자 확인 
     if sheets is None: # 단독실행일경우 

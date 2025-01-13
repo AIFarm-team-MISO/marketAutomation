@@ -8,7 +8,7 @@ from utils.excel.excel_utils import column_letter_to_index, make_input_file_path
 from config.settings import FILE_EXTENSION_xls, FILTERED_URL_FILE, FILE_EXTENSION_xlsx, FILE_EXTENSION_JSON, CONVERT_URL_FILE
 from utils.excel.excel_utils import make_input_file_path, make_output_file_path, read_xls_all_sheets, save_excel_with_sheets, read_xlsx_all_sheets, read_and_clean_first_sheet
 # from imageFilter.excel.excel_handler_xlsx import process_imageFiltering_excel_file_xlsx
-from utils.json.json_util import convert_excel_to_json
+from utils.json.json_util import convert_excel_to_json, load_config
 from utils.validate.validate_dataframe import validate_data_integrity
 from imageFilter.excel.excel_handler_xlsx import process_imageFiltering_excel_file_xlsx
 from utils.excel.excel_split import split_excel_by_rows
@@ -72,7 +72,10 @@ def make_rotation_excel(file_path, base_file_name):
 
         # 순환파일 JSON 설정파일 로드 
         config = load_config(config_path)
+
         market_config = config.get(split_folder_name, {})
+        if not market_config:  # market_config이 빈 딕셔너리 또는 None일 경우
+            raise ValueError(f"JSON에 마켓 이름 '{split_folder_name}'이(가) 없습니다.")
 
         # 설정 파일에 따라 작업 생성
         tasks = generate_tasks_from_config(market_config, details_config, report_path)
@@ -84,24 +87,20 @@ def make_rotation_excel(file_path, base_file_name):
             modify_df = process_first_sheet(tasks, first_sheet_data, report_path)
 
         except ValueError as e:
-            logger.log(f"작업 실패로 프로그램을 종료합니다: {e}", level="ERROR")
+            logger.log(f"태스크 작업중 에러발생 : {e}", level="ERROR")
             exit(1)
         
-        # save_excel_with_sheets(sheets, output_file_name, modify_df, first_sheet_name)
-        # exit(1)
-
-
         # market_config(json)에서 이미지 필터링 여부 확인
         image_filtering = market_config.get("image_filtering", False)
-
-
         add_str_log(report_path, "이미지필터링유무 : " + str(image_filtering))
 
         # 이미지필터링 
         if image_filtering: #이미지 필터링이 true 라면
-            image_filtered_df = process_imageFiltering_excel_file_xlsx(report_path, file_path, base_file_name, task_type="auto", sheets=modify_df)
+            image_filtered_df = process_imageFiltering_excel_file_xlsx(file_path, base_file_name, report_path, task_type="auto", sheets=modify_df)
+        
         else:
-            logger.log(" 해당마켓은 이미지필터링 제외 .", level="INFO")
+            logger.log(f"{folder_name}은 이미지필터링 제외.", level="INFO")
+            add_str_log(report_path, f"{folder_name}은 이미지필터링 제외")
             
 
         # modify_df의 행 개수를 확인하여 분할 저장 여부 결정
@@ -116,14 +115,12 @@ def make_rotation_excel(file_path, base_file_name):
             save_excel_with_sheets(sheets, output_file_name, image_filtered_df, first_sheet_name)
             add_str_log(report_path, "엑셀저장완료")
 
-        
 
     except Exception as e:
-        logger.log(f"작업 중 에러가 발생했습니다: {e}", level="ERROR")
+        logger.log(f"순환파일 자동화중 에러가 발생: {e}", level="ERROR")
         raise
 
 
-import inspect
 def generate_tasks_from_config(market_config, details_config, report_path):
     """
     JSON 설정에서 작업 목록을 생성합니다.
@@ -306,25 +303,6 @@ details_config = {
         ]
     }
 }
-
-
-
-import json
-def load_config(config_file):
-    """
-    JSON 설정 파일을 로드합니다.
-    :param config_file: JSON 파일 경로
-    :return: 설정 데이터 딕셔너리
-    """
-    try:
-        with open(config_file, "r", encoding="utf-8") as f:
-            config = json.load(f)
-        return config
-    except Exception as e:
-        logger.log(f"⚠️ 설정 파일 로드 중 에러 발생: {e}", level="ERROR")
-        raise
-
-
 
 def debug_single_task(task, sheet_data, task_type, task_name="unnamed_task"):
     """

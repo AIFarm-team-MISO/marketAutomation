@@ -99,7 +99,7 @@ if __name__ == "__main__":
             "path": EXCEL_IMAGE_FILTER_PATH,  # 처리할 파일 경로
             "function": process_imageFiltering_excel_file_xlsx,  # 실행할 함수
             # "function": process_imageFiltering_excel_file,  
-            "args": [],  # 위치 인자
+            "args": [""],  # 위치 인자
             "kwargs": {}  # 키워드 인자
         },
         "상품명 가공": {
