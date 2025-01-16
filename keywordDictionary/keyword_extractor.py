@@ -227,7 +227,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
         - 기본상품명을 통한 사전 조회 - 
         1. 기존과 같은 상품명이 들어올때
             최초 사전에 기본상품명이 있는지 확인하여 (기본상품명은 메인키워드에 리스트형태로 종속되있음)
-            만약 존재한다면 기본상품명에에 속한 모든 데이터를 그대로 반환한다.
+            만약 존재한다면 기본상품명에에 속한 고정키워드와 이하 모든 데이터를 그대로 반환한다.
             *** 사전에 저장안됨 ***
 
         2. 다른상품명이 들어온 경우 무조건 gpt호출
@@ -266,7 +266,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
                 raise ValueError(f"'{key}'의 '고정키워드' 데이터 형식 오류.")
             
             
-            # 기존 데이터에서 기본상품명을 확인하고 관련 데이터 반환
+            # 기존 데이터에서 기본상품명을 확인하고 매칭되어 있는 고정키워드와 이하 관련 데이터 반환
             if product_name in data.get("기본상품명", []):
                 logger.log(f"📝기본상품명 '{product_name}' 을 사전에서 발견", level="INFO")
                 main_keyword = key
@@ -329,7 +329,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
 
                 missing_fields = [field for field in required_fields if not gpt_result.get(field)]
 
-
+                # gpt 호출결과 ["제품군", "GPT연관검색어"] 가 누락되었다면 재시도 
                 if missing_fields:
                     logger.log(
                         f"⚠️ GPT 호출 결과 누락 필드 발견: {missing_fields}. 재시도 중입니다... ({retry_count + 1}/{MAX_RETRIES})",
@@ -357,33 +357,36 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
         
         # 최대 재시도 초과 시 기본값 처리
         if retry_count == MAX_RETRIES:
-            logger.log(f"❌ GPT 호출 실패: 최대 재시도 횟수 초과. 기본값으로 처리합니다.", level="ERROR")
-            gpt_result = {
-                "제품군": "#오류#",
-                "GPT연관검색어": []
-            }
+            logger.log(f"❌ GPT 호출 실패: 최대 재시도 횟수 초과. ", level="ERROR")
+            raise SystemExit("GPT 호출실패로 프로그램이 종료되었습니다.")
+            # gpt_result = {
+            #     "제품군": "#오류#",
+            #     "GPT연관검색어": []
+            # }
 
         # 결과 처리 후 계속 실행
         logger.log(f"✅ 최종 GPT 결과: {gpt_result}", level="INFO")
 
 
 
-        # GPT 응답 처리 : 메인키워드 설정 
+        # GPT 응답으로 반환데이터처리
+        # 메인키워드 설정 
         main_keyword = gpt_result.get("제품군").strip()
 
-        # 메인키워드의 공백처리
+        # 메인키워드의 공백처리 (메인키워드를 단일단어로 변경)
         main_keyword = clean_and_join_keywords(main_keyword)
 
-        # 연관키워드에서 맨 앞 키워드 가져오기
-        related_keywords = gpt_result.get("GPT연관검색어", [])
-        fixed_keywords = []
-
         # 고정키워드 설정 : GPT에서 반환된 메인 키워드가 이외의 키워드로 고정키워드를 구성 
+        fixed_keywords = []
         fixed_keywords = [w for w in words if w != main_keyword.lower()]
 
+        # 연관키워드 설정
+        related_keywords = gpt_result.get("GPT연관검색어", [])
+
+        # 만약 고정키워드가 없는 경우라면 
         if not fixed_keywords : 
             if related_keywords:  # 연관키워드가 있는 경우
-                fixed_keywords = [related_keywords[0]]  # 맨 앞 키워드를 고정키워드로 사용
+                fixed_keywords = [related_keywords[0]]  # 연관키워드 맨앞 키워드를 고정키워드로 사용
             else:  # 연관키워드가 없는 경우
                 if len(main_keyword) > 1:
                     fixed_keywords = list(main_keyword)  # 메인키워드를 한 음절로 나눔
@@ -393,18 +396,20 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
         gpt_result.update({"고정키워드": fixed_keywords})
 
         # GPT 연관검색어 처리
-        related_keywords = gpt_result.get("GPT연관검색어", [])
+        related_keywords = related_keywords
         related_keywords = clean_and_join_keywords(related_keywords)
 
         # 숫자가 포함된 키워드 제거
         related_keywords = filter_keywords_with_numbers(related_keywords)
 
+        # 새로운 문자열에 따른 GPT결과 이지만 기존사전 데이터중 메인키워드가 존재하는경우
+        # 사전데이터 추가 : 메인키워드에 기본상품명과 고정키워드를 추가, 연관검색어 추가
         try:
             # GPT응답의 메인키워드가 사전에 있는 경우 = > 기본상품명, 고정키워드, 연관검색어 추가
             if main_keyword in dictionary:
                 logger.log(f"2️⃣-2️⃣ 사전에서 기존 메인키워드 '{main_keyword}' 발견" , level="INFO")
 
-                # 데이터가 리스트인지 검증 (기존 데이터가 올바른 구조인지 확인)
+                # 기본상품명과 고정키워드가 리스트인지 검증 (기존 데이터가 올바른 구조인지 확인)
                 if not isinstance(dictionary[main_keyword].get("기본상품명"), list):
                     raise TypeError(f"기본상품명이 리스트가 아닙니다: {dictionary[main_keyword].get('기본상품명')}")
                 if not isinstance(dictionary[main_keyword].get("고정키워드"), list):
@@ -475,8 +480,9 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
                 logger.log(f"❌ 예상치 못한 오류 발생: {e}. 프로그램을 종료합니다.", level="CRITICAL")
                 raise SystemExit(f"프로그램 종료: {e}")
 
+        # gpt 호출후 반환할 데이터 생성
         try:
-            # gpt 호출후 반환할 데이터 생성
+            
             gpt_data = {
                 "기본상품명": product_name,  # 반환 데이터는 단일 값
                 "제품군": main_keyword,
@@ -489,7 +495,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
                 "기타 카테고리": gpt_result.get("기타 카테고리", []),
             }
 
-                # 필수 필드 검증
+            # 필수 필드 검증
             required_fields = ["기본상품명", "제품군", "고정키워드"]
             for field in required_fields:
                 if field not in gpt_data or not gpt_data[field]:
@@ -498,7 +504,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
 
             # 디버깅: 반환 데이터 확인
             # logger.log(f"최종 GPT 데이터 반환: {gpt_data}", level="DEBUG")
-            logger.log(f"2️⃣사전에 기본상품명 없어 GPT데이터 반환!", level="DEBUG")
+            logger.log(f"2️⃣사전에 기본상품명 없어 사전 추가후 GPT데이터 반환!", level="DEBUG")
 
         except ValueError as e:
             logger.log(f"❌ 반환 데이터 검증 실패: {e}. 프로그램을 종료합니다.", level="CRITICAL")

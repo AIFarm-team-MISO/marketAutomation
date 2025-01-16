@@ -1,8 +1,12 @@
+from utils.global_logger import logger
+
 import os
 import sys
 import pandas as pd
 from imageFilter.excel.file_handler import read_excel_file, save_excel_file
 from config.settings import FILE_EXTENSION_xls
+from config.settings import FILE_EXTENSION_xlsx
+
 from utils.excel.excel_utils import apply_filter_and_sort_xls, insert_column_before, apply_row_color_by_condition, update_seller_codes
 from utils.excel.excel_utils import column_letter_to_index
 
@@ -11,17 +15,63 @@ from keywordOptimization.naver_api import generate_optimized_names
 from keywordOptimization.product_info import ProductInfo, ProcessedProductInfo
 from keywordOptimization.keyword_filter_never import apply_filters
 
-from keywordDictionary.dictionary_loader import load_dictionary, save_dictionary
+from keywordDictionary.dictionary_loader import load_dictionary, save_dictionary, check_naming_in_item_list
 from keywordDictionary.keyword_extractor import extract_keywords
 from keywordOptimization.gpt_result_generating import gpt_result_generate_name
 from utils.progress.calculate_progress import calculate_estimates, run_filtering_item_process, print_progress_bar
+from utils.excel.excel_utils import make_input_file_path, make_output_file_path, read_xls_all_sheets, save_excel_with_sheets,read_and_clean_first_sheet, read_xlsx_all_sheets
+from utils.excel.excel_process_utils import insert_excel_column, sort_sheet, colum_highlight_sheet, delete_rows_by_condition, colum_highlight_sheet
+from productNaming.nameing_validate import validate_name_code_list
 
 
+def get_column_values(sheet: pd.DataFrame, column_name: str) -> list:
+        """
+        특정 열(column_name)의 모든 값을 리스트로 반환.
 
-from utils.log_utils import Logger
+        Args:
+            sheet (pd.DataFrame): 엑셀의 시트 데이터.
+            column_name (str): 값을 추출할 열의 이름.
 
-# logs 디렉터리에 로그 파일이 생성됩니다.
-logger = Logger(log_file="logs/debug.log", enable_console=True)
+        Returns:
+            list: 열의 모든 값을 담은 리스트.
+        """
+        if column_name not in sheet.columns:
+            raise ValueError(f"Column '{column_name}' does not exist in the sheet.")
+
+        # 열 데이터를 리스트로 변환하여 반환
+        return sheet[column_name].dropna().tolist()
+
+def get_column_values_for_selerCode(sheet: pd.DataFrame, column_name: str, selerCode_colume: str = None) -> list:
+    """
+    특정 열(column_name)의 모든 값을 리스트로 반환.
+    관련 열(selerCode_colume)이 주어지면, 해당 열과 함께 튜플 형태로 반환.
+
+    Args:
+        sheet (pd.DataFrame): 엑셀의 시트 데이터.
+        column_name (str): 값을 추출할 열의 이름.
+        selerCode_colume (str, optional): 관련 열의 이름. 이 열과 함께 값을 반환.
+
+    Returns:
+        list: column_name의 값만 반환하거나, column_name과 selerCode_colume 튜플 리스트 반환.
+    """
+    # 열(column_name)이 존재하는지 확인
+    if column_name not in sheet.columns:
+        raise ValueError(f"Column '{column_name}' does not exist in the sheet.")
+
+    # 관련 열(related_column)이 주어졌다면 해당 열도 존재 여부 확인
+    if selerCode_colume and selerCode_colume not in sheet.columns:
+        raise ValueError(f"Related column '{selerCode_colume}' does not exist in the sheet.")
+
+    if selerCode_colume:
+        # column_name과 related_column 데이터를 함께 가져와 튜플 리스트로 반환
+        column_data = sheet[column_name].dropna().tolist()  # column_name 데이터 리스트
+        related_data = sheet[selerCode_colume].dropna().tolist()  # related_column 데이터 리스트
+
+        # 두 열(column_name과 related_column)의 데이터를 zip으로 묶어 튜플 리스트 반환
+        return list(zip(column_data, related_data))
+
+    # 관련 열이 없으면 column_name의 데이터만 리스트로 반환
+    return sheet[column_name].dropna().tolist()
 
 '''
     현재의 데이터(예시) 
@@ -40,205 +90,228 @@ logger = Logger(log_file="logs/debug.log", enable_console=True)
     }
 '''
 
-
-def process_namingChange_excel_file(file_path, file_name, flag):
+def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_type="single", sheets=None):
     """
-
-    1. 폴더에 있는 기존 파일을 복사해 내용을 수정하여 output 파일(순환파일) 을 생성함
-    2. 기존에 이미지필터링을 통과했는지 확인하여 필터링 실행여부를 결정, 필터링 실행후 필터링 모음파일에 저장
-
     Parameters:
     - file_path (str): 엑셀 파일이 위치한 폴더 경로
     - file_name (str): 엑셀 파일 이름 (확장자 제외)
-    - flag (str) : 가공형태 '연관검색',  '상위검색'등 네이버에 전달한 검색형태 
-
-    - tuple: (엑셀 sheet, 복사된 writable_book, writable_sheet)
-      - sheet: 최초 폴더의 있는 엑셀의 첫 번째 시트를 나타내는 객체, 데이터를 읽기 위해 사용
-      - writable_book: 기존 엑셀 파일을 복사하여 수정 가능한 형태로 만든 workbook 객체. 
-                       데이터를 변경하거나 저장하기 위해 사용
-      - writable_sheet: writable_book 내의 첫 번째 시트를 나타내는 객체. 
-                        이 시트를 통해 셀 데이터를 수정하거나 추가할 수 있음.
+    - flag (str) : 가공형태 'GPT조합',  '상위검색'등 상품명 가공타입
 
     """ 
 
-    sheet, writable_book, writable_sheet = read_excel_file(file_path, file_name, FILE_EXTENSION_xls)
-    if sheet is None:
-        return
+    # 가공타입 설정 : 현재 GPT 연관검색어 
+    opt_type = opt_type
 
-    name_column_index = 'E'       # '상품명*' 열번호 (썸네일) 이후 이앞열에 열을 추가하므로 결과적으로 이열에 가공내용이 들어감
-    number_column_index='B'       # '판매자코드' 열번호 
-    name_column_index_int = column_letter_to_index(name_column_index)
-    number_column_index_int = column_letter_to_index(number_column_index)
-
-    # 가공타입 설정 : 현재 연관검색어 
-    opt_tpye = flag
-
-    # '상품명*' 앞에 새로운 열 삽입 (가공상품명의 결과를 추가하기 위해)
-    insert_column_before(sheet, writable_sheet, name_column_index, "가공결과")
-
-
-    # 기본상품명 리스트 생성 (3행부터 시작)
-    naming_list = [
-        sheet.cell_value(idx, name_column_index_int) 
-        for idx in range(2, sheet.nrows)  # 데이터가 3행부터 시작하므로 인덱스를 2부터 시작
-        if pd.notna(sheet.cell_value(idx, name_column_index_int))
-    ]
+    logger.log_separator()
+    logger.log(f"▶️ 상품명가공시작 ▶️ 가공타입 : {opt_type} , 작업타입 : {task_type} ", level="INFO")
     logger.log_separator()
 
-    # 총 상품 개수 로그 및 저장
-    total_items = sheet.nrows - 2
-    # 행 개수를 직접 로그 출력
-    logger.log(f"처리할 기본상품명 행 갯수: {total_items}", level="DEBUG")
-    # logger.log_list("기본상품명가공 목록", naming_list)
-    logger.log_separator()
+    # 파일 실행타입에 따른 시트데이터 생성
+    if sheets is None: # 단독실행일경우 
+        excel_file_path = make_input_file_path(file_path, base_file_name)
+        output_file_name = make_output_file_path(file_path, base_file_name, "_namingChange_output", FILE_EXTENSION_xlsx)
+        _, file_extension = os.path.splitext(base_file_name)
 
-    # 키워드사전 로드
+    
+        # 모든 시트 읽기(파일확장명에 따라)
+        if file_extension.lower() == ".xlsx":
+            sheets = read_xlsx_all_sheets(excel_file_path)  # .xlsx 파일 처리
+        elif file_extension.lower() == ".xls":
+            sheets = read_xls_all_sheets(excel_file_path)  # .xls 파일 처리
+        else:
+            raise ValueError(f"Unsupported file format: {file_extension}. Only '.xls' and '.xlsx' are supported.")
+        
+        first_sheet_name, first_sheet_data = read_and_clean_first_sheet(sheets)
+
+    else: # 시트가 제공된 경우, 첫 번째 시트 및 정제처리가 필요없음 : 자동화실행일 경우  
+        first_sheet_data = sheets
+
+
+
+
+    # ▶️ '상품명*' 앞에 새로운 열 삽입 (가공상품명의 결과를 추가하기 위해)
+    modified_sheet = insert_excel_column(
+        first_sheet_data=first_sheet_data,  # 첫 번째 시트 사용
+        existing_column_name="상품명*",
+        new_column_name="가공결과",
+        position="before",
+        offset=1
+    )
+
+    # 판매자코드와 기본상품명이 쌍으로 들어간 튜플 리스트 
+    nameCode_list = get_column_values_for_selerCode(modified_sheet, "상품명*", "판매자 관리코드")
+
+    # 상품명 키워드사전 로드
     dictionary = load_dictionary()
 
-    # 사전 내용을 로그에 출력
-    # logger.log_dict("키워드 사전 데이터", dictionary)
-    # logger.log_separator()
+    # 기존 사전과 비교하여 새롭게 추가된 리스트와 기존리스트를 필터링 : 딕셔너리형태의 리스트 
+    filterd_list = check_naming_in_item_list(dictionary, nameCode_list)
 
-    task_type = "상품명가공"
-    # gpt 비용, 시간 확인, 프로그램실행유무
-    if run_filtering_item_process(naming_list, dictionary, task_type):
+    
 
-        # 초기 사전 상태 저장
-        initial_dictionary_snapshot = {
-            key: set(data.get("기본상품명", []))
-            for key, data in dictionary.items()
-        }
-
-        # 기본상품명 분석, 메인과 보조키워드 추출
-        extract_namingData_list = []
-        initial_existing_count = 0  # 사전에 이미 등록된 기본상품명 수
-        added_to_dictionary_count = 0  # 사전에 새로 추가된 기본상품명 수
-        # 처리되지 못한 기본상품명을 저장할 리스트
-        missing_after_processing = []  # >> 이 리스트에 저장되지 않은 상품명을 추적
-        # 임계치 설정
-        MISSING_THRESHOLD = 50  # 사전에 기록되지 않은 상품명이 이 값을 초과하면 종료
-
-        for index, original_name in enumerate(naming_list, start=1):
-            logger.log(f"▶️ [{index}/{total_items}] '{original_name}' 처리 시작", level="INFO")
-
-            # 진행률 표시
-            print_progress_bar(index, total_items)
-            
-            # 기본상품명으로 사전데이터를 얻음 
-            namingData = extract_keywords(original_name, dictionary)
-
-            if namingData is not None:
-                # 디버깅: 각 gpt_data 출력
-                logger.log_dict(f" - {original_name}- 에 대한 gpt_data", namingData)
-                logger.log_separator()
-                extract_namingData_list.append(namingData)
+    # 시트에서 상품명리스트 가져옴 
+    # naming_list = get_column_values(modified_sheet, "상품명*")
+    # filterd_list = check_naming_in_item_list(dictionary, naming_list)
+    # logger.log("filterd_list :  ", filterd_list, level="INFO")
 
 
-                # 사전에서 기본상품명 여부 확인 (extract_keywords 호출 전 상태 기준)
-                is_existing = any(
-                    original_name in initial_dictionary_snapshot.get(key, set())
-                    for key in initial_dictionary_snapshot
+    # ▶️ gpt 비용, 시간 확인, 프로그램실행유무
+    run_filtering_item_process(filterd_list, process_type="상품명가공")
+
+    # 초기 사전 상태 저장
+    initial_dictionary_snapshot = {
+        key: set(data.get("기본상품명", []))
+        for key, data in dictionary.items()
+    }
+
+    # 기본상품명 분석, 메인과 보조키워드 추출
+    extract_namingData_list = []
+    initial_existing_count = 0  # 사전에 이미 등록된 기본상품명 수
+    added_to_dictionary_count = 0  # 사전에 새로 추가된 기본상품명 수
+
+    # 처리되지 못한 기본상품명을 저장할 리스트
+    missing_after_processing = []  #이 리스트에 저장되지 않은 상품명을 추적
+    # 임계치 설정
+    MISSING_THRESHOLD = 5  # 사전에 기록되지 않은 상품명이 이 값을 초과하면 종료
+
+    total_items = len(naming_list)
+    for index, original_name in enumerate(naming_list, start=1):
+        logger.log(f"▶️ [{index}/{total_items}] '{original_name}' 처리 시작", level="INFO")
+
+        # 진행률 표시
+        # print_progress_bar(index, total_items)
+        
+        # ▶️기본상품명을 통해 GPT데이터 생성 : 기존데이터 재사용 혹은 GPT호출에 의한 새로운데이터
+        gptData = extract_keywords(original_name, dictionary)
+
+        if gptData is not None:
+            # 디버깅: 각 gpt_data 출력
+            logger.log_dict(f" - {original_name}- 에 대한 gpt_data", gptData)
+            logger.log_separator()
+            extract_namingData_list.append(gptData)
+
+
+            # 상품명이 사전 및 GPT필터링 이후 제대로 사전에 기록 되었는지 확인 하고 카운트
+            # 사전에서 기본상품명 존재여부 확인 extract_keywords 실행전
+            is_existing = any(
+                original_name in initial_dictionary_snapshot.get(key, set())
+                for key in initial_dictionary_snapshot
+            )
+
+            # 이미 사전에 등록된 기본상품명이라면
+            if is_existing:
+                initial_existing_count += 1  
+
+            # 사전에 새로 추가된 기본상품명 이라면
+            else:
+                is_added = any(
+                    original_name in set(data.get("기본상품명", []))
+                    for key, data in dictionary.items()
                 )
 
-                if is_existing:
-                    initial_existing_count += 1  # 이미 사전에 등록된 기본상품명
-                else:
-                    # 사전에 새로 추가된 기본상품명 확인 (extract_keywords 호출 후 상태 기준)
-                    is_added = any(
-                        original_name in set(data.get("기본상품명", []))
-                        for key, data in dictionary.items()
-                    )
-
-                    if is_added:
-                        added_to_dictionary_count += 1  # 사전에 새로 추가된 기본상품명
-                    else:
-                        # 처리 후에도 사전에 기록되지 않은 상품명 추적
-                        missing_after_processing.append(original_name)
-
-                        # 임계치 초과 확인
-                        if len(missing_after_processing) >= MISSING_THRESHOLD:
-                            logger.log(
-                                f"❌ 임계치 초과: 사전에 기록되지 않은 상품명 수가 {MISSING_THRESHOLD}개를 초과했습니다. 프로그램을 종료합니다.",
-                                level="CRITICAL"
-                            )
-                            logger.log(f"❌ 기록되지 않은 상품명: {missing_after_processing}", level="ERROR")
-                            raise SystemExit("프로그램이 종료되었습니다. 문제를 확인하세요.")
-
-
-
-            else:
-                logger.log(f"⚠️ {original_name}에 대한 namingData가 없습니다.", level="WARNING")
-
-
-        # extract_namingData_list와 기본상품명 리스트 길이 비교: 최초갯수와 같지않으면 실행종료 
-        if len(naming_list) != len(extract_namingData_list):
-            error_message = (
-                f"❌ 데이터 불일치: 기본상품명 리스트의 길이 ({len(naming_list)}) "
-                f"와 extract_namingData_list의 길이 ({len(extract_namingData_list)})가 다릅니다."
-            )
-            logger.log(error_message, level="ERROR")
-            raise ValueError(error_message)  # 프로그램 종료     
-        
-
-        # 최종 결과 출력
-        print_progress_bar(total_items, total_items)
-        sys.stdout.write("\n")  # 로그 메시지가 진행률 바를 덮지 않도록 처리
-
-        # 최종 통계 출력
-        logger.log(f"✅ 모든 데이터 처리 완료! 처리된 데이터 수: {len(extract_namingData_list)} / {len(naming_list)}", level="INFO")
-        logger.log(f"✅ 사전에 이미 존재했던 기본상품명 수: {initial_existing_count}", level="INFO")
-        logger.log(f"✅ 사전에 새로 추가된 기본상품명 수: {added_to_dictionary_count}", level="INFO")
-        # logger.log(f"✅ 최종 사전 내 총 기본상품명 수: {sum(len(data.get('기본상품명', [])) for data in dictionary.values())}", level="INFO")
-
-        #만약 사전에 기록되지 않은경우 ->  처리되지 못한 기본상품명 출력
-        if missing_after_processing:
-            logger.log(
-                f"❌ 처리 후에도 사전에 기록되지 않은 상품명 수: {len(missing_after_processing)}",
-                level="ERROR"
-            )
-            logger.log(f"❌ 기록되지 않은 상품명 리스트: {missing_after_processing}", level="ERROR")
-
-
+                if is_added:
+                    added_to_dictionary_count += 1  # 사전에 새로 추가된 기본상품명
+                else: # extract_keywords처리 후에도 사전에 기록되지 않은 상품명 추적
     
-    else:
-        print("프로그램을 중단했습니다.")
-        sys.exit()  # 프로그램 종료
+                    missing_after_processing.append(original_name)
+
+                    # 임계치 초과 확인 : 사전에 추가되지 않은 상품명의 갯수를 확인 
+                    if len(missing_after_processing) >= MISSING_THRESHOLD:
+                        logger.log(
+                            f"❌ 임계치 초과: 사전에 기록되지 않은 상품명 수가 {MISSING_THRESHOLD}개를 초과했습니다. 프로그램을 종료합니다.",
+                            level="CRITICAL"
+                        )
+                        logger.log(f"❌ 기록되지 않은 상품명: {missing_after_processing}", level="ERROR")
+                        raise SystemExit("프로그램이 종료되었습니다. 문제를 확인하세요.")
+
+        else:
+            logger.log(f"⚠️ {original_name}에 대한 namingData가 없습니다.", level="WARNING")
+
+
+    # 기존 상품명 리스트와 만들어진 GPT데이터의 길이를 비요: 최초갯수와 같지않으면 실행종료 
+    if len(naming_list) != len(extract_namingData_list):
+        error_message = (
+            f"❌ 데이터 불일치: 기본상품명 리스트의 길이 ({len(naming_list)}) "
+            f"와 extract_namingData_list의 길이 ({len(extract_namingData_list)})가 다릅니다."
+        )
+        logger.log(error_message, level="ERROR")
+        raise ValueError(error_message)  # 프로그램 종료     
     
-    
+
+    # 최종 결과 프로그레스바 출력
+    # print_progress_bar(total_items, total_items)
+    # sys.stdout.write("\n")  # 로그 메시지가 진행률 바를 덮지 않도록 처리
+
+    # 최종 통계 출력
+    logger.log(f"✅ 모든 데이터 처리 완료! 기존데이터 / 처리된 데이터 수: {len(extract_namingData_list)} / {len(naming_list)}", level="INFO")
+    logger.log(f"✅ 사전에 이미 존재했던 기본상품명 수: {initial_existing_count}", level="INFO")
+    logger.log(f"✅ 사전에 새로 추가된 기본상품명 수: {added_to_dictionary_count}", level="INFO")
+    # logger.log(f"✅ 최종 사전 내 총 기본상품명 수: {sum(len(data.get('기본상품명', [])) for data in dictionary.values())}", level="INFO")
+
+    #만약 사전에 기록되지 않은경우 ->  처리되지 못한 기본상품명 출력
+    if missing_after_processing:
+        logger.log(
+            f"❌ 처리 후에도 사전에 기록되지 않은 상품명 수: {len(missing_after_processing)}",
+            level="ERROR"
+        )
+        logger.log(f"❌ 기록되지 않은 상품명 리스트: {missing_after_processing}", level="ERROR")
+
 
     # logger.log_list('GPT의 결과에 데이터', extract_namingData_list)
     print('\n')
     logger.log_separator()
-    logger.log('GPT의 결과에 따른 조합시작')
+    logger.log("▶️ GPT의 결과에 따른 가공 상품명 조합시작 ▶️")
     logger.log_separator()
 
 
     gpt_optimized_name_list = []  # 최종 결과를 담을 리스트
     basic_product_names = []  # 기본상품명 리스트
 
-    for namingData in extract_namingData_list:
+    for gptData in extract_namingData_list:
 
         try:
             # 현재 namingData에는 딕셔너리 값이 하나만 있으므로 메인키워드 데이터에 바로 접근
-            main_keyword = list(namingData.keys())[0]  # 첫 번째 키 가져오기
-            product_data = namingData[main_keyword]
+            main_keyword = list(gptData.keys())[0]  # 첫 번째 키 가져오기
+            product_data = gptData[main_keyword]
 
             # 기본상품명 가져오기
             basic_product_name = product_data["기본상품명"]
-            logger.log(f"검색타입 : {opt_tpye} , 처리 중인 메인 키워드: {main_keyword}, 상품명: {basic_product_name}")
+            logger.log(f"검색타입 : {opt_type} , 처리 중인 메인 키워드: {main_keyword}, 상품명: {basic_product_name}")
 
             # 기본상품명 리스트에 저장
             basic_product_names.append(basic_product_name)
 
-            # 최적화된 상품명 생성
+            # ▶️ 최적화된 상품명 생성
             optimized_name = gpt_result_generate_name(basic_product_name, dictionary) 
             gpt_optimized_name_list.append(optimized_name)
         
         except Exception as e:  # 모든 예외 처리
-            logger.log(f"⚠️ 예외 발생: {e}. namingData: {namingData}", level="ERROR")
+            logger.log(f"⚠️ 예외 발생: {e}. namingData: {gptData}", level="ERROR")
             basic_product_names.append('#오류#')
             continue
 
+
+
+
+    # ▶️ 시트에 가공상품명 적용 
+    if len(modified_sheet) != len(gpt_optimized_name_list):
+        raise ValueError(
+            f"Sheet row count ({len(modified_sheet)}) does not match optimized_name_list length ({len(gpt_optimized_name_list)})."
+        )
+
+    modified_sheet = modified_sheet.copy()
+    modified_sheet["가공결과"] = gpt_optimized_name_list
+
+    # ▶️ "판매자관리코드" 열 문자열 앞에 opt_type 추가
+    modified_sheet["판매자 관리코드"] = modified_sheet["판매자 관리코드"].apply(lambda x: f"{opt_type+"-"}{x}" if pd.notnull(x) else x)
+
+    # ▶️ 작업 유형이 "single"인 경우 열 이름 변경 및 기존 열 삭제
+    if task_type == "auto":
+        modified_sheet = modified_sheet.drop(columns=["상품명*"], errors="ignore")
+        modified_sheet = modified_sheet.rename(columns={"가공결과": "상품명*"})
+    
+    save_excel_with_sheets(sheets, output_file_name, modified_sheet, first_sheet_name)
+    exit(1)
 
 
     
@@ -279,11 +352,11 @@ def process_namingChange_excel_file(file_path, file_name, flag):
     logger.log_separator()
     # 엑셀에 가공상품명에 가공된 상품명을 입력
     for new_idx, name in enumerate(gpt_optimized_name_list):
-        logger.log(f"💾{opt_tpye}상품명: {name} (글자 수: {len(name)})", level="INFO")
+        logger.log(f"💾{opt_type}상품명: {name} (글자 수: {len(name)})", level="INFO")
         writable_sheet.write(new_idx + 2, name_column_index_int, name)  # 각 데이터를 엑셀의 해당 열에 기록
 
     # 가공타입을 판매자관리코드에 접두사로 추가 
-    update_seller_codes(sheet, writable_sheet, number_column_index_int, opt_tpye)
+    update_seller_codes(sheet, writable_sheet, number_column_index_int, opt_type)
 
     # 가공된 상품명 열을 노란색으로 칠함 
     apply_row_color_by_condition(
@@ -293,6 +366,8 @@ def process_namingChange_excel_file(file_path, file_name, flag):
         color_name="yellow"
     )
 
-    # 결과 파일 저장 (output 파일(순환파일) 생성)
-    output_file_path = os.path.join(file_path, f"{file_name}_output.xls")
-    save_excel_file(writable_book, output_file_path)
+
+
+
+
+    

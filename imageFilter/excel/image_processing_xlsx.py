@@ -110,6 +110,7 @@ def image_filtering_process(report_path, filtered_result, sheet, seller_code_col
     """
 
     process_type = "이미지필터링"
+
     run_filtering_item_process(filtered_result, process_type, task_type)
 
 

@@ -1,12 +1,13 @@
 import os
 from datetime import datetime
 
-def initialize_report_file(directory, file_name, extension=".txt"):
+def initialize_report_file(base_directory, file_name, extension=".txt"):
     """
-    리포트 파일을 초기화합니다. 지정된 경로에 파일이 없으면 생성하고, 있으면 덮어씁니다.
+    리포트 파일을 초기화합니다. 지정된 기본 경로에 오늘 날짜에 해당하는 폴더를 생성하고,
+    그 안에 파일을 생성합니다. 폴더가 이미 존재하면 해당 폴더 안에 파일을 추가로 생성합니다.
 
     Parameters:
-        directory (str): 리포트 파일을 저장할 디렉터리 경로.
+        base_directory (str): 리포트 파일을 저장할 기본 디렉터리 경로.
         file_name (str): 리포트 파일 이름(확장자 제외).
         extension (str): 리포트 파일 확장자 (기본값: ".txt").
 
@@ -14,18 +15,22 @@ def initialize_report_file(directory, file_name, extension=".txt"):
         str: 생성된 리포트 파일의 전체 경로.
     """
     try:
-        # 디렉터리가 존재하지 않으면 생성
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+        # 오늘 날짜에 해당하는 폴더 이름 생성
+        today_date = datetime.now().strftime("%Y-%m-%d")
+        date_directory = os.path.join(base_directory, today_date+"_순환파일리포트")
+
+        # 날짜별 디렉터리가 존재하지 않으면 생성
+        if not os.path.exists(date_directory):
+            os.makedirs(date_directory)
 
         # 리포트 파일 전체 경로 생성
-        report_path = os.path.join(directory, f"{file_name}{extension}")
+        report_path = os.path.join(date_directory, f"{file_name}{extension}")
 
         # 리포트 파일 초기화
         with open(report_path, "w", encoding="utf-8") as report_file:
             report_file.write("=== 작업 리포트 ===\n")
             report_file.write(f"파일 생성 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            report_file.write("=" * 60 + "\n")
+            report_file.write("=" * 40 + "\n")
 
         return report_path
 

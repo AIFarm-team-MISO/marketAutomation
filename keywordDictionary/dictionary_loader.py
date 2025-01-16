@@ -10,6 +10,35 @@ from utils.log_utils import Logger
 # Logger 초기화
 logger = Logger(log_file="logs/debug.log", enable_console=True)
 
+def check_naming_in_item_list(dictionary, naming_list):
+    """
+    JSON 데이터를 로드하여 naming_list의 문자열이 "기본상품명" 리스트에 존재하는지 확인.
+
+    Args:
+        dictionary (dict): JSON 데이터로 로드된 딕셔너리.
+        naming_list (list): 확인할 문자열의 리스트.
+
+    Returns:
+        list: ("새로운문자열", naming_str) 또는 ("기존문자열", naming_str) 형식의 튜플 리스트.
+    """
+    results = []
+
+    for naming_str in naming_list:  # naming_list의 순서를 유지
+        found = False
+        for key, data in dictionary.items():
+            # "기본상품명" 키가 있는지 확인
+            if "기본상품명" in data and isinstance(data["기본상품명"], list):
+                base_names = data["기본상품명"]
+                # naming_str이 "기본상품명" 리스트에 존재하는지 확인
+                if any(naming_str in base_name for base_name in base_names):
+                    results.append(("기존문자열", naming_str))
+                    found = True
+                    break  # 매칭되면 다음 naming_str로 이동
+        if not found:
+            results.append(("새로운문자열", naming_str))
+
+    return results
+
 def load_dictionary(file_path="keywordDictionary/dictionary.json") -> Dict[str, dict]:
     """
     JSON 파일에서 키워드 사전을 로드하는 함수.

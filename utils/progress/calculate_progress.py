@@ -233,7 +233,7 @@ def calculate_estimates(item_list, process_type):
 
     task_type == 상품명가공
         기본상품명 리스트를 사전에서 조회하여 존재 여부를 확인하고
-        예상 GPT 호출 비용과 시간을 계산.
+        예상 GPT 호출 비용과 시간을 계산. 
 
     """
     filtered_count = 0  # 사전에 이미 있는 기본상품명 개수
@@ -249,12 +249,14 @@ def calculate_estimates(item_list, process_type):
         estimated_time_per_call = 2  # GPT 호출당 소요 시간 (초)
 
         # 상품명 가공 작업
-        assert isinstance(item_list, dict), "item_list must be a dictionary for 상품명가공"
-        for key, data in item_list.items():
-            if isinstance(data.get("기본상품명"), list):
-                for item in data["기본상품명"]:
-                    filtered_count += 1
-        logger.log(f"상품명 가공 완료: filtered_count={filtered_count}")
+        assert isinstance(item_list, list), "item_list must be a list for 이미지필터링"
+        for status, image_url in item_list:
+            if status == "새로운문자열":
+                unfiltered_count += 1
+            else:
+                filtered_count += 1
+
+        logger.log(f"기존 상품명 갯수: {filtered_count}")
 
     elif process_type == "이미지필터링":
         # 작업 유형에 따른 기본 설정
@@ -289,17 +291,19 @@ def run_filtering_item_process(filtered_item_list, process_type, task_type="sing
         작업 유형에 따라 시간과 비용 계산.
 
         Parameters:
-            item_list (list): 작업 대상 리스트.
             filtered_result (list): 필터링된 결과 (상태, URL).
-            task_type (str): 작업 유형 ("이미지필터링" 등).
+            process_type (str): 작업 유형 ("이미지필터링" or "상품명가공")
 
         Returns:
             None
     """
     logger.log_separator()
-    logger.log("=== 시간 및 비용 계산 ===", level="INFO")
+    logger.log(f"=== {process_type} 시간 및 비용 계산 ===", level="INFO")
 
     total_items = len(filtered_item_list)
+
+    # logger.log(f"=== filtered_item_list : {filtered_item_list}  ===", level="INFO")
+
 
     # 사전 조회 및 비용/시간 산출
     filtered_count, unfiltered_count, estimated_cost_usd, estimated_cost_krw, estimated_time_min, remaining_seconds = calculate_estimates(filtered_item_list, process_type)

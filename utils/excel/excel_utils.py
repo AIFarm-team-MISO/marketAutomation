@@ -86,8 +86,16 @@ def read_and_clean_first_sheet(sheets):
         # 첫 번째 시트 가져오기
         first_sheet_name = list(sheets.keys())[0]
         first_sheet_data = sheets[first_sheet_name]
+
+        # 2번째 행(인덱스 1) 삭제
+        if len(first_sheet_data) > 1:  # 데이터가 2행 이상 있는 경우에만 삭제
+            first_sheet_data.drop(index=0, inplace=True)  # 인덱스 1 행 삭제
+            logger.log(f"첫 번째 시트 '{first_sheet_name}'에서 컬럼제외 1번째 행(인덱스 0) 삭제 완료.", level="INFO")
+        else:
+            logger.log(f"첫 번째 시트 '{first_sheet_name}'의 행 수가 2 미만으로, 삭제할 행이 없습니다.", level="WARNING")
+
         
-        # 2행 비어있는 행 제거 (비어있는 행 전체 삭제)
+        # 데이터중 비어있는 행 제거
         cleaned_data = first_sheet_data.dropna(how='all')  # 모든 열이 NaN인 행 제거
         logger.log(f"첫 번째 시트 '{first_sheet_name}'를 읽어오고 비어있는 2번행 제거완료 ", level="INFO")
 

@@ -40,17 +40,20 @@ def save_split_excel_files(report_path, first_sheet_data, sheets, file_path, bas
             max_id = part_df['원본번호*'].max()
 
             logger.log(f"파일명 : {output_file_name}, '원본번호*': {min_id}번 ~ {max_id}번, 총갯수: {part_df.shape[0]}")
-            add_str_log(report_path, f"파일명 : {output_file_name}, '원본번호*': {min_id}번 ~ {max_id}번, 총갯수: {part_df.shape[0]}")
+            if report_path is not None:
+                add_str_log(report_path, f"파일명 : {output_file_name}, '원본번호*': {min_id}번 ~ {max_id}번, 총갯수: {part_df.shape[0]}")
 
     # 필수 검증: 총 행 수 확인
     assert total_rows == split_rows, "총행갯수 무결성 실패!"
     logger.log(f"무결성 체크 : 총행갯수 {total_rows}행 분할 완료.")
-    add_str_log(report_path, f"무결성 체크 : 총행갯수 {total_rows}행 분할 완료.")
+
+    if report_path is not None:
+        add_str_log(report_path, f"무결성 체크 : 총행갯수 {total_rows}행 분할 완료.")
 
 
 
 
-def split_excel_by_rows(report_path, file_path, base_file_name):
+def split_excel_by_rows(file_path, base_file_name, report_path=None):
     """
     엑셀 파일의 행을 지정한 크기로 나누어 각 파일을 생성합니다.
 

@@ -1,7 +1,7 @@
 from utils.global_logger import logger
 
 from config.settings import EXCEL_IMAGE_FILTER_PATH, CATEGORY_CHECK_EXCEL_PATH, NAMING_EXCEL_PATH, CODE_EXCEL_PATH, EXCEL_FILTER_PATH, EXCEL_SPLIT_PATH
-from imageFilter.excel.excel_handler import process_imageFiltering_excel_file #이전 이미지 필터링함수
+# from imageFilter.excel.excel_handler import process_imageFiltering_excel_file #이전 이미지 필터링함수
 from imageFilter.excel.excel_handler_xlsx import process_imageFiltering_excel_file_xlsx
 from rotationAuto.login.zsm_login import login_and_navigate, close_driver
 from rotationAuto.workflow.page_workflow import navigate_to_download_page
@@ -105,13 +105,13 @@ if __name__ == "__main__":
         "상품명 가공": {
             "path": NAMING_EXCEL_PATH,  # 처리할 파일 경로
             "function": process_namingChange_excel_file,  # 실행할 함수
-            "args": [NAMING_EXCEL_PATH, 'GPT조합'],  # 위치 인자
+            "args": ['GPT조합'],  # 위치 인자
             "kwargs": {}  # 키워드 인자
         },
         "도매토피아 가공": {
             "path": CODE_EXCEL_PATH,  # 처리할 파일 경로
             "function": process_add_prefix_to_excel_in_folder_with_sheets,  # 실행할 함수
-            "args": ['B', 'GK_'],  # 위치 인자
+            "args": ['B', 'GT_'],  # 위치 인자
             "kwargs": {}  # 키워드 인자
         },
         "순환 파일 테스트": {
