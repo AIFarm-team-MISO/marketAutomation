@@ -100,9 +100,12 @@ def clean_search_keywords(dataframe, column_name):
             # 중복 제거, 숫자 및 특수문자 제거
             if pd.isna(keywords):
                 return ""
-            unique_keywords = list(dict.fromkeys(re.sub(r'[^가-힣a-zA-Z,]', '', keywords).split(',')))
-            # 문자열 길이 조정
-            return ','.join(unique_keywords)[:29]
+            # 숫자/특수문자 제거 및 쉼표로 나누기
+            cleaned_keywords = re.sub(r'[^가-힣a-zA-Z,]', '', keywords).split(',')
+            # 중복 제거 및 키워드 길이 제한 적용 (10자 이상인 키워드 제외)
+            filtered_keywords = [kw for kw in dict.fromkeys(cleaned_keywords) if len(kw) <= 15]
+            return ','.join(filtered_keywords)
+
 
         # 초기 상태 복사
         original_keywords = dataframe[column_name].copy()
