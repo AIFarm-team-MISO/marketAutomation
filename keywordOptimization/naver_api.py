@@ -23,10 +23,7 @@ from keywordOptimization.keyword_combination import analyze_patterns,analyze_rel
 
 from keywordOptimization.product_info import ProductInfo,ProcessedProductInfo
 
-from utils.log_utils import Logger
-
-# logs 디렉터리에 로그 파일이 생성됩니다.
-logger = Logger(log_file="logs/debug.log", enable_console=True)
+from utils.global_logger import logger
 
 class Signature:
     @staticmethod

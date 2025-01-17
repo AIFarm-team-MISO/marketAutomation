@@ -7,7 +7,6 @@ from imageFilter.ocr_google.myImageFiltering import is_text_in_image
 
 from imageFilter.imageFilterDictionary.dictionary_handler import load_dictionary, save_image_filter_dictionary
 from utils.progress.calculate_progress import calculate_estimates, run_filtering_item_process, print_progress_bar, initialize_summary, log_for_process_bar,finish_progressbar_summary,finalize_progress_bar
-from utils.report.report_handler import initialize_report_file, add_str_log, update_process_report, add_separator_line
 
 
 '''
@@ -24,7 +23,7 @@ from utils.report.report_handler import initialize_report_file, add_str_log, upd
 
 '''
 
-def process_image_urls_xlsx(report_path, sheet, image_column_name, seller_code_column_name, task_type="single"):
+def process_image_urls_xlsx(sheet, image_column_name, seller_code_column_name, task_type="single"):
     """
     이미지 URL을 처리하여 문자 여부에 따라 필터링된 URL과 관련 데이터를 분류하는 함수.
 
@@ -39,15 +38,13 @@ def process_image_urls_xlsx(report_path, sheet, image_column_name, seller_code_c
     """
     logger.log_separator()
     logger.log("🖼️   이미지 URL 처리 시작 🖼️", level="INFO")
-    logger.log(f"task_type : {task_type}", level="INFO")
-    add_str_log(report_path, f"task_type : {task_type}")
+    logger.log(f"이미지필터링 작업타입: {task_type}", level="INFO", also_to_report=True, separator="none")
 
     try:
         # URL 리스트 생성
         url_list = extract_urls_from_column(sheet, image_column_name, task_type)
 
-        logger.log("이미지 갯수 :  ", len(url_list), level="INFO")
-        add_str_log(report_path, f"총 이미지 갯수 : {len(url_list)}") #리포트작성
+        logger.log(f"이미지 갯수 : {len(url_list)} ", level="INFO", also_to_report=True, separator="none")
         # logger.log_list("이미지 URL ", url_list, level="INFO")
 
         filtered_result = load_dictionary(url_list)
@@ -57,7 +54,7 @@ def process_image_urls_xlsx(report_path, sheet, image_column_name, seller_code_c
         count_text_present = 0  # "문자있음" 개수
         count_text_absent = 0   # "문자없음" 개수
         count_new_image = 0     # "새로운이미지" 개수
-        logger.log("📌 URL 사전대조 결과", level="INFO")
+        logger.log("📌 URL 사전대조 결과", level="INFO", also_to_report=True, separator="dash-1line")
         
         for status, image_url in filtered_result:
             # logger.log(f"상태: {status}, URL: {image_url}")
@@ -74,18 +71,11 @@ def process_image_urls_xlsx(report_path, sheet, image_column_name, seller_code_c
                 logger.log(f"⚠️ 예상치 못한 상태: {status}", level="WARNING")
 
         # 상태별 개수 로그 출력
-        logger.log(f"총 '문자있음' 개수: {count_text_present}", level="INFO")
-        logger.log(f"총 '문자없음' 개수: {count_text_absent}", level="INFO")
-        logger.log(f"총 '새로운이미지' 개수: {count_new_image}", level="INFO")
-        
-        #리포트작성
-        add_str_log(report_path, "📌 URL 사전대조 결과") #리포트작성
-        add_str_log(report_path, f"총 '문자있음' 개수: {count_text_present}") #리포트작성
-        add_str_log(report_path, f"총 '문자없음' 개수: {count_text_absent}") #리포트작성
-        add_str_log(report_path, f"총 '새로운이미지' 개수: {count_new_image}") #리포트작성
-        add_str_log(report_path, "-" * 60)
+        logger.log(f"총 '문자있음' 개수: {count_text_present}", level="INFO", also_to_report=True, separator="none")
+        logger.log(f"총 '문자없음' 개수: {count_text_absent}", level="INFO", also_to_report=True, separator="none")
+        logger.log(f"총 '새로운이미지' 개수: {count_new_image}", level="INFO", also_to_report=True, separator="none")
 
-        sheet = image_filtering_process(report_path, filtered_result, sheet, seller_code_column_name, image_column_name, task_type)
+        sheet = image_filtering_process(filtered_result, sheet, seller_code_column_name, image_column_name, task_type)
 
         
         return sheet
@@ -96,7 +86,7 @@ def process_image_urls_xlsx(report_path, sheet, image_column_name, seller_code_c
         raise
 
 
-def image_filtering_process(report_path, filtered_result, sheet, seller_code_column_name, image_column_name, task_type="single"):
+def image_filtering_process(filtered_result, sheet, seller_code_column_name, image_column_name, task_type="single"):
     """
     이미지 필터링 프로세스 실행.
 
@@ -120,21 +110,6 @@ def image_filtering_process(report_path, filtered_result, sheet, seller_code_col
     try:
         # URL 필터링 결과 분류
         data, filtered_urls, no_text_urls, stats = filter_and_classify_urls(filtered_result, sheet, seller_code_column_name)
-
-        logger.log(f"총 필터링된 이미지 수: {len(data)}", level="INFO")
-        #logger.log(f"총 필터링된 이미지 수: {data}", level="INFO")
-        logger.log(f"문자 있음 URL 수: {len(filtered_urls)}", level="INFO")
-        logger.log(f"문자 없음 URL 수: {len(no_text_urls)}", level="INFO")
-
-        add_str_log(report_path, f"- 필터링 결과 -") #리포트작성
-        add_str_log(report_path, f"총 필터링된 이미지 수: {len(data)}") #리포트작성
-        add_str_log(report_path, f"문자 있음 URL 수: {len(filtered_urls)}") #리포트작성
-        add_str_log(report_path, f"문자 없음 URL 수: {len(no_text_urls)}") #리포트작성
-        add_str_log(report_path, f"새롭게 추가된 URL 갯수: {stats['total_new_urls']}개") #리포트작성
-        add_str_log(report_path, f"새롭게 추가된 URL 중 문자있음 갯수: {stats['new_url_with_text']}개") #리포트작성
-        add_str_log(report_path, f"새롭게 추가된 URL 중 문자없음 갯수: {stats['new_url_without_text']}개") #리포트작성
-        add_str_log(report_path, "-" * 60)
-
 
         # 필터링 결과 저장
         save_image_filter_dictionary(filtered_urls, no_text_urls)
@@ -341,11 +316,11 @@ def filter_and_classify_urls(filtered_result, sheet, seller_code_column_name):
 
     
 
-    logger.log("📌 URL 필터링 결과", level="INFO")
+    logger.log("📌 URL 필터링 결과", level="INFO", also_to_report=True, separator="dash-1line")
     # 디버깅: 필터링된 URL 통계 출력
-    logger.log(f"\n[디버그] 필터링 최종 목록 갯수: {len(filtered_urls)} + {len(no_text_urls)}개")
-    logger.log(f"\n[디버그] 최종 문자 있음 URL 목록 갯수: {len(filtered_urls)}개")
-    logger.log(f"[디버그] 최종 문자 없음 URL 목록 갯수: {len(no_text_urls)}개")
+    logger.log(f"필터링 최종 목록 갯수: {len(filtered_urls)} + {len(no_text_urls)}개", also_to_report=True, separator="none")
+    logger.log(f"최종 문자 있음 URL 목록 갯수: {len(filtered_urls)}개", also_to_report=True, separator="none")
+    logger.log(f"최종 문자 없음 URL 목록 갯수: {len(no_text_urls)}개", also_to_report=True, separator="none")
     
     # print("\n[디버그] 문자 있음 필터링된 URL 목록:")
     # for entry in filtered_urls:
@@ -356,9 +331,9 @@ def filter_and_classify_urls(filtered_result, sheet, seller_code_column_name):
     #     print(entry)
 
     # stats를 활용하여 새롭게 추가된 URL 통계 출력
-    logger.log(f"\n[디버그] 새롭게 추가된 URL 갯수: {stats['total_new_urls']}개")
-    logger.log(f"[디버그] 새롭게 추가된 URL 중 문자있음 갯수: {stats['new_url_with_text']}개")
-    logger.log(f"[디버그] 새롭게 추가된 URL 중 문자없음 갯수: {stats['new_url_without_text']}개")
+    logger.log(f"새롭게 추가된 URL 갯수: {stats['total_new_urls']}개", also_to_report=True, separator="dash-1line")
+    logger.log(f"새롭게 추가된 URL 중 문자있음 갯수: {stats['new_url_with_text']}개", also_to_report=True, separator="none")
+    logger.log(f"새롭게 추가된 URL 중 문자없음 갯수: {stats['new_url_without_text']}개", also_to_report=True, separator="none")
 
 
 

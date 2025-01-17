@@ -1,5 +1,6 @@
 from utils.global_logger import logger
 
+
 import pandas as pd
 import os
 from utils.excel.excel_utils import make_input_file_path, make_output_file_path
@@ -8,7 +9,6 @@ from utils.excel.excel_utils import make_input_file_path, make_output_file_path,
 from utils.json.json_util import load_config
 from imageFilter.excel.excel_handler_xlsx import process_imageFiltering_excel_file_xlsx
 from utils.excel.excel_split import split_excel_by_rows
-from utils.report.report_handler import initialize_report_file, add_str_log
 from rotationFile.rotation_task_manager import generate_tasks_from_config, process_first_sheet
 
 # 현재 파일 위치 기준으로 JSON 파일 경로 설정
@@ -89,6 +89,9 @@ def make_rotation_excel(file_path, base_file_name):
 
     #     handle_selection(user_input, file_path)
 
+    # 리포트 파일명 생성
+    logger.prepend_report_file_name(base_file_name)
+
     try:
 
         # 읽을 파일경로 출력 파일 이름 설정
@@ -101,15 +104,9 @@ def make_rotation_excel(file_path, base_file_name):
         # 첫 번째 시트를 읽고 비어 있는 행 제거
         first_sheet_name, first_sheet_data = read_and_clean_first_sheet(sheets)
 
-        logger.log_separator()
         # 대상시트에서 '폴더명' 이름 가져오기
         folder_name, split_folder_name = get_folder_name(first_sheet_data, column_name="폴더명")
 
-        # 리포트 생성
-        report_path = initialize_report_file(current_dir, base_file_name+"rotation_report", ".txt")
-        logger.log(f"{base_file_name} 의 리포트 파일 생성완료")
-
-        logger.log_separator()
 
         # 순환파일 JSON 설정파일 로드 
         config = load_config(config_path)
@@ -119,13 +116,13 @@ def make_rotation_excel(file_path, base_file_name):
             raise ValueError(f"JSON에 마켓 이름 '{split_folder_name}'이(가) 없습니다.")
 
         # 설정 파일에 따라 작업 생성
-        tasks = generate_tasks_from_config(market_config, details_config, report_path)
+        tasks = generate_tasks_from_config(market_config, details_config)
 
         try:
             # todo :  각폴더명에 따른 내용을 json 파일에 기록하자
             #          공통된 부분은 모두 bool 타입으로 기록하고 이미지필터링 파일나눔도 json에 기록해 받아와 체크한뒤 실행하도록 변경하자 
             # 컨트롤 타워 실행
-            modify_df = process_first_sheet(tasks, first_sheet_data, report_path)
+            modify_df = process_first_sheet(tasks, first_sheet_data)
 
         except ValueError as e:
             logger.log(f"태스크 작업중 에러발생 : {e}", level="ERROR")
@@ -133,29 +130,26 @@ def make_rotation_excel(file_path, base_file_name):
         
         # market_config(json)에서 이미지 필터링 여부 확인
         image_filtering = market_config.get("image_filtering", False)
-        add_str_log(report_path, "이미지필터링유무 : " + str(image_filtering))
+        logger.log(f"{split_folder_name} 이미지필터링유무: " + str(image_filtering), also_to_report=True, separator="1line")
 
         # 이미지필터링 
         if image_filtering: #이미지 필터링이 true 라면
-            image_filtered_df = process_imageFiltering_excel_file_xlsx(file_path, base_file_name, report_path, task_type="auto", sheets=modify_df)
+            image_filtered_df = process_imageFiltering_excel_file_xlsx(file_path, base_file_name, task_type="auto", sheets=modify_df)
         
         else:
             image_filtered_df = modify_df
-            logger.log(f"{folder_name}은 이미지필터링 제외.", level="INFO")
-            add_str_log(report_path, f"{folder_name}은 이미지필터링 제외")
+            logger.log(f"{split_folder_name}은 이미지필터링 제외.", level="INFO", also_to_report=True, separator="none")
             
 
         # modify_df의 행 개수를 확인하여 분할 저장 여부 결정
         if modify_df.shape[0] > 5000:
-            logger.log(f"{folder_name} 의 행갯수가 5000개를 넘어 {modify_df.shape[0]}행 이므로 행분할 실시.", level="INFO")
-            add_str_log(report_path, f"{folder_name} 의 행갯수가 5000개를 넘어 {modify_df.shape[0]}행 이므로 행분할 실시.")
+            logger.log(f"{folder_name} 의 행갯수가 5000개를 넘어 {modify_df.shape[0]}행 이므로 행분할 실시.", level="INFO", also_to_report=True, separator="2line")
 
-
-            split_excel_by_rows(file_path, base_file_name, report_path)
+            split_excel_by_rows(file_path, base_file_name)
         else:
             # 모든 시트 저장
             save_excel_with_sheets(sheets, output_file_name, image_filtered_df, first_sheet_name)
-            add_str_log(report_path, "엑셀저장완료")
+            
 
 
     except Exception as e:

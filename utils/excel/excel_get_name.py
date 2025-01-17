@@ -25,10 +25,10 @@ def process_all_excel_files(folder_path):
 
             # 파일 닫기 및 삭제 시도
             if not safely_delete_file(output_file_path):
-                logger.log(f"파일 삭제 실패: {output_file_path}", level="ERROR")
+                logger.log(f"파일 삭제 실패: {output_file_path}", level="ERROR", also_to_report=True)
                 continue
             else:
-                # logger.log(f"_output 파일 삭제 완료: {output_file_path}", level="INFO")
+                # logger.log(f"_output 파일 삭제 완료: {output_file_path}", level="INFO", also_to_report=True)
                 continue  # 삭제된 파일은 처리 제외
 
         # 다른 파일 처리 (조건: .xlsx 확장자)
@@ -55,17 +55,17 @@ def safely_delete_file(file_path):
         os.remove(file_path)
 
         base_name = os.path.basename(file_path) #경로 제거후 파일명만 출력하기 위해 
-        logger.log(f"_output 파일 삭제 완료: {base_name}", level="INFO")
+        logger.log(f"_output 파일 삭제 완료: {base_name}", level="INFO", also_to_report=True)
         return True
     except PermissionError:
-        print(f"파일이 열려 있어 삭제 실패: {file_path}")
+        logger.log(f"파일이 열려 있어 삭제 실패: {file_path}", also_to_report=True)
         close_open_excel_files(file_path)
         try:
             os.remove(file_path)
-            print(f"파일 삭제 재시도 성공: {file_path}")
+            logger.log(f"파일 삭제 재시도 성공: {file_path}")
             return True
         except Exception as e:
-            print(f"파일 삭제 중 오류 발생: {e}")
+            logger.log(f"파일 삭제 중 오류 발생: {e}")
             return False
         
 
@@ -85,9 +85,9 @@ def close_open_excel_files(file_name):
         for wb in workbooks:
             if file_name in wb.FullName:
                 wb.Close(SaveChanges=False)
-                print(f"엑셀 파일 닫음: {wb.FullName}")
+                logger.log(f"엑셀 파일 닫음: {wb.FullName}")
     except Exception as e:
-        print(f"엑셀 닫기 중 오류 발생: {e}")
+        logger.log(f"엑셀 닫기 중 오류 발생: {e}")
     finally:
         xl.Quit()
         pythoncom.CoUninitialize()

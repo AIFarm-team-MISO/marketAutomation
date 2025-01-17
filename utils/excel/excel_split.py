@@ -5,9 +5,8 @@ import os
 from utils.excel.excel_utils import make_input_file_path, make_output_file_path, read_xls_all_sheets, read_and_clean_first_sheet
 from utils.excel.excel_utils import save_excel_with_sheets
 from config.settings import FILE_EXTENSION_xlsx
-from utils.report.report_handler import initialize_report_file, add_str_log, update_process_report, add_separator_line
 
-def save_split_excel_files(report_path, first_sheet_data, sheets, file_path, base_file_name, rows_per_file, first_sheet_name):
+def save_split_excel_files(first_sheet_data, sheets, file_path, base_file_name, rows_per_file, first_sheet_name):
     """
     분할된 엑셀 데이터를 저장하고 무결성을 검증하는 함수.
 
@@ -39,21 +38,14 @@ def save_split_excel_files(report_path, first_sheet_data, sheets, file_path, bas
             min_id = part_df['원본번호*'].min()
             max_id = part_df['원본번호*'].max()
 
-            logger.log(f"파일명 : {output_file_name}, '원본번호*': {min_id}번 ~ {max_id}번, 총갯수: {part_df.shape[0]}")
-            if report_path is not None:
-                add_str_log(report_path, f"파일명 : {output_file_name}, '원본번호*': {min_id}번 ~ {max_id}번, 총갯수: {part_df.shape[0]}")
+            logger.log(f"파일명 : {output_file_name}, '원본번호*': {min_id}번 ~ {max_id}번, 총갯수: {part_df.shape[0]}", also_to_report=True, separator="2line")
 
     # 필수 검증: 총 행 수 확인
     assert total_rows == split_rows, "총행갯수 무결성 실패!"
-    logger.log(f"무결성 체크 : 총행갯수 {total_rows}행 분할 완료.")
-
-    if report_path is not None:
-        add_str_log(report_path, f"무결성 체크 : 총행갯수 {total_rows}행 분할 완료.")
+    logger.log(f"무결성 체크 : 총행갯수 {total_rows}행 분할 완료.", also_to_report=True, separator="2line")
 
 
-
-
-def split_excel_by_rows(file_path, base_file_name, report_path=None):
+def split_excel_by_rows(file_path, base_file_name):
     """
     엑셀 파일의 행을 지정한 크기로 나누어 각 파일을 생성합니다.
 
@@ -82,7 +74,7 @@ def split_excel_by_rows(file_path, base_file_name, report_path=None):
         logger.log(f"{base_file_name}를 원본번호* 기준으로 정렬완료! {rows_per_file}행씩 분할합니다.")
 
         # 분할된 파일 저장
-        save_split_excel_files(report_path, first_sheet_data, sheets, file_path, base_file_name, rows_per_file, first_sheet_name)
+        save_split_excel_files(first_sheet_data, sheets, file_path, base_file_name, rows_per_file, first_sheet_name)
         logger.log_separator()
 
 

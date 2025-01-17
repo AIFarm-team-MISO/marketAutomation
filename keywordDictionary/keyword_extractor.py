@@ -13,11 +13,7 @@ sys.path.append("f:/marketAutomation")
 # project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 # sys.path.append(project_root)
 
-# Logger 클래스 가져오기
-from utils.log_utils import Logger
-
-# Logger 초기화
-logger = Logger(log_file="logs/debug.log", enable_console=True)
+from utils.global_logger import logger
 
 import openai
 from keywordDictionary.dictionary_loader import load_dictionary, save_dictionary

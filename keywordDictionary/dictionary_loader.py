@@ -4,11 +4,7 @@ import os
 from typing import Dict
 from keywordOptimization.product_info import KeywordInfo
 
-# Logger 클래스 가져오기
-from utils.log_utils import Logger
-
-# Logger 초기화
-logger = Logger(log_file="logs/debug.log", enable_console=True)
+from utils.global_logger import logger
 
 def check_naming_in_item_list(dictionary, naming_list):
     """

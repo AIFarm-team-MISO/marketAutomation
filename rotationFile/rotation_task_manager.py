@@ -1,11 +1,10 @@
 from utils.global_logger import logger
 
-from utils.report.report_handler import add_str_log, update_process_report, add_separator_line
 from utils.validate.validate_dataframe import validate_data_integrity
 from rotationFile.rotation_excel_edit_util import remove_empty_rows,remove_food_category_rows, remove_duplicate_rows
 from rotationFile.rotation_excel_edit_util import remove_options_rows, clean_search_keywords, update_column_value
 
-def process_first_sheet(tasks, sheet_data, report_path):
+def process_first_sheet(tasks, sheet_data):
     """
     첫 번째 시트의 여러 작업을 순차적으로 실행하며 디버깅
     :tasks: 실행할 작업 리스트 (각 작업은 callable 함수)
@@ -18,21 +17,15 @@ def process_first_sheet(tasks, sheet_data, report_path):
     """
 
     try:
-        logger.log_separator()
-        logger.log(f"첫 번째 시트 작업 시작 ({len(tasks)}개 작업 실행).", level="INFO")
-        logger.log_separator()
-        add_str_log(report_path, "엑셀시트 편집 총작업갯수: " + str(len(tasks)) + "개")
-        add_separator_line(report_path)
-
+        logger.log(f"첫 번째 시트 작업 시작 ({len(tasks)}개 작업 실행).", level="INFO", also_to_report=True, separator="1line")
+        
         # 최초 입력 데이터프레임 복사
         result_sheet_data = sheet_data.copy()
-        # 작업갯수 파악
-        total_processed_count = 0
-
+    
 
         for i, (task_func, task_type, task_description, args) in enumerate(tasks):
 
-            logger.log(f"{i + 1}번 작업 시작: {task_description}", level="INFO")
+            logger.log(f"{i + 1}번 작업 시작: {task_description}", level="INFO", also_to_report=True, separator="dash-1line")
                     
 
             # 작업 실행 전 데이터 복사 (디버깅 및 무결성 검증용)
@@ -62,29 +55,15 @@ def process_first_sheet(tasks, sheet_data, report_path):
                 task_type=task_type                   #처리타입
             )
 
-            # 처리된 총 갯수 누적
-            total_processed_count += processed_count
 
-            update_process_report(report_path, task_type, task_description, len(sheet_data_before), processed_count)
 
             # 중간 상태 저장
             # sheet_data_before.to_excel(f"debug_before_{task_name}.xlsx", index=False)
             # sheet_data.to_excel(f"debug_after_{task_name}.xlsx", index=False)
 
-            logger.log("------------------------------------------")
-
-        # 최종 리포트 작성
-        update_process_report(
-            report_path,
-            "작업결과 합산",
-            "엑셀시트 편집 작업결과",
-            len(result_sheet_data) + total_processed_count,  # 최초 데이터 갯수
-            total_processed_count,
-            success=True
-        )
 
         logger.log(f"result_sheet_data: {result_sheet_data.index}", level="DEBUG")
-        logger.log("모든 작업이 성공적으로 완료되었습니다.", level="INFO")
+        logger.log("자동환 순환파일 작성 작업이 모두 성공적으로 완료되었습니다.", level="INFO", also_to_report=True, separator="dash-1line")
         return result_sheet_data
 
     except Exception as e:
@@ -92,7 +71,7 @@ def process_first_sheet(tasks, sheet_data, report_path):
         raise ValueError(f"{task_description} 작업에서 문제가 발생했습니다: {e}")
 
 
-def generate_tasks_from_config(market_config, details_config, report_path):
+def generate_tasks_from_config(market_config, details_config):
     """
     JSON 설정에서 작업 목록을 생성합니다.
 
@@ -131,11 +110,9 @@ def generate_tasks_from_config(market_config, details_config, report_path):
         #logger.log(f"   - 매개변수: {[param for param in params]}", level="DEBUG")
         
         tasks.append((task_func, task_type, task_description, args))
-        logger.log(f"✅작업추가: {task_description}")
-        logger.log(f"   -함수: {task_func.__name__}, -작업유형: {task_type}, -전달된 값: {args} ", level="DEBUG")
+        logger.log(f"✅작업추가: {task_description}", also_to_report=True, separator="dash-1line")
+        logger.log(f"   -함수: {task_func.__name__}, -작업유형: {task_type}, -전달된 값: {args} ", level="DEBUG",also_to_report=False, separator="1line")
 
-        add_str_log(report_path, "작업추가: " + task_description)
-        
     def add_task_from_config(key, default_column):
         """
         JSON 설정의 특정 키를 처리하여 태스크를 추가.
@@ -158,7 +135,7 @@ def generate_tasks_from_config(market_config, details_config, report_path):
                     description = details_config[key]["description"].replace("{column}", column)
                     add_task(function_mapping[key], task_type, description, column)
                 else:
-                    logger.log(f"⏩ 태스크 건너뜀: json 파일의 {key} 설정이 False로 지정됨", level="INFO")
+                    logger.log(f"⏩ 태스크 건너뜀: json 파일의 {key} 설정이 False로 지정됨", level="INFO", also_to_report=True, separator="dash-1line")
 
             # 설정값이 존재하는 경우
             elif isinstance(value, list):
@@ -211,7 +188,7 @@ def generate_tasks_from_config(market_config, details_config, report_path):
                     description = details_config["update_column_value"]["description"].replace("{column}", column).replace("{value}", str(new_value))
                     add_task(function_mapping["update_column_value"], "modification", description, column, new_value)
             else:
-                logger.log(f"⏩ 태스크 건너뜀: update_column_value 설정이 False로 지정됨", level="INFO")
+                logger.log(f"⏩ 태스크 건너뜀: update_column_value 설정이 False로 지정됨", level="INFO", also_to_report=True, separator="dash-1line")
 
         # 딕셔너리 처리
         elif isinstance(value, dict):

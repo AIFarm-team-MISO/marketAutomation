@@ -1,7 +1,4 @@
-from utils.log_utils import Logger
-
-# logs 디렉터리에 로그 파일이 생성됩니다.
-logger = Logger(log_file="logs/debug.log", enable_console=True)
+from utils.global_logger import logger
 
 
 def filter_related_keywords(keyword_data, min_search_volume=50, max_competition="중간"):

@@ -44,7 +44,7 @@ def execute_process(process_type, process_mapping):
     """
     # 처리 유형이 매핑에 없는 경우 오류 출력
     if process_type not in process_mapping:
-        print(f"알 수 없는 처리 유형: {process_type}")
+        logger.log(f"알 수 없는 처리 유형: {process_type}")
         return
     
 
@@ -58,8 +58,7 @@ def execute_process(process_type, process_mapping):
     # logger.log(f"선택된 처리 유형: {process_type}")
     # logger.log(f"파일 경로: {selected_path}")
 
-    logger.log_separator()
-    logger.log('🖼️  경로내 파일처리 🖼️')
+    logger.log(f"🖼️  처리 유형: {process_type} 🖼️  경로내 파일처리 시작! ", also_to_report=True, separator='1line')
 
 
     # 파일 리스트 가져오기
@@ -68,10 +67,10 @@ def execute_process(process_type, process_mapping):
 
         file_list = process_all_excel_files(selected_path)  # 지정된 경로에서 파일 리스트 가져오기
 
-        logger.log('파일리스트 : ', file_list)
+        logger.log(f'파일리스트 : {file_list}', also_to_report=True)
 
     except Exception as e:
-        logger.log(f"파일 리스트를 가져오는 중 오류 발생: {e}")
+        logger.log(f"파일 리스트를 가져오는 중 오류 발생: {e}", also_to_report=True, separator='2line')
         return
 
     # 각 파일 처리
@@ -80,7 +79,7 @@ def execute_process(process_type, process_mapping):
             # print(f"파일 처리 중: {base_file_name}")  # 현재 처리 중인 파일 출력
             selected_function(file_path, base_file_name, *args, **kwargs)  # 함수 실행 (동적으로 인자 전달)
         except Exception as e:
-            logger.log(f"{file_path} 처리 중 오류 발생: {e}")  # 개별 파일 처리 오류 출력
+            logger.log(f"{file_path} 처리 중 오류 발생: {e}", also_to_report=True)  # 개별 파일 처리 오류 출력
 
 
 
@@ -140,7 +139,7 @@ if __name__ == "__main__":
         }
 
         # Logger를 사용해 선택지 출력
-        logger.log_choices(choices)
+        logger.log_choices(choices, "자동화")
 
 
         # 사용자 입력 받기
@@ -163,7 +162,7 @@ if __name__ == "__main__":
         execute_process(choices[choice], process_mapping)
 
         # 작업 완료 메시지 출력 후 종료
-        logger.log("작업이 완료되었습니다. 프로그램을 종료합니다.", level="INFO")
+        logger.log("작업이 완료되었습니다. 프로그램을 종료합니다.", level="INFO", also_to_report=True, separator='2line')
         break
 
 

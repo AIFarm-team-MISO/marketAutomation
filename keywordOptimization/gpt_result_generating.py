@@ -1,9 +1,6 @@
 from keywordOptimization.keyword_combination import analyze_patterns,analyze_related_patterns, combine_keywords
 
-# Logger 클래스 가져오기
-from utils.log_utils import Logger
-# Logger 초기화
-logger = Logger(log_file="logs/debug.log", enable_console=True)
+from utils.global_logger import logger
 
 
 def find_main_keyword_by_basic_name(dictionary, basic_product_name):

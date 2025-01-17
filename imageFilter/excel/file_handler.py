@@ -2,10 +2,7 @@ import os
 import xlrd
 from xlutils.copy import copy
 
-from utils.log_utils import Logger
-
-# logs 디렉터리에 로그 파일이 생성됩니다.
-logger = Logger(log_file="logs/debug.log", enable_console=True)
+from utils.global_logger import logger
 
 # 엑셀 파일을 읽는 함수
 def read_excel_file(file_path, file_name, file_extension):

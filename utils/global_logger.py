@@ -1,7 +1,10 @@
-from utils.log_utils import Logger
+from utils.log_report.log_utils import Logger
 
 # 전역 Logger 객체
-logger = Logger(log_file="logs/debug.log", enable_console=True)
+# logger = Logger(log_file="logs/debug.log", enable_console=True)
+# logger = Logger(log_file="logs/debug.log", report_dir="reports")
+logger = Logger(log_file="logs_reports/debug.log", report_dir="logs_reports/reports")
+
 
 
 

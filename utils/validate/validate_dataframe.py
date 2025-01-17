@@ -25,7 +25,7 @@ def validate_data_integrity(initial_count, filtered_sort_complete_sheets, proces
     # 무결성 검증
     result_shee_count = len(filtered_sort_complete_sheets)
 
-    logger.log(f"작업 : {task_name} , 타입 :  {task_type} 검증.")
+    logger.log(f"작업 : {task_name} , 타입 :  {task_type} 검증.", also_to_report=True, separator="none")
 
     try:
         if task_type == "deletion":
@@ -34,8 +34,8 @@ def validate_data_integrity(initial_count, filtered_sort_complete_sheets, proces
                     f"{task_name} 작업 중 삭제 무결성 오류 발생: "
                     f"초기 데이터({initial_count}), 삭제된 데이터({processed_count}), 남은 데이터({result_shee_count})"
                 )
-            logger.log(f"최초 데이터 수 : {initial_count}, 삭제된 데이터 수: {processed_count}, 남은 총데이터 수: {len(filtered_sort_complete_sheets)}")
-            logger.log(f"{task_name} 작업, 타입 : {task_type} 무결성 처리완료", level="INFO")
+            logger.log(f"최초 데이터 수 : {initial_count}, 삭제된 데이터 수: {processed_count}, 남은 총데이터 수: {len(filtered_sort_complete_sheets)}", also_to_report=True, separator="none")
+            logger.log(f"무결성 처리완료", level="INFO", also_to_report=True, separator="dnone")
 
         elif task_type == "addition":
             if initial_count + processed_count != result_shee_count:
@@ -43,8 +43,8 @@ def validate_data_integrity(initial_count, filtered_sort_complete_sheets, proces
                     f"{task_name} 작업 중 추가 무결성 오류 발생: "
                     f"초기 데이터({initial_count}), 추가된 데이터({processed_count}), 최종 데이터({result_shee_count})"
                 )
-            logger.log(f"최초 데이터 수 : {initial_count}, 추가된 데이터 수: {processed_count}, 남은 총데이터 수: {len(filtered_sort_complete_sheets)}")
-            logger.log(f"{task_name} 작업, 타입 : {task_type} 무결성 처리완료", level="INFO")
+            logger.log(f"최초 데이터 수 : {initial_count}, 추가된 데이터 수: {processed_count}, 남은 총데이터 수: {len(filtered_sort_complete_sheets)}", also_to_report=True, separator="none")
+            logger.log(f"무결성 처리완료", level="INFO", also_to_report=True, separator="none")
 
         elif task_type == "modification":
             if initial_count != result_shee_count:
@@ -52,9 +52,9 @@ def validate_data_integrity(initial_count, filtered_sort_complete_sheets, proces
                     f"{task_name} 작업 중 변경 무결성 오류 발생: "
                     f"초기 데이터({initial_count}), 최종 데이터({result_shee_count})"
                 )
-            logger.log(f"최초 데이터 수 : {initial_count}, 변경된 데이터 수: {processed_count}, 남은 총데이터 수: {len(filtered_sort_complete_sheets)}")
-            logger.log(f"최초 데이터 수 : {initial_count}, 남은 총데이터 수: {len(filtered_sort_complete_sheets)} 가 동일해야함", level="INFO")
-            logger.log(f"{task_name} 작업, 타입 : {task_type} 무결성 처리완료", level="INFO")
+            logger.log(f"최초 데이터 수 : {initial_count}, 변경된 데이터 수: {processed_count}, 남은 총데이터 수: {len(filtered_sort_complete_sheets)}", also_to_report=True, separator="none")
+            logger.log(f"최초 데이터 수 : {initial_count}, 남은 총데이터 수: {len(filtered_sort_complete_sheets)} 가 동일해야함", level="INFO", also_to_report=True, separator="none")
+            logger.log(f"무결성 처리완료", level="INFO", also_to_report=True, separator="dnone")
 
         else:
             raise ValueError(f"{task_name} 작업에서 알 수 없는 작업 유형: {task_type}")

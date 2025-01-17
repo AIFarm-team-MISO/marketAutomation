@@ -1,10 +1,7 @@
 import re
 import random
 
-from utils.log_utils import Logger
-
-# logs 디렉터리에 로그 파일이 생성됩니다.
-logger = Logger(log_file="logs/debug.log", enable_console=True)
+from utils.global_logger import logger
 
 import random  # 고정 키워드를 랜덤으로 섞기 위해 사용
 

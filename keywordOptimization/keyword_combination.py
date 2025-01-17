@@ -7,10 +7,7 @@ import random
 
 from keywordOptimization.randomize_keyword import randomize_pattern_length
 
-from utils.log_utils import Logger
-
-# logs 디렉터리에 로그 파일이 생성됩니다.
-logger = Logger(log_file="logs/debug.log", enable_console=True)
+from utils.global_logger import logger
 
 def analyze_related_patterns(
     related_keywords_data,

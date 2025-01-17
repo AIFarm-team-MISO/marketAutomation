@@ -9,13 +9,13 @@ from imageFilter.excel.image_processing_xlsx import process_image_urls_xlsx
 from utils.excel.excel_process_utils import insert_excel_column, sort_sheet, colum_highlight_sheet, delete_rows_by_condition, colum_highlight_sheet
 from utils.validate.validate_dataframe import validate_data_integrity
 from utils.excel.excel_utils import read_and_clean_first_sheet
-from utils.report.report_handler import initialize_report_file, add_str_log, update_process_report, add_separator_line
+
 
 # 현재 파일 위치 기준으로 JSON 파일 경로 설정
 current_dir = os.path.dirname(__file__)
 config_path = os.path.join(current_dir, "rotationInfo.json")
 
-def process_imageFiltering_excel_file_xlsx(file_path, base_file_name, report_path, task_type="single", sheets=None):
+def process_imageFiltering_excel_file_xlsx(file_path, base_file_name, task_type="single", sheets=None):
     """
     이미지 필터링 작업을 처리하는 함수 (단독 작업 및 자동화 작업 지원)
     :param file_path: 파일 경로
@@ -25,12 +25,6 @@ def process_imageFiltering_excel_file_xlsx(file_path, base_file_name, report_pat
 
     existing_column_name = "목록 이미지*"
     new_column_name = "필터링결과"
-
-
-    # 리포트 생성
-    if report_path =="":
-        report_path = initialize_report_file(current_dir, base_file_name+"rotation_report", ".txt")
-        logger.log(f"{base_file_name} 의 리포트 파일 생성완료")
 
     # 파일 확장자 확인 
     if sheets is None: # 단독실행일경우 
@@ -71,7 +65,7 @@ def process_imageFiltering_excel_file_xlsx(file_path, base_file_name, report_pat
     seller_code_column_index = "판매자 관리코드"
 
     # 이미지 필터링 
-    filtered_sheets  = process_image_urls_xlsx(report_path, modified_sheet, image_column_name, seller_code_column_index, task_type)
+    filtered_sheets  = process_image_urls_xlsx(modified_sheet, image_column_name, seller_code_column_index, task_type)
     
     # 중복-문자있음 위로 정렬
     filtered_sort_sheets = sort_sheet(filtered_sheets, '필터링결과', "중복-문자있음")
@@ -83,8 +77,7 @@ def process_imageFiltering_excel_file_xlsx(file_path, base_file_name, report_pat
         highlight_output_file_name = make_output_file_path(file_path, base_file_name, "_image_filtered_highlight_output", FILE_EXTENSION_xlsx)
         colum_highlight_sheet(sheets, filtered_sort_sheets, '필터링결과', "중복-문자있음", highlight_output_file_name)
 
-        logger.log(f" 이미지 필터링 : {task_type} 작업이 성공적으로 완료되었습니다.", level="INFO")
-        add_str_log(report_path, f"작업타입 : {task_type} 완료")
+        logger.log(f" 이미지 필터링 : {task_type} 작업이 성공적으로 완료되었습니다.", level="INFO", also_to_report=True, separator="2line")
         
     elif task_type=="auto":
 
@@ -102,11 +95,7 @@ def process_imageFiltering_excel_file_xlsx(file_path, base_file_name, report_pat
         )
 
         # 자동화 작업: 작업 완료 메시지만 출력
-        logger.log(f" 이미지 필터링  : {task_type} 작업이 성공적으로 완료되었습니다.", level="INFO")
-
-        # 리포트 업데이트 
-        add_str_log(report_path, f"작업타입 : {task_type} 완료")
-        update_process_report(report_path, task_type, f"{task_type}, 중복-문자있음 행삭제", len(filtered_sort_sheets), rows_to_delete_count)
+        logger.log(f" 이미지 필터링  : {task_type} 작업이 성공적으로 완료되었습니다.", level="INFO", also_to_report=True, separator="2line")
 
         # 결과 반환
         return filtered_sort_complete_sheets

@@ -64,7 +64,7 @@ def save_excel_with_sheets(sheets, output_file_name, modified_df=None, modified_
 
         file_name = os.path.basename(output_file_name)
 
-        logger.log(f"변경된 파일 저장완료 : {file_name}", level="INFO")
+        logger.log(f"변경된 파일 저장완료 : {file_name}", level="INFO", also_to_report=True, separator="2line")
 
     except Exception as e:
         # 예외 발생 시 에러 로그 출력
