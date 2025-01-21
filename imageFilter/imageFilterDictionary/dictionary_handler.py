@@ -1,3 +1,4 @@
+import os
 from utils.global_logger import logger
 
 from config.settings import IMAGE_FILTER_DICTIONARY_PATH
@@ -66,15 +67,16 @@ def save_image_filter_dictionary(filtered_urls: List[Tuple[str, str, str]], no_t
     temp_file_path = IMAGE_FILTER_DICTIONARY_PATH + ".tmp"
     backup_file_path = IMAGE_FILTER_DICTIONARY_PATH + ".backup"
 
-    # 기존 데이터를 로드
     try:
+        # 기존 데이터를 로드
         with open(IMAGE_FILTER_DICTIONARY_PATH, 'r', encoding='utf-8') as file:
             existing_data = json.load(file)
+        logger.log(f"✅ 기존 데이터 로드 완료: {IMAGE_FILTER_DICTIONARY_PATH}", level="INFO")
     except FileNotFoundError:
-        print(f"[WARNING] 필터링 사전 파일이 없어 새로 생성합니다: {IMAGE_FILTER_DICTIONARY_PATH}")
+        logger.log(f"⚠️ 필터링 사전 파일이 없어 새로 생성합니다: {IMAGE_FILTER_DICTIONARY_PATH}", level="WARNING")
         existing_data = {}
     except json.JSONDecodeError:
-        print(f"[ERROR] 필터링 사전 파일이 손상되었습니다. 백업을 사용하거나 새로 생성합니다: {IMAGE_FILTER_DICTIONARY_PATH}")
+        logger.log(f"❌ 필터링 사전 파일이 손상되었습니다. 새로 생성합니다: {IMAGE_FILTER_DICTIONARY_PATH}", level="ERROR")
         existing_data = {}
 
     # 새 데이터를 추가
@@ -98,25 +100,48 @@ def save_image_filter_dictionary(filtered_urls: List[Tuple[str, str, str]], no_t
     existing_data.update(new_data)
 
 
-    # JSON 파일 저장 (임시 파일 사용)
     try:
+        # 임시 파일 저장
         with open(temp_file_path, 'w', encoding='utf-8') as temp_file:
             json.dump(existing_data, temp_file, ensure_ascii=False, indent=4)
+        logger.log(f"🟡 임시 파일 생성 완료: {temp_file_path}", level="INFO")
 
         # 백업 파일 생성
-        if existing_data:
+        if os.path.exists(IMAGE_FILTER_DICTIONARY_PATH):
             shutil.copy(IMAGE_FILTER_DICTIONARY_PATH, backup_file_path)
+            logger.log(f"🟡 백업 파일 생성 완료: {backup_file_path}", level="INFO")
 
         # 임시 파일을 원본 파일로 교체
         shutil.move(temp_file_path, IMAGE_FILTER_DICTIONARY_PATH)
+        logger.log(f"✅ 임시 파일에서 원본 파일로 교체 완료: {IMAGE_FILTER_DICTIONARY_PATH}", level="INFO")
 
-        print(f"[INFO] JSON 파일로 저장 완료: {IMAGE_FILTER_DICTIONARY_PATH}")
+        # 무결성 검증
+        with open(IMAGE_FILTER_DICTIONARY_PATH, 'r', encoding='utf-8') as file:
+            loaded_data = json.load(file)
+
+        if existing_data == loaded_data:
+            logger.log("✅ 저장된 데이터가 원본과 일치합니다. 무결성 검증 완료.", level="INFO")
+        else:
+            raise ValueError("❌ 저장된 데이터가 원본과 일치하지 않습니다.")
+
+        # 백업 파일 삭제
+        if os.path.exists(backup_file_path):
+            os.remove(backup_file_path)
+            logger.log(f"✅ 최종 정리: 백업 파일 삭제 완료: {backup_file_path}", level="INFO")
 
     except Exception as e:
-        print(f"[ERROR] JSON 파일 저장 중 오류 발생: {e}")
-        if temp_file_path:
-            try:
-                shutil.move(temp_file_path, IMAGE_FILTER_DICTIONARY_PATH)
-            except Exception as move_error:
-                print(f"[ERROR] 임시 파일 복구 실패: {move_error}")
+        logger.log(f"❌ JSON 파일 저장 중 오류 발생: {e}", level="ERROR")
+
+        # 복구 시도
+        if os.path.exists(backup_file_path):
+            shutil.copy(backup_file_path, IMAGE_FILTER_DICTIONARY_PATH)
+            logger.log(f"⚠️ 오류 발생으로 백업 파일로 복구 완료: {IMAGE_FILTER_DICTIONARY_PATH}", level="WARNING")
+        else:
+            logger.log("❌ 복구 실패: 백업 파일이 없습니다.", level="CRITICAL")
+
+    finally:
+        # 임시 파일 삭제
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+            logger.log(f"🟡 임시 파일 삭제 완료: {temp_file_path}", level="INFO")
 
