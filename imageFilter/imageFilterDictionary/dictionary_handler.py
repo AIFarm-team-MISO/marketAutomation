@@ -50,24 +50,32 @@ def load_dictionary(url_list):
 
     return result
 
-
+import json
+import shutil
+from typing import List, Tuple
 def save_image_filter_dictionary(filtered_urls: List[Tuple[str, str, str]], no_text_urls: List[Tuple[str, str]]):
     """
-    필터링된 URL 데이터를 JSON 파일로 저장 (중복 방지).
+    필터링된 URL 데이터를 JSON 파일로 저장 (중복 방지, 데이터손실방지 ).
 
     Parameters:
         filtered_urls (list): 문자 있는 URL 데이터 (판매자 코드, URL, 필터링 텍스트).
         no_text_urls (list): 문자 없는 URL 데이터 (판매자 코드, URL).
         filtered_url_file (str): JSON 파일 경로.
     """
+ 
+    temp_file_path = IMAGE_FILTER_DICTIONARY_PATH + ".tmp"
+    backup_file_path = IMAGE_FILTER_DICTIONARY_PATH + ".backup"
+
     # 기존 데이터를 로드
     try:
         with open(IMAGE_FILTER_DICTIONARY_PATH, 'r', encoding='utf-8') as file:
             existing_data = json.load(file)
     except FileNotFoundError:
-        raise FileNotFoundError(f"[ERROR] 필터링 사전 파일이 없어 사전 업데이트에 실패하였습니다. 프로그램을 종료합니다. 파일경로 : {IMAGE_FILTER_DICTIONARY_PATH}")
+        print(f"[WARNING] 필터링 사전 파일이 없어 새로 생성합니다: {IMAGE_FILTER_DICTIONARY_PATH}")
+        existing_data = {}
     except json.JSONDecodeError:
-        raise FileNotFoundError(f"[ERROR] 필터링 사전 파일이 손상되어 사전 업데이트에 실패하였습니다. 프로그램을 종료합니다. 파일경로 : {IMAGE_FILTER_DICTIONARY_PATH}")
+        print(f"[ERROR] 필터링 사전 파일이 손상되었습니다. 백업을 사용하거나 새로 생성합니다: {IMAGE_FILTER_DICTIONARY_PATH}")
+        existing_data = {}
 
     # 새 데이터를 추가
     new_data = {}
@@ -89,8 +97,26 @@ def save_image_filter_dictionary(filtered_urls: List[Tuple[str, str, str]], no_t
     # 기존 데이터에 새 데이터 병합
     existing_data.update(new_data)
 
-    # JSON 파일 저장
-    with open(IMAGE_FILTER_DICTIONARY_PATH, 'w', encoding='utf-8') as file:
-        json.dump(existing_data, file, ensure_ascii=False, indent=4)
 
-    print(f"[INFO] JSON 파일로 저장 완료: {IMAGE_FILTER_DICTIONARY_PATH}")
+    # JSON 파일 저장 (임시 파일 사용)
+    try:
+        with open(temp_file_path, 'w', encoding='utf-8') as temp_file:
+            json.dump(existing_data, temp_file, ensure_ascii=False, indent=4)
+
+        # 백업 파일 생성
+        if existing_data:
+            shutil.copy(IMAGE_FILTER_DICTIONARY_PATH, backup_file_path)
+
+        # 임시 파일을 원본 파일로 교체
+        shutil.move(temp_file_path, IMAGE_FILTER_DICTIONARY_PATH)
+
+        print(f"[INFO] JSON 파일로 저장 완료: {IMAGE_FILTER_DICTIONARY_PATH}")
+
+    except Exception as e:
+        print(f"[ERROR] JSON 파일 저장 중 오류 발생: {e}")
+        if temp_file_path:
+            try:
+                shutil.move(temp_file_path, IMAGE_FILTER_DICTIONARY_PATH)
+            except Exception as move_error:
+                print(f"[ERROR] 임시 파일 복구 실패: {move_error}")
+

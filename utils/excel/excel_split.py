@@ -2,7 +2,7 @@ from utils.global_logger import logger
 
 import pandas as pd
 import os
-from utils.excel.excel_utils import make_input_file_path, make_output_file_path, read_xls_all_sheets, read_and_clean_first_sheet
+from utils.excel.excel_utils import make_input_file_path, make_output_file_path, read_xls_all_sheets, read_and_clean_first_sheet, read_xlsx_all_sheets
 from utils.excel.excel_utils import save_excel_with_sheets
 from config.settings import FILE_EXTENSION_xlsx
 
@@ -53,14 +53,22 @@ def split_excel_by_rows(file_path, base_file_name):
     :param base_file_name: 생성할 파일의 기본 이름
     """
 
-    rows_per_file = 4500
+    rows_per_file = 1000
 
     try:
-        # 읽을 파일경로 출력 파일 이름 설정
-        excel_file_path = make_input_file_path(file_path, base_file_name)
 
-        # 모든 시트 읽기
-        sheets = read_xls_all_sheets(excel_file_path)
+        excel_file_path = make_input_file_path(file_path, base_file_name)
+        # output_file_name = make_output_file_path(file_path, base_file_name, "_image_filtered_output", FILE_EXTENSION_xlsx)
+        _, file_extension = os.path.splitext(base_file_name)
+
+
+        # 모든 시트 읽기(파일확장명에 따라)
+        if file_extension.lower() == ".xlsx":
+            sheets = read_xlsx_all_sheets(excel_file_path)  # .xlsx 파일 처리
+        elif file_extension.lower() == ".xls":
+            sheets = read_xls_all_sheets(excel_file_path)  # .xls 파일 처리
+        else:
+            raise ValueError(f"Unsupported file format: {file_extension}. Only '.xls' and '.xlsx' are supported.")
 
         # 첫 번째 시트를 읽고 비어 있는 행 제거
         first_sheet_name, first_sheet_data = read_and_clean_first_sheet(sheets)

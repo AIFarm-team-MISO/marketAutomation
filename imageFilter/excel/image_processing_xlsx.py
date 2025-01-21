@@ -48,6 +48,7 @@ def process_image_urls_xlsx(sheet, image_column_name, seller_code_column_name, t
         # logger.log_list("이미지 URL ", url_list, level="INFO")
 
         filtered_result = load_dictionary(url_list)
+        logger.log_list("filtered_result ", filtered_result, level="INFO")
 
 
         # 상태별 개수 초기화

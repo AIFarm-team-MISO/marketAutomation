@@ -10,6 +10,7 @@ from utils.json.json_util import load_config
 from imageFilter.excel.excel_handler_xlsx import process_imageFiltering_excel_file_xlsx
 from utils.excel.excel_split import split_excel_by_rows
 from rotationFile.rotation_task_manager import generate_tasks_from_config, process_first_sheet
+from productNaming.name_handler import process_namingChange_excel_file
 
 # 현재 파일 위치 기준으로 JSON 파일 경로 설정
 current_dir = os.path.dirname(__file__)
@@ -139,6 +140,8 @@ def make_rotation_excel(file_path, base_file_name):
         else:
             image_filtered_df = modify_df
             logger.log(f"{split_folder_name}은 이미지필터링 제외.", level="INFO", also_to_report=True, separator="none")
+
+        # image_filtered_df = process_namingChange_excel_file(file_path, base_file_name, 'GPT조합', task_type="auto", sheets=image_filtered_df)
             
 
         # modify_df의 행 개수를 확인하여 분할 저장 여부 결정

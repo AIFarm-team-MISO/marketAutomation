@@ -265,39 +265,67 @@ def combine_keywords(existing_data, basic_product_name, max_length=49):
     # 기본상품명에서 메인키워드를 제외한 나머지를 고정 키워드로 설정
     fixed_keywords = [kw for kw in basic_product_name.split() if kw != main_keyword]
 
-
-
     # 고정 키워드 중 "X" 또는 "x"를 제거하고 분리
     processed_fixed_keywords = []
     for keyword in fixed_keywords:
 
-        # 숫자+문자, 숫자-숫자, 숫자x숫자 등 특정 조합을 하나의 단위로 처리
-        # 숫자와 문자로 이루어진 키워드 분리
-        split_keywords = re.findall(
-            r'\d+x\d+[a-zA-Z]*|\d+-\d+[^\s]*|\d+[a-zA-Z]+|[^\s]+', keyword
-        )
-        
+
+
+
+        # 슬래시(`/`)를 '또는'으로 대체
+        keyword_with_or = re.sub(r'(\d+)/(\d+)', r'\1또는\2', keyword)
+
+       # 특수문자 및 괄호를 기준으로 키워드 분리
+        split_keywords = re.split(r'[()\s]+', keyword_with_or)
+
         # 'x' 또는 'X'를 숫자 사이에 있는 경우만 유지하고, 그 외에는 제거
         processed_keywords = []
         for kw in split_keywords:
-            if re.match(r'\d+x\d+[a-zA-Z]*', kw, re.IGNORECASE):  # 숫자x숫자+문자 유지
+            if re.match(r'\d+x\d+', kw, re.IGNORECASE):  # 숫자x숫자 유지
                 processed_keywords.append(kw)
-            elif re.match(r'\d+x\d+', kw, re.IGNORECASE):  # 숫자x숫자 유지
-                processed_keywords.append(kw)
-            else:  # 특수문자 제거
-                kw = re.sub(r'[^\w\s-]', '', kw)  # 알파벳, 숫자, 하이픈만 남김
-                processed_keywords.append(kw)
-        
+            else:
+                # 특수문자 제거 (괄호 및 언더스코어 포함)
+                kw = re.sub(r'[^\w\s-]', '', kw).strip()
+                if kw and not re.fullmatch(r'\d+', kw) and not re.fullmatch(r'[a-zA-Z]+', kw):  # 숫자 또는 영어 단독 키워드 제외
+                    processed_keywords.append(kw)
+
         # 공백 제거 및 빈 문자열 필터링
-        processed_keywords = [kw.strip() for kw in processed_keywords if kw.strip()]
-        
-        # 4자리 이상 숫자 제거
-        filtered_keywords = [kw for kw in processed_keywords if not re.search(r'\b\d{4,}\b', kw)]
+        blink_keywords = [kw.strip() for kw in processed_keywords if kw.strip()]
+
+        # 숫자가 4자리 이상 포함된 키워드 및 숫자만으로 된 키워드 삭제
+        number_keywords = [
+            kw for kw in blink_keywords
+            if not (re.search(r'\b\d{4,}\b', kw) or re.fullmatch(r'\d+', kw) and len(kw) >= 4)
+        ]
+
+        # 4자리 이상의 숫자가 문자와 함께 포함된 경우 포함된 경우 필터링
+        filtered_keywords = [
+            kw for kw in number_keywords
+            if not re.search(r'\d{4,}', kw)  # 키워드 내에 4자리 이상의 숫자가 포함된 경우 필터링
+        ]
+
+        # 공백 없이 키워드 합치기
+        filtered_keywords = ''.join(filtered_keywords)
+
+
+
+        # 디버깅용 출력
+        # print("원본 키워드:", keyword)
+        # print("키워드 분리후:", split_keywords)
+        # print("x 제거후 :", processed_keywords)
+        # print("특수문자 제거후 :", blink_keywords)
+        # print("숫자 제거후 :", number_keywords)
+        # print("최종 키워드:", filtered_keywords)
 
     
         # 나눠진 키워드 추가
-        processed_fixed_keywords.extend(filtered_keywords)  # 나눠진 키워드 추가
+        # processed_fixed_keywords.extend(filtered_keywords)  # 나눠진 키워드 추가
+         # 나눠진 키워드를 결과 리스트에 추가
+        processed_fixed_keywords.append(filtered_keywords)
 
+        
+    logger.log(f"💬 고정키워드 : {fixed_keywords}", also_to_report=True, separator="none")
+    logger.log(f"💬 고정키워드 필터링결과 : {processed_fixed_keywords}", also_to_report=True, separator="none")
 
 
     # 패턴에서 상위 10개만 선택
@@ -360,20 +388,16 @@ def combine_keywords(existing_data, basic_product_name, max_length=49):
     # 최적화된 상품명 생성
     optimized_name = " ".join(final_keywords_unique).strip()
 
-
     # 디버깅 정보 출력
-    logger.log_separator()
-    logger.log_list("🔑최종 조합키워드 리스트🔑", final_keywords_unique, level="DEBUG")
-    logger.log(f"✨최적화된 상품명✨: '{optimized_name}' (글자 수: {len(optimized_name)})", level="INFO")
-    logger.log("기본상품명 : ", basic_product_name)
-    logger.log("제품군 : ", main_keyword)
-    logger.log_list("고정키워드 : ", fixed_keywords)
-    logger.log_list("필터 및 랜덤화된 고정키워드 : ", processed_fixed_keywords)
-    logger.log_list("네이버연관검색어 : ", related_keywords)
-    logger.log_list("연관검색어 : ", gpt_related_keywords)
-    logger.log_list("패턴 : ", patterns)
-    logger.log_separator()
-    logger.log("\n")
+    logger.log(f"💬 기본상품명 : {basic_product_name}", level="INFO", also_to_report=True, separator="none")
+    logger.log(f"💬 메인키워드 : {main_keyword}", level="INFO", also_to_report=True, separator="none")
+    logger.log_list(f"💬 고정키워드 : ", fixed_keywords, level="INFO", also_to_report=True, separator="none")
+    logger.log_list(f"💬 필터 및 랜덤화된 고정키워드 : ", processed_fixed_keywords, level="INFO", also_to_report=True, separator="none")
+    #logger.log_list(f"💬 네이버연관검색어 : ", related_keywords, level="INFO", also_to_report=True, separator="none")
+    logger.log_list(f"💬 연관검색어 : ", gpt_related_keywords, level="INFO", also_to_report=True, separator="none")
+    logger.log_list(f"💬 패턴 : ", patterns, level="INFO", also_to_report=True, separator="none")
+    logger.log_list(f"💬 조합키워드 리스트", final_keywords_unique, level="INFO", also_to_report=True, separator="none")
+    logger.log(f"🚀 최적화된 상품명: '{optimized_name}' (글자 수: {len(optimized_name)})", level="INFO", also_to_report=True, separator="dash-2line")
     
 
     return optimized_name

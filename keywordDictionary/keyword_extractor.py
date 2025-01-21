@@ -55,60 +55,73 @@ def gpt_extract_main_and_sub_keywords(product_name, dictionary, model="gpt-3.5-t
 
     # GPT에 전달할 프롬프트 설정
     prompt = (
-        f"'{product_name}'이라는 상품명에서 아래 지침을 따라 '제품군'과 '제품특징'을 분류하세요:\n"
-        f" '제품군' 은 제품의 핵심적인 이름을 단일 단어로 나타냅니다.\n\n"
-        f"  '제품군'은 제품의 핵심적인 이름의 상위 개념으로 설정합니다:\n"
+        f"'{product_name}'이라는 상품명에서 아래 지침과 주의사항에 따라 '제품군'과 '제품특징'을 분류하세요:\n"
+        f"'{product_name}'이라는 상품명과 관련하여 추가작업1 과 추가작업2 에 대한 답변도 반드시 같이 반환하세요 \n"
+        f" - '제품군'은 제품의 핵심적인 이름의 상위 개념 및 단일단어 로 설정합니다:\n"
 
-        
-        f"- '제품군' 선정 시, 다음 지침을 참고하세요:\n"
-        f"  '제품군'은 제품의 본질을 나타내는 단어로, 제품의 구체적 이름을 나타내야 합니다.\n"
-        f"  예: '보관' (행동/행위) ❌, 'DVD케이스' (구체적 제품명) ✅\n"
-        f"  추출된 '제품군'은 제품의 핵심적인 이름을 단일 명사로 표현하며, 모호하거나 추상적인 단어는 제외해야 합니다.\n"
-        f"  예: '관리', '사용', '보관' ❌, '책상', '노트', '가방' ✅\n"
-        f"  행동이나 행위를 나타내는 단어는 배제하고, 물리적으로 존재하는 제품이나 물건을 나타내는 단어를 사용하세요.\n"
-        f"  예: '보관' ❌ -> 'DVD케이스' ✅\n"
-        f"  제품의 용도를 설명하지 않고, 물리적 형태와 본질을 나타냅니다.\n"
-        f"  예: '인사관리도구' ❌ -> '파일' ✅\n"
-        f"  '제품군'은 복합명사(예: 'DVD보관지갑')가 아닌, 더 넓은 의미의 상위 단어로 설정합니다.\n"
-        f"  예: 'DVD보관지갑' ❌ -> 'DVD케이스' ✅\n"
+        f" '제품군' 선정지침:\n"
+        f" - '제품군'은 제품의 본질을 나타내는 단어로, 제품의 구체적 이름을 나타내야 합니다.\n"
+        f"   예: '보관' (행동/행위) ❌, 'DVD케이스' (구체적 제품명) ✅\n"
+        f" - 추출된 '제품군'은 제품의 핵심적인 이름을 단일 명사로 표현하며, 모호하거나 추상적인 단어는 제외해야 합니다.\n"
+        f"   예: '관리', '사용', '보관' ❌, '책상', '노트', '가방' ✅\n"
+        f" - 행동이나 행위를 나타내는 단어는 배제하고, 물리적으로 존재하는 제품이나 물건을 나타내는 단어를 사용하세요.\n"
+        f"   예: '보관' ❌ -> 'DVD케이스' ✅\n"
+        f" - 제품의 용도를 설명하지 않고, 물리적 형태와 본질을 나타냅니다.\n"
+        f"   예: '인사관리도구' ❌ -> '파일' ✅\n"
+        f" - '제품군'은 복합명사(예: 'DVD보관지갑')가 아닌, 더 넓은 의미의 상위 단어로 설정합니다.\n"
+        f"   예: 'DVD보관지갑' ❌ -> 'DVD케이스' ✅\n"
 
-        
-        f"   유사한 의미를 가진 단어를 포함할 수 있습니다.\n"
+        f" '제품군' 선정 주의사항:\n"
+        f" - 유사한 의미를 가진 단어를 포함할 수 있습니다.\n"
         f"   예: '야간독서등' (협소한 범위) ❌ -> '독서등' (넓은 범위) ✅\n"
-        f"   '야간독서등', '도서등', '독서램프' 등 유사한 의미를 가진 단어 중 가장 일반적인 단어를 선택하세요.\n"
+        f" - '야간독서등', '도서등', '독서램프' 등 유사한 의미를 가진 단어 중 가장 일반적인 단어를 선택하세요.\n"
         f"   예: '야간독서등' ❌ -> '독서등' ✅\n"
-        f"   '제품군' 선정 시,유사성을 고려하되, 너무 일반적인 단어는 배제합니다.\n"
+        f" - '제품군' 선정 시,유사성을 고려하되, 너무 일반적인 단어는 배제합니다.\n"
         f"   예: '조명' ❌ -> '독서등' ✅\n"
-        f"   제품군이 실제 고객이 검색에서 사용할 법한 상위 단어인지 검토하세요.\n"
+        f" - 제품군이 실제 고객이 검색에서 사용할 법한 상위 단어인지 검토하세요.\n"
 
+        f" '제품특징' 선정지침:\n"
+        f"  - 아래의 '카테고리 설명' 을 참고하여 분류하세요.\n"
 
-        f"카테고리 설명:\n{category_info}\n\n"
-        f"카테고리 예시:\n"
+        f"  카테고리 설명:\n{category_info}\n\n"
+        f"  카테고리 예시:\n"
         f"- '캠핑', '사무용' 등은 '용도'에 속합니다.\n"
         f"- '무선', '방수' 등은 '사양'에 속합니다.\n"
         f"- '심플', '빈티지' 등은 '스타일'에 속합니다.\n"
         f"- '빨간', '파란' 등은 '색상'에 속합니다.\n\n"
-        f"주의사항:\n"
-        f"- 상품명에 붙어 있는 단어(예: '숫자스티커101')는 숫자와 문자, 또는 서로 다른 단어를 분리해서 처리해 주세요.\n"
-        f"- 예: '숫자스티커101' → '숫자', '스티커', '101'\n"
-        f"기존 카테고리와 맞지 않는 '보조키워드'는 기타 카테고리로 지정합니다. \n\n"
+
+        f" '제품특징' 선정주의사항:\n"
+        f" - 상품명에 붙어 있는 단어(예: '숫자스티커101')는 숫자와 문자, 또는 서로 다른 단어를 분리해서 처리해 주세요.\n"
+        f" - 예: '숫자스티커101' → '숫자', '스티커', '101'\n"
+        f" - 기존 카테고리와 맞지 않는 '제품특징'는 기타 카테고리로 지정합니다. \n\n"
         # f"주의: 반드시 상품명에 포함된 단어만 사용하고, 상품명에 없는 새로운 단어나 의미는 생성하지 마세요.\n" 
         #         상품명이외의 단어도 사용할수 있게 함으로써 좀더 차별화를 두기위해서 현재 지워둠 .
-        f"각 카테고리가 없으면 '없음'으로 표시하고, 정확히 위의 형식에 맞춰서 응답해 주세요."
 
-        f"추가 작업:\n"    
-        f"1. '제품군' 의 '연관검색어' 를 5개 추출하세요. \n"
+
+
+
+
+
+        f"추가 작업1:\n"    
+        f" 작업내용 : '제품군' 의 '연관검색어' 를 **반드시 10개** 추출하세요. \n"
         f" - '연관검색어' 는 '제품군'과 관련성이 높아야 하며 실제 사용자가 쇼핑 검색에서 입력할 법한 간결하고 구체적인 키워드여야 합니다.\n"
-        f" - 특히, 한국어에서는 '붙여쓰기'(예: 관리도서)가 '띄어쓰기'(예: 관리 도서)보다 니치 키워드로 작용할 가능성이 높습니다."
-        f" - 붙여쓰기 키워드는 특정 검색 쿼리와 정확히 매칭되기 쉽고, 경쟁이 적어 SEO에서 더 유리합니다.\n"
-        f" - 따라서 '연관검색어' 생성 시, '붙여쓰기' 로서 '니치키워드' 를 우선적으로 생성해 주세요 \n"
+        f" - 연관검색어에는 '제품군'과 관련된 유의어를 포함하세요. 유의어는 비슷한 의미를 가지면서도 다양한 사용자 검색을 포착할 수 있어야 합니다.\n"
+        f" - 유의어를 포함하되, 10개를 생성하지 못할 경우 '조금 낮은 관련성'의 키워드를 포함해 10개를 무조건 반환하세요.\n"
+        f" - 유의어는 연관검색어의 다양성을 위해 포함하며, 너무 일반적이거나 제품과 관련이 없는 단어는 제외합니다.\n"
+        # f" - 키워드의 구체성보다 다양성을 우선시하십시오.\n"
 
-        f"- 예시: \n"
+        f" 추가작업1 특별지침:\n"
+        f" - 특히, 한국어에서는 '붙여쓰기'(예: 관리도서)가 '띄어쓰기'(예: 관리 도서)보다 니치 키워드로 작용할 가능성이 높습니다.\n"
+        f" - 따라서 '연관검색어' 생성 시, '붙여쓰기' 형태로 '니치키워드'를 우선적으로 생성해 주세요.\n"
+        f" - 예를 들어, '야간 독서 등' 대신 '야간독서등'과 같은 형태를 우선합니다.\n"
+
+        f" 추가작업1 예시: \n"
         f"  - 상품명: 독서등\n"
         f"  연관검색어: 군인독서등, 야간독서조명, LED독서등, 밤독서등, 야간스탠드\n"
         f"  - 상품명: 클리어북\n"
         f"  연관검색어: 인사관리책, 회사파일, 문서관리노트, 클리어파일\n"
 
+        f" 추가작업1 주의사항:\n"
         f" - 주의 : 반드시 새로운 단어를 생성하지 마세요.\n"
         f" - 주의 : 검색SEO와 니치키워드에 적합하도록 간결하고 실제 검색에서 활용될 법한 키워드만 생성하세요.\n"
         f" - 주의 : 비현실적이거나 상품관 관련없는 단어(예:전생, 전투... )는 포함하지 마세요.\n"
@@ -120,8 +133,45 @@ def gpt_extract_main_and_sub_keywords(product_name, dictionary, model="gpt-3.5-t
 
 
 
-        f"2. '제품군' 관련된 주요 브랜드명을 최대 5개 추출하세요. "
-        f"브랜드명은 상품명과 관련성이 높은 실제 브랜드를 제안해야 하며, 새로운 브랜드를 생성하지 마세요.\n"
+        f"추가 작업2:\n"  
+        f" 작업내용 :  '제품군'과 관련된 주요 '브랜드키워드' 를 **반드시 10개** 추출하세요. \n"
+        # f" - '브랜드키워드'는 실제 시장에서 존재하는 브랜드를 바탕으로, 제품군과 직접 관련성이 있어야 합니다.\n"
+        # f" - 예를 들어, '제품군'이 '의자'인 경우에는 의자를 제조하거나 판매하는 실제 브랜드를 포함해야 합니다.\n"
+        # f" - 브랜드명은 명확하고 간결해야 하며, 고객이 제품 구매 시 참고할 수 있는 브랜드이어야 합니다.\n"
+        # f" - 새로운 브랜드를 생성하지 마세요. 실존하지 않는 브랜드 이름은 모두 제외해야 합니다.\n"
+        # f" - '브랜드키워드'는 반드시 관련성이 높고, 실제 소비자가 인지할 수 있는 브랜드이어야 합니다.\n"
+
+        f" - '브랜드키워드' 는 실제 시장에서 제품군과 관련성이 높은 브랜드를 포함해야 합니다.\n"
+        f" - 브랜드는 국제적으로 널리 알려진 브랜드뿐만 아니라, 지역적으로 사용되는 브랜드도 포함할 수 있습니다.\n"
+        f" - 새로운 브랜드를 생성하지 말고, 제품군과 관련된 키워드를 기반으로 가장 가능성 높은 브랜드를 제안하세요.\n"
+        f" - 브랜드키워드가 10개 미만인 경우 가능한 최대한만 포함하세요.\n"
+
+
+        f" 추가작업2 특별지침:\n"
+        f" - 브랜드키워드는 '네이버 쇼핑', '쿠팡', '아마존'과 같은 주요 쇼핑몰에서 검색 시 상위 노출되는 브랜드를 참고하세요.\n"
+        f" - '브랜드키워드'는 제품군의 범위를 벗어나지 않도록 하세요. 예를 들어, '운동화'의 브랜드키워드는 나이키, 아디다스 등 운동화 브랜드여야 하며, 관련 없는 브랜드는 포함하지 마세요.\n"
+        f" - 중복되는 브랜드는 제외하고, 다양한 브랜드를 최대한 포함하세요.\n"
+        f" - '브랜드키워드'는 유명 브랜드뿐 아니라, 중소기업 브랜드도 포함해야 합니다.\n"
+        f" - 제품군과 관련된 시장에서 실제로 사용되는 브랜드를 최대한 포함하세요.\n"
+        f" - '브랜드키워드'는 반드시 제품군의 카테고리와 연관성이 있어야 하며, 너무 일반적인 이름은 제외하세요.\n"
+
+
+        f" 추가작업2 예시: \n"
+        f"   - 제품군: '운동화'\n"
+        f"     브랜드키워드: ['나이키', '아디다스', '뉴발란스', '리복', '스케쳐스']\n"
+        f"   - 제품군: '의자'\n"
+        f"     브랜드키워드: ['콜맨', '헬리녹스', '스노우라인', '시디즈', '한샘']\n"
+        f"   - 제품군: '쿨타올'\n"
+        f"     브랜드키워드: ['나이키', '언더아머', '데상트', '아디다스', '뉴발란스']\n"
+
+        f" 추가작업2 주의사항:\n"
+        f" - 반드시 **실제 브랜드**를 기반으로 작성하세요.\n"
+        f" - 브랜드키워드가 10개 미만인 경우, 가능한 최대한만 포함하세요.\n"
+        f" - 중복된 브랜드 또는 다른 제품군과 혼동될 수 있는 브랜드는 제외하세요.\n"
+        f" - 브랜드키워드는 '시장에 존재하는 브랜드 또는 제품군과 관련된 키워드' 여야 합니다.\n"
+        f" - 예를 들어, 브랜드가 실제로 부족할 경우 제품군과 관련된 시장 키워드를 포함하여 보완하세요.\n"
+
+    
 
 
         f"최종 응답 형식: JSON 형식으로 제공하세요. \n"
@@ -141,7 +191,7 @@ def gpt_extract_main_and_sub_keywords(product_name, dictionary, model="gpt-3.5-t
         f"  \"사양\": [\"방수\"],\n"
         f"  \"스타일\": [],\n"
         f"  \"기타 카테고리\": [\"색상: 빨간\", \"추가 키워드: 경량\", \"추가 키워드: 12p\"],\n"
-        f"  \"연관검색어\": [\"캠핑의자\", \"차박의자\", \"낚시의자\", \"접이식의자\", \"휴대용의자\"],\n"
+        f"  \"GPT연관검색어\": [\"캠핑의자\", \"차박의자\", \"낚시의자\", \"접이식의자\", \"휴대용의자\"],\n"
         f"  \"브랜드키워드\": [\"콜맨\", \"헬리녹스\", \"스노우라인\"]\n"
         f"}}\n\n"
         f"주의사항:\n"
@@ -164,10 +214,11 @@ def gpt_extract_main_and_sub_keywords(product_name, dictionary, model="gpt-3.5-t
 
         # GPT 응답 추출 및 디버깅 출력
         gpt_data = json.loads(response.choices[0].message["content"].strip())
-         
-        # GPT 응답 출력
-        # logger.log_gpt_response(gpt_data)
 
+
+        # GPT 응답 출력
+        # logger.log(f"response : {response}")
+        logger.log(f"최초 gpt_data : {gpt_data}")        
         
         return gpt_data  # JSON 데이터 반환
 
@@ -178,14 +229,6 @@ def gpt_extract_main_and_sub_keywords(product_name, dictionary, model="gpt-3.5-t
     except Exception as e:
         print(f"[오류] 예기치 않은 에러 발생: {e}")
 
-    # 오류 발생 시 기본값 반환
-    return {
-        "제품군": "없음",
-        "용도": [],
-        "사양": [],
-        "스타일": [],
-        "기타 카테고리": []
-    }
 
 
 def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
@@ -216,7 +259,6 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
     words = [word.strip().lower() for word in product_name.split()]
     logger.log("기본상품명 분석 시작", level="DEBUG")
     logger.log_list("상품명 분리 단어 리스트", words)
-    logger.log_separator()
 
    
     '''
@@ -264,7 +306,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
             
             # 기존 데이터에서 기본상품명을 확인하고 매칭되어 있는 고정키워드와 이하 관련 데이터 반환
             if product_name in data.get("기본상품명", []):
-                logger.log(f"📝기본상품명 '{product_name}' 을 사전에서 발견", level="INFO")
+                logger.log(f"✅ 기본상품명 '{product_name}' 을 사전에서 발견", level="INFO", also_to_report=True, separator="none")
                 main_keyword = key
 
                 # 인덱스 확인으로 기본상품명과 고정키워드가 맞는지를 확인
@@ -278,7 +320,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
 
                     # 매칭된 고정키워드 가져오기
                     fixed_keywords = data["고정키워드"][idx]
-                    logger.log(f"🔑매칭된 고정키워드: {fixed_keywords}", level="DEBUG")
+                    logger.log(f"✅ 매칭된 고정키워드: {fixed_keywords}", level="INFO", also_to_report=True, separator="none")
 
                 except (ValueError, IndexError) as e:
                     logger.log(f"⚠️ 기본상품명 '{product_name}'의 인덱스 처리 중 오류 발생: {e}", level="ERROR")
@@ -290,10 +332,41 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
                 gpt_data["기본상품명"] = product_name  # 단일 값으로 반환
                 gpt_data["고정키워드"] = fixed_keywords  # 단일 리스트로 반환
 
-                logger.log(f"1️⃣ 사전에 기본상품명 존재하여 기존 데이터 반환!", level="DEBUG")
-                break
-            
+                
+   
 
+                # 연관검색어 가져오기
+                related_keywords = data.get("GPT연관검색어", [])
+
+                # 최대 5개만 출력
+                display_related_keywords = related_keywords[:3]
+                # 로그에 출력
+                logger.log(f"✅ 매칭된 연관검색어(3개만출력): {display_related_keywords}", level="INFO", also_to_report=True, separator="none")
+
+
+                # 브랜드키워드 가져오기
+                bland_keywords = data.get("브랜드키워드", [])
+
+                # 최대 5개만 출력
+                display_bland_keywords = bland_keywords[:3]
+                logger.log(f"✅ 매칭된 브랜드키워드(3개만출력): {display_bland_keywords}", level="INFO", also_to_report=True, separator="none")
+
+                # 반환 데이터 생성
+                gpt_data = {
+                    "기본상품명": product_name,  # 단일 값
+                    "제품군": main_keyword,
+                    "고정키워드": fixed_keywords,  # 단일 리스트
+                    "GPT연관검색어": related_keywords,
+                    "브랜드키워드": bland_keywords,  # 브랜드키워드 추가
+                    "용도": data.get("용도", []),
+                    "사양": data.get("사양", []),
+                    "스타일": data.get("스타일", []),
+                    "기타 카테고리": data.get("기타 카테고리", []),
+                }
+
+                logger.log(f"✅ 1️⃣ 사전에 기본상품명 존재하여 기존 데이터 반환!", level="INFO", also_to_report=True, separator="none")
+                return wrap_data_with_main_keyword(main_keyword, gpt_data)  # ✅ 여기서 바로 반환
+ 
         except Exception as e:
             # 예외 발생 시 프로그램 종료
             logger.log(f"❌ 치명적인 오류 발생: {e}. 프로그램을 종료합니다.", level="CRITICAL")
@@ -304,7 +377,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
     
     # 2️⃣ 메인키워드 기준 추가 조회 (기본상품명이 사전에 없는 경우)
     if not gpt_data:
-        logger.log(f"기본상품명 '{product_name}' 사전에 없음. 메인키워드 위해 GPT조회 시작", level="INFO")
+        logger.log(f"🌟 2️⃣ 기본상품명 '{product_name}' 사전에 없음. 메인키워드 위해 GPT조회 시작", level="INFO", also_to_report=True, separator="none")
 
         import time  # 재시도 간 대기 시간을 위해
 
@@ -336,7 +409,6 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
                     continue  # 루프 재시작
 
                 # 모든 필드가 유효하면 결과 처리
-                logger.log(f"✅ GPT 호출 결과 처리 완료: {gpt_result}", level="INFO")
                 break  # 루프 종료
 
             except ValueError as e:
@@ -361,7 +433,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
             # }
 
         # 결과 처리 후 계속 실행
-        logger.log(f"✅ 최종 GPT 결과: {gpt_result}", level="INFO")
+        logger.log(f"🌟 GPT 호출 결과 처리 완료: {gpt_result}", level="INFO", also_to_report=True, separator="none")
 
 
 
@@ -388,7 +460,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
                     fixed_keywords = list(main_keyword)  # 메인키워드를 한 음절로 나눔
 
 
-        # GPT 결과로 gpt_data 반환 데이터 업데이트
+        # GPT 결과로 반환 데이터(gpt_data) 업데이트
         gpt_result.update({"고정키워드": fixed_keywords})
 
         # GPT 연관검색어 처리
@@ -400,47 +472,68 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
 
         # 새로운 문자열에 따른 GPT결과 이지만 기존사전 데이터중 메인키워드가 존재하는경우
         # 사전데이터 추가 : 메인키워드에 기본상품명과 고정키워드를 추가, 연관검색어 추가
-        try:
-            # GPT응답의 메인키워드가 사전에 있는 경우 = > 기본상품명, 고정키워드, 연관검색어 추가
-            if main_keyword in dictionary:
-                logger.log(f"2️⃣-2️⃣ 사전에서 기존 메인키워드 '{main_keyword}' 발견" , level="INFO")
 
-                # 기본상품명과 고정키워드가 리스트인지 검증 (기존 데이터가 올바른 구조인지 확인)
-                if not isinstance(dictionary[main_keyword].get("기본상품명"), list):
-                    raise TypeError(f"기본상품명이 리스트가 아닙니다: {dictionary[main_keyword].get('기본상품명')}")
-                if not isinstance(dictionary[main_keyword].get("고정키워드"), list):
-                    raise TypeError(f"고정키워드가 리스트가 아닙니다: {dictionary[main_keyword].get('고정키워드')}")
-                
-                logger.log(f"메인키워드 '{main_keyword}' 기존 기본상품명리스트에 '{product_name}'추가" , level="INFO")
-                logger.log(f"메인키워드 '{main_keyword}' 기존 고정키워드리스트에 '{fixed_keywords}'추가" , level="INFO")
+        # GPT응답의 메인키워드가 사전에 있는 경우 = > 기본상품명, 고정키워드, 연관검색어 추가
+        if main_keyword in dictionary:
+            logger.log(f"🌟 2️⃣-2️⃣ 사전에서 기존 메인키워드 '{main_keyword}' 발견" , level="INFO", also_to_report=True, separator="none")
 
-                dictionary[main_keyword]["기본상품명"].append(product_name)
-                dictionary[main_keyword]["고정키워드"].append(fixed_keywords)
+            # 기본상품명과 고정키워드가 리스트인지 검증 (기존 데이터가 올바른 구조인지 확인)
+            if not isinstance(dictionary[main_keyword].get("기본상품명"), list):
+                raise TypeError(f"기본상품명이 리스트가 아닙니다: {dictionary[main_keyword].get('기본상품명')}")
+            if not isinstance(dictionary[main_keyword].get("고정키워드"), list):
+                raise TypeError(f"고정키워드가 리스트가 아닙니다: {dictionary[main_keyword].get('고정키워드')}")
+            
+            logger.log(f"메인키워드 '{main_keyword}' 기존 기본상품명리스트에 '{product_name}'추가" , level="INFO")
+            logger.log(f"메인키워드 '{main_keyword}' 기존 고정키워드리스트에 '{fixed_keywords}'추가" , level="INFO")
 
-                # 연관검색어 병합 로직 추가(중복 방지 포함)
-                existing_related_keywords = set(dictionary[main_keyword]["GPT연관검색어"])  # 사전의 기존 연관검색어는 이미 정제되었다고 가정
-                # GPT 응답에서 정제된 연관검색어 사용
-                new_related_keywords = set(related_keywords)  # 이미 정제된 새로운 연관검색어
-                # 병합하여 중복 제거
-                merged_related_keywords = list(existing_related_keywords | new_related_keywords)
-                # 병합 결과를 사전에 업데이트
-                dictionary[main_keyword]["GPT연관검색어"] = merged_related_keywords
-                logger.log(f"GPT연관검색어 병합 완료: {merged_related_keywords}", level="INFO")
+            dictionary[main_keyword]["기본상품명"].append(product_name)
+            dictionary[main_keyword]["고정키워드"].append(fixed_keywords)
+
+            # 연관검색어 병합 로직 추가(중복 방지 포함)
+            existing_related_keywords = set(dictionary[main_keyword]["GPT연관검색어"])  # 사전의 기존 연관검색어는 이미 정제되었다고 가정
+            # GPT 응답에서 정제된 연관검색어 사용
+            new_related_keywords = set(related_keywords)  # 이미 정제된 새로운 연관검색어
+            # 병합하여 중복 제거
+            merged_related_keywords = list(existing_related_keywords | new_related_keywords)
+            # 병합 결과를 사전에 업데이트
+            dictionary[main_keyword]["GPT연관검색어"] = merged_related_keywords
+            logger.log(f"GPT연관검색어 병합 완료: {merged_related_keywords}", level="INFO")
+
+            # 브랜드키워드 병합
+            existing_brand_keywords = set(dictionary[main_keyword].get("브랜드키워드", []))
+            new_brand_keywords = set(gpt_result.get("브랜드키워드", []))
+            merged_brand_keywords = list(existing_brand_keywords | new_brand_keywords)            
+            dictionary[main_keyword]["브랜드키워드"] = merged_brand_keywords
+            logger.log(f"브랜드키워드 병합 완료: {merged_brand_keywords}", level="INFO")
+            logger.log(f"브랜드키워드 : {new_brand_keywords}", level="INFO")
+            logger.log(f"gpt_result : {gpt_result}", level="INFO")
 
 
-        except TypeError as e:
-            logger.log(f"❌ 데이터 형식 오류 발생: {e}. 메인키워드 '{main_keyword}' 데이터가 손상되었을 수 있습니다.", level="CRITICAL")
-            raise SystemExit(f"프로그램 종료: {e}")
-        except Exception as e:
-            logger.log(f"❌ 예상치 못한 오류 발생: {e}. 프로그램을 종료합니다.", level="CRITICAL")
-            raise SystemExit(f"프로그램 종료: {e}")
+
+
+             # 반환 데이터 생성
+            gpt_data = {
+                "기본상품명": product_name,  # 단일 값
+                "제품군": main_keyword,
+                "고정키워드": fixed_keywords,  # 단일 리스트
+                "GPT연관검색어": merged_related_keywords,
+                "브랜드키워드": merged_brand_keywords,
+                "용도": dictionary[main_keyword].get("용도", []),
+                "사양": dictionary[main_keyword].get("사양", []),
+                "스타일": dictionary[main_keyword].get("스타일", []),
+                "기타 카테고리": dictionary[main_keyword].get("기타 카테고리", []),
+            }
+
+
+            save_dictionary(dictionary)
+            return wrap_data_with_main_keyword(main_keyword, gpt_data)
 
         # GPT응답의 메인키워드가 사전에 없는경우 
         else:
             try:
 
                 # 새로운 메인키워드 추가
-                logger.log(f"2️⃣-1️⃣ 메인키워드 '{main_keyword}' 신규 생성", level="INFO")
+                logger.log(f"🌟 2️⃣-1️⃣ 메인키워드 '{main_keyword}' 신규 생성", level="INFO", also_to_report=True, separator="none")
 
                 # 데이터 검증: 모든 필드가 리스트인지 확인
                 for field, value in gpt_result.items():
@@ -467,7 +560,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
                 }
                 
                 dictionary[main_keyword] = saved_data
-                logger.log(f"✅ 메인키워드 '{main_keyword}' 데이터 저장 완료", level="INFO")
+                # logger.log(f"2️⃣-1️⃣ 메인키워드 '{main_keyword}' 사전데이터 생성완료", level="INFO", also_to_report=True, separator="none")
 
             except ValueError as e:
                 logger.log(f"❌ 데이터 유효성 검증 실패: {e}. 프로그램을 종료합니다.", level="CRITICAL")
@@ -500,7 +593,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
 
             # 디버깅: 반환 데이터 확인
             # logger.log(f"최종 GPT 데이터 반환: {gpt_data}", level="DEBUG")
-            logger.log(f"2️⃣사전에 기본상품명 없어 사전 추가후 GPT데이터 반환!", level="DEBUG")
+            logger.log(f"🌟 2️⃣-1️⃣ 사전에 기본상품명 없어 사전 추가후 GPT데이터 반환!", level="DEBUG", also_to_report=True, separator="none")
 
         except ValueError as e:
             logger.log(f"❌ 반환 데이터 검증 실패: {e}. 프로그램을 종료합니다.", level="CRITICAL")
@@ -513,7 +606,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
     # 3️⃣ 사전 저장
     try:
         save_dictionary(dictionary)
-        logger.log(f"✅ 사전 저장 완료", level="INFO")
+        logger.log(f"⚪ 사전 저장 완료 ⚪", level="INFO", also_to_report=True, separator="dash-2line")
     except Exception as e:
         # 저장 실패 시 프로그램 종료
         logger.log(f"❌ 사전 저장 실패: {e}. 프로그램을 종료합니다.", level="CRITICAL")

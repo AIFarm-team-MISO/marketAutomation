@@ -1,4 +1,22 @@
+import pandas as pd
 from utils.global_logger import logger
+
+def validate_row_integrity(original_df: pd.DataFrame, modified_df: pd.DataFrame) -> None:
+    """
+    작업 전후 데이터프레임의 행 무결성을 검증하는 함수.
+    
+    Args:
+        original_df (pd.DataFrame): 작업 전 데이터프레임.
+        modified_df (pd.DataFrame): 작업 후 데이터프레임.
+
+    Raises:
+        ValueError: 행 무결성이 손상된 경우 예외를 발생.
+    """
+    # 작업 전후 인덱스 비교
+    if not original_df.index.equals(modified_df.index):
+        raise ValueError("❌ 행 무결성 오류: 작업 전후 데이터프레임의 인덱스가 일치하지 않습니다.")
+    
+    logger.log("✅ 행 무결성 확인 완료: 작업 전후 인덱스가 일치합니다.", level="INFO")
 
 def validate_name_code_list(nameCode_list: list, filterd_list: list) -> None:
     """

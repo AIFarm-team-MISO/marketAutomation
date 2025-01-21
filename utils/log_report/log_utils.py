@@ -16,19 +16,19 @@ class Logger:
 
         # 이모지 설정
         self.emojis = {
-            "기본상품명": "📝",
-            "제품군": "🛒",
-            "메인키워드": "🔑",
-            "고정키워드": "📌",
-            "용도": "🛠️",
-            "사양": "⚙️",
-            "스타일": "🎨",
-            "기타 카테고리": "📂",
-            "연관검색어": "🔍",
-            "브랜드키워드": "🏷️",
-            "음식 카테고리 체크": "🍴",
-            "이미지 필터링": "🖼️",
-            "상품명 가공": "🛒",
+            # "기본상품명": "📝",
+            # "제품군": "🛒",
+            # "메인키워드": "🔑",
+            # "고정키워드": "📌",
+            # "용도": "🛠️",
+            # "사양": "⚙️",
+            # "스타일": "🎨",
+            # "기타 카테고리": "📂",
+            # "연관검색어": "🔍",
+            # "브랜드키워드": "🏷️",
+            # "음식 카테고리 체크": "🍴",
+            # "이미지 필터링": "🖼️",
+            # "상품명 가공": "🛒",
             "도매토피아 가공": "🏷️",
             "순환 파일 테스트": "🔄",
             "모든 마켓 폴더 생성": "🔄",
@@ -198,39 +198,94 @@ class Logger:
         elif separator == "dash-2line":
             self.log_separator(level="INFO", also_to_report=also_to_report, char="-")
 
-    def log_list(self, title, data, level="DEBUG", also_to_report=False, separator="none"):
+    def log_list(self, title, data, level="DEBUG", also_to_report=False, separator="none", delimiter=", "):
         """
-        리스트 데이터를 로그와 리포트에 출력.
+        리스트 데이터를 한 줄로 나열하여 로그와 리포트에 출력.
         :param title: 출력 제목
         :param data: 리스트 데이터
         :param level: 로그 레벨
         :param also_to_report: 리포트에도 기록할지 여부
         :param separator: 구분선 출력 여부 ("none", "1line", "2line", "dash", "dash-1line", "dash-2line")
+        :param delimiter: 리스트 항목을 구분할 구분자 (기본값: ", ")
         """
-        if separator == "1line":
-            self.log_separator(level=level, also_to_report=also_to_report)
-        elif separator == "2line":
-            self.log_separator(level=level, also_to_report=also_to_report)
-        elif separator == "dash-1line":
-            self.log_separator(level=level, also_to_report=also_to_report, char="-")
-        elif separator == "dash-2line":
-            self.log_separator(level=level, also_to_report=also_to_report, char="-")
+        try:
+            # 구분선 출력
+            if separator == "1line":
+                self.log_separator(level=level, also_to_report=also_to_report)
+            elif separator == "2line":
+                self.log_separator(level=level, also_to_report=also_to_report)
+            elif separator == "dash-1line":
+                self.log_separator(level=level, also_to_report=also_to_report, char="-")
+            elif separator == "dash-2line":
+                self.log_separator(level=level, also_to_report=also_to_report, char="-")
 
-        emoji = self._get_emoji(title)
-        if title.startswith(emoji):
-            emoji = ""  # 제목에 이미 이모지가 포함된 경우 빈 문자열로 설정
+            # 제목과 데이터 연결
+            emoji = self._get_emoji(title)
+            if data:
+                joined_data = delimiter.join(map(str, data))  # 리스트를 delimiter로 연결
+                self.log(f"{emoji}{title.strip()}: {joined_data}", level=level, also_to_report=also_to_report)
+            else:
+                self.log(f"{emoji}{title.strip()}: 없음", level=level, also_to_report=also_to_report)
 
-        if data:
-            self.log(f"{emoji} {title}:".strip(), level=level, also_to_report=also_to_report)  # 제목 출력
-            for item in data:
-                self.log(f"  - {item}", level=level, also_to_report=also_to_report)  # 리스트의 각 항목 출력
-        else:
-            self.log(f"{emoji} {title}: 없음".strip(), level=level, also_to_report=also_to_report)
+            # 구분선 출력
+            if separator == "2line":
+                self.log_separator(level=level, also_to_report=also_to_report)
+            elif separator == "dash-2line":
+                self.log_separator(level=level, also_to_report=also_to_report, char="-")
 
-        if separator == "2line":
-            self.log_separator(level=level, also_to_report=also_to_report)
-        elif separator == "dash-2line":
-            self.log_separator(level=level, also_to_report=also_to_report, char="-")
+        except Exception as e:
+            self.log(f"❌ log_list 처리 중 에러 발생: {e}", level="ERROR", also_to_report=also_to_report)
+
+    def log_message_with_list(self, message, data, level="DEBUG", also_to_report=False, separator="none"):
+        """
+        메시지와 리스트 데이터를 개별 항목으로 나열하여 로그와 리포트에 출력.
+        :param message: 출력 메시지
+        :param data: 리스트 데이터
+        :param level: 로그 레벨
+        :param also_to_report: 리포트에도 기록할지 여부
+        :param separator: 구분선 출력 여부 ("none", "1line", "2line", "dash", "dash-1line", "dash-2line")
+        """
+        try:
+            # 구분선 출력
+            if separator == "1line":
+                self.log_separator(level=level, also_to_report=also_to_report)
+            elif separator == "2line":
+                self.log_separator(level=level, also_to_report=also_to_report)
+            elif separator == "dash-1line":
+                self.log_separator(level=level, also_to_report=also_to_report, char="-")
+            elif separator == "dash-2line":
+                self.log_separator(level=level, also_to_report=also_to_report, char="-")
+
+            # 메시지 출력
+            emoji = self._get_emoji(message)
+            self.log(f"{emoji}{message.strip()}:", level=level, also_to_report=also_to_report)
+
+            # 리스트 항목 출력
+            if data:
+                for idx, item in enumerate(data, start=1):  # enumerate로 번호 추가 (1부터 시작)
+                    self.log(f"  {idx}. {item}", level=level, also_to_report=also_to_report)
+            else:
+                self.log(f"{emoji} {message.strip()}: 없음", level=level, also_to_report=also_to_report)
+
+
+            # 구분선 출력
+            if separator == "2line":
+                self.log_separator(level=level, also_to_report=also_to_report)
+            elif separator == "dash-2line":
+                self.log_separator(level=level, also_to_report=also_to_report, char="-")
+
+        except Exception as e:
+            self.log(f"❌ log_message_with_list 처리 중 에러 발생: {e}", level="ERROR", also_to_report=also_to_report)
+
+
+
+    def _get_safe_format_map(self):
+        """
+        f-string 안전성을 위한 기본 맵 반환
+        :return: 기본 맵 딕셔너리
+        """
+        from collections import defaultdict
+        return defaultdict(str)
 
     def log_separator(self, char="=", length=100, level="INFO", title=None, also_to_report=False):
         """

@@ -82,7 +82,6 @@ def process_imageFiltering_excel_file_xlsx(file_path, base_file_name, task_type=
     elif task_type=="auto":
 
         #강조처리삭제 파일명 생성, 이곳 활성화시에는 validate_data_integrity(무결성)필요
-        #중복-문자있음 행 삭제, 이후 저장작업(save_excel_with_sheets) 필요 
         filtered_sort_complete_sheets, rows_to_delete_count = delete_rows_by_condition(filtered_sort_sheets, '필터링결과', "중복-문자있음")
         
         # 무결성 검증 호출

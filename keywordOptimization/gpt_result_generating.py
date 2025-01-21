@@ -25,6 +25,7 @@ def gpt_result_generate_name(basic_product_name, dictionary):
     Returns:
     - optimized_name: gpt의 키워드조합후 최종상품명
     """
+    logger.log(f"📌 {basic_product_name} : 필터링시작", also_to_report=True, separator="none")
 
     # 1. 기본상품명을 통해 그데이터의 메인키워드 추출
     main_keyword = find_main_keyword_by_basic_name(dictionary, basic_product_name)

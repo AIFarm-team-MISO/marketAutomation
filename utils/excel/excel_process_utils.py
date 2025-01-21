@@ -8,6 +8,8 @@ import pandas as pd
     이곳의 함수들은 모두 
     .xls 파일을 읽어 데이터를 처리한 후 .xlsx 형식으로 저장하는 함수로서 사용됨
 
+    엑셀 편집과 관련된 유틸들 
+
 '''
 
 def update_excel_column(sheets, column_name, content, sheet_name=None):

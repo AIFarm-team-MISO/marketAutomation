@@ -238,14 +238,15 @@ def calculate_estimates(item_list, process_type):
     """
     filtered_count = 0  # 사전에 이미 있는 기본상품명 개수
     unfiltered_count = 0  # 사전에 없는 기본상품명 개수
-    exchange_rate = 1480  # 환율 (1 USD = 1480 KRW)
+    exchange_rate = 1450  # 환율 (1 USD = 1450 KRW)
 
     logger.log(f'{process_type} 프로세스 계산 시작!')
     # logger.log(f' {item_list} ')
 
     if process_type == "상품명가공":
         # 작업 유형에 따른 기본 설정
-        estimated_cost_per_1000_calls = 20  # 1000건당 GPT 호출 비용 (달러)
+        actual_cost_per_call = 2.14 / 919  # 실 사용량 기준으로 계산
+        estimated_cost_per_1000_calls = actual_cost_per_call * 1000  # 1000건당 비용        
         estimated_time_per_call = 2  # GPT 호출당 소요 시간 (초)
 
         # 상품명 가공 작업
@@ -256,7 +257,7 @@ def calculate_estimates(item_list, process_type):
             else:
                 filtered_count += 1
 
-        logger.log(f"기존 상품명 갯수: {filtered_count}")
+        logger.log(f"이미 처리된 기존 상품명 갯수: {filtered_count}")
 
     elif process_type == "이미지필터링":
         # 작업 유형에 따른 기본 설정

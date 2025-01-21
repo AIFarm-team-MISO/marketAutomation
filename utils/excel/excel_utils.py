@@ -597,7 +597,35 @@ def apply_filter_only_xls(output_file_path, sort_column, sort_direction='descend
         excel.Quit()
         pythoncom.CoUninitialize()
 
-def update_seller_codes(sheet, writable_sheet, number_column_index, ptype):
+def update_seller_codes(dataframe: pd.DataFrame, column_name: str, prefix: str) -> pd.DataFrame:
+    """
+    데이터프레임에서 특정 열의 각 값에 접두사를 추가하는 함수.
+    중복으로 접두사가 추가되지 않도록 방지.
+    
+    :param dataframe: 수정할 데이터프레임
+    :param column_name: 접두사를 추가할 열의 이름
+    :param prefix: 추가할 접두사 문자열
+    :return: 수정된 데이터프레임
+    """
+    try:
+        # 열이 데이터프레임에 존재하는지 확인
+        if column_name not in dataframe.columns:
+            raise ValueError(f"'{column_name}' 열이 데이터프레임에 존재하지 않습니다.")
+        
+        # 접두사 추가 (이미 접두사가 있는 경우 무시)
+        dataframe[column_name] = dataframe[column_name].apply(
+            lambda x: f"{prefix}-{x}" if pd.notnull(x) and not str(x).startswith(prefix) else x
+        )
+        
+        # 로그 출력
+        logger.log(f"✅ '{column_name}' 열에 접두사 '{prefix}' 추가 완료 (중복 방지).", level="INFO", also_to_report=True, separator="none")
+        return dataframe
+    except Exception as e:
+        logger.log(f"❌ '{column_name}' 열에 접두사 추가 중 에러 발생: {e}", level="ERROR")
+        raise
+
+
+def update_seller_codes_xls(sheet, writable_sheet, number_column_index, ptype):
     """
     엑셀 시트의 특정 열(B열)의 판매자코드를 업데이트하는 함수.
 
@@ -620,6 +648,59 @@ def update_seller_codes(sheet, writable_sheet, number_column_index, ptype):
 
         # 업데이트
         writable_sheet.write(row_idx, number_column_index, new_seller_code)
+
+def delete_column(dataframe: pd.DataFrame, column_name: str) -> pd.DataFrame:
+    """
+    데이터프레임에서 특정 열을 삭제하는 함수.
+    
+    :param dataframe: 수정할 데이터프레임
+    :param column_name: 삭제할 열의 이름
+    :return: 열이 삭제된 데이터프레임
+    """
+    try:
+        # 열이 데이터프레임에 존재하는지 확인
+        if column_name not in dataframe.columns:
+            raise ValueError(f"'{column_name}' 열이 데이터프레임에 존재하지 않습니다.")
+        
+        # 열 삭제
+        dataframe = dataframe.drop(columns=[column_name])
+        
+        # 로그 출력
+        logger.log(f"✅ '{column_name}' 열이 성공적으로 삭제되었습니다.", level="INFO")
+        return dataframe
+    except Exception as e:
+        logger.log(f"❌ '{column_name}' 열 삭제 중 에러 발생: {e}", level="ERROR")
+        raise
+
+def rename_and_delete_columns(dataframe: pd.DataFrame, target_column: str, new_column_name: str, delete_column: str) -> pd.DataFrame:
+    """
+    데이터프레임에서 특정 열의 이름을 변경하고 다른 열을 삭제하는 함수.
+    
+    :param dataframe: 수정할 데이터프레임
+    :param target_column: 이름을 변경할 열의 이름
+    :param new_column_name: 변경 후 열의 새 이름
+    :param delete_column: 삭제할 열의 이름
+    :return: 수정된 데이터프레임
+    """
+    try:
+        # 열 존재 여부 확인
+        if target_column not in dataframe.columns:
+            raise ValueError(f"'{target_column}' 열이 데이터프레임에 존재하지 않습니다.")
+        if delete_column not in dataframe.columns:
+            raise ValueError(f"'{delete_column}' 열이 데이터프레임에 존재하지 않습니다.")
+        
+        # 삭제할 열 제거
+        dataframe = dataframe.drop(columns=[delete_column])
+        logger.log(f"✅ '{delete_column}' 열이 성공적으로 삭제되었습니다.", level="INFO")
+        
+        # 열 이름 변경
+        dataframe = dataframe.rename(columns={target_column: new_column_name})
+        logger.log(f"✅ '{target_column}' 열의 이름을 '{new_column_name}'으로 변경 완료.", level="INFO", also_to_report=True, separator="none")       
+        
+        return dataframe
+    except Exception as e:
+        logger.log(f"❌ 열 이름 변경 및 삭제 중 에러 발생: {e}", level="ERROR")
+        raise
 
 
 def clean_up_excel_process():
