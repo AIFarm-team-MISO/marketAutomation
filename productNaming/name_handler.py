@@ -5,9 +5,10 @@ import sys
 import pandas as pd
 from imageFilter.excel.file_handler import read_excel_file, save_excel_file
 from config.settings import FILE_EXTENSION_xls
-from config.settings import FILE_EXTENSION_xlsx
+from config.settings import FILE_EXTENSION_xlsx, ROTATION_JSON_PATH
+from config.settings import CURRENT_MARKET_NAME
 
-from utils.excel.excel_utils import apply_filter_and_sort_xls, insert_column_before, apply_row_color_by_condition, update_seller_codes,rename_and_delete_columns
+from utils.excel.excel_utils import apply_filter_and_sort_xls, insert_column_before, apply_row_color_by_condition, update_seller_codes,rename_and_delete_columns, rename_and_modify_columns
 from utils.excel.excel_utils import column_letter_to_index
 
 from imageFilter.excel.url_filter import save_filtered_urls
@@ -25,6 +26,14 @@ from productNaming.nameing_validate import validate_name_code_list
 from utils.validate.validate_index import validate_data_order
 from utils.excel.excel_get_data import get_column_values_with_validation
 from productNaming.naming_gpt_process import process_naming_list_with_gpt
+from utils.json.json_util import load_config
+from utils.excel.excel_get_data import get_folder_name, get_market_name
+
+import config.settings as settings
+# 현재 파일 위치 기준으로 JSON 파일 경로 설정
+current_dir = os.path.dirname(__file__)
+config_path = os.path.join(current_dir, "rotationInfo.json")
+
 
 import pandas as pd
 
@@ -82,6 +91,33 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
     else: # 시트가 제공된 경우, 첫 번째 시트 및 정제처리가 필요없음 : 자동화실행일 경우  
         first_sheet_data = sheets
 
+    ###################
+
+    if task_type=="single":
+        # 대상시트에서 '폴더명' 이름 가져오기
+        folder_name, split_folder_name = get_folder_name(first_sheet_data, column_name="폴더명")
+
+        # 순환파일 JSON 설정파일 로드 
+        config = load_config(ROTATION_JSON_PATH)
+
+        market_config = config.get(split_folder_name, {})
+        if not market_config:  # market_config이 빈 딕셔너리 또는 None일 경우
+            raise ValueError(f"JSON에 마켓 이름 '{split_folder_name}'이(가) 없습니다.")
+        
+        market_name = get_market_name(split_folder_name)
+        # 설정파일 값을 변경
+    else:
+        
+        market_name = settings.CURRENT_MARKET_NAME
+    
+    logger.log(f"상품명가공 작업중인 마켓 : {market_name}")
+
+    if market_name == "쿠팡" or market_name == "11번가":
+        name_strength = 99
+    else:  #쿠팡, 11번가 이외의 마켓 일경우
+        name_strength = 49
+
+
     # ▶️ '상품명*' 앞에 새로운 열(가공결과) 삽입 (가공상품명의 결과를 추가하기 위해)
     modified_sheet = insert_excel_column(
         first_sheet_data=first_sheet_data,  # 첫 번째 시트 사용
@@ -130,11 +166,12 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
             basic_product_names.append(basic_product_name)
 
             # ▶️ 최적화된 상품명 생성
-            optimized_name = gpt_result_generate_name(basic_product_name, dictionary) 
+            optimized_name = gpt_result_generate_name(basic_product_name, dictionary, name_strength) 
             gpt_optimized_name_list.append(optimized_name)
         
         except Exception as e:  # 모든 예외 처리
-            raise ValueError(f"⚠️ 상품명조합 중 예외 발생: {e}. namingData: {gptData}", level="ERROR")
+            logger.log(f"⚠️ 상품명조합 중 예외 발생: {e}. namingData: {gptData}", level="ERROR")
+            raise ValueError(f"⚠️ 상품명조합 중 예외 발생: {e}. namingData: {gptData}")
 
 
     # ▶️ 시트에 가공상품명 적용 
@@ -149,10 +186,10 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
     # ▶️ "판매자관리코드" 열 문자열 앞에 opt_type 추가
     modified_sheet["판매자 관리코드"] = modified_sheet["판매자 관리코드"].apply(lambda x: f"{opt_type+"-"}{x}" if pd.notnull(x) else x)
 
-    # ▶️ 작업 유형이 "single"인 경우 열 이름 변경 및 기존 열 삭제
-    if task_type == "auto":
-        modified_sheet = modified_sheet.drop(columns=["상품명*"], errors="ignore")
-        modified_sheet = modified_sheet.rename(columns={"가공결과": "상품명*"})
+    # # ▶️ 작업 유형이 "single"인 경우 열 이름 변경 및 기존 열 삭제
+    # if task_type == "auto":
+    #     modified_sheet = modified_sheet.drop(columns=["상품명*"], errors="ignore")
+    #     modified_sheet = modified_sheet.rename(columns={"가공결과": "상품명*"})
 
     #처리 완료 로그 출력
     logger.log(f"📌 상품명가공 처리결과.", level="INFO", also_to_report=True, separator="none")
@@ -167,8 +204,19 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
 
     #기존 상품명열을 삭제하고 가공상품명으로 대체 
     # modified_sheet = rename_and_delete_columns(modified_sheet, "가공결과", "상품명*", "상품명*")
+
+    # 가공상품명 열이름을 상품명 열이름으로 대체
+    modified_sheet = rename_and_modify_columns(
+        dataframe=modified_sheet,
+        target_column="가공결과",           # A 열의 이름을 변경
+        new_column_name="상품명*",         # A -> B
+        change_column_name="기존상품명*"   # B -> B_new
+    )
     
-    save_excel_with_sheets(sheets, output_file_name, modified_sheet, first_sheet_name)
+    if task_type == "auto":
+        return modified_sheet
+    else:
+        save_excel_with_sheets(sheets, output_file_name, modified_sheet, first_sheet_name)
 
 
 

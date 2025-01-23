@@ -14,7 +14,7 @@ def find_main_keyword_by_basic_name(dictionary, basic_product_name):
 from keywordOptimization.keyword_filter_never import filter_length
 
 
-def gpt_result_generate_name(basic_product_name, dictionary):
+def gpt_result_generate_name(basic_product_name, dictionary, name_strength=49):
     """
     gpt 데이터를 통해 통해 최적화된 상품명을 생성.
     
@@ -26,6 +26,7 @@ def gpt_result_generate_name(basic_product_name, dictionary):
     - optimized_name: gpt의 키워드조합후 최종상품명
     """
     logger.log(f"📌 {basic_product_name} : 필터링시작", also_to_report=True, separator="none")
+    logger.log(f"📌 마켓글자수제한 : {name_strength}", also_to_report=True, separator="none")
 
     # 1. 기본상품명을 통해 그데이터의 메인키워드 추출
     main_keyword = find_main_keyword_by_basic_name(dictionary, basic_product_name)
@@ -34,7 +35,7 @@ def gpt_result_generate_name(basic_product_name, dictionary):
     existing_data = dictionary.get(main_keyword, {})
 
     # 3. 글자수 필터링 및 키워드 조합 후 가공상품명 생성 
-    optimized_name = combine_keywords(existing_data, basic_product_name, 99)  # 최적화된 상품명 생성
+    optimized_name = combine_keywords(existing_data, basic_product_name, name_strength)  # 최적화된 상품명 생성
 
 
     return optimized_name

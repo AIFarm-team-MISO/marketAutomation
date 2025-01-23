@@ -263,7 +263,7 @@ class Logger:
             # 리스트 항목 출력
             if data:
                 for idx, item in enumerate(data, start=1):  # enumerate로 번호 추가 (1부터 시작)
-                    self.log(f"  {idx}. {item}", level=level, also_to_report=also_to_report)
+                    self.log(f"  {idx}. {item}({len(item)}자) ", level=level, also_to_report=also_to_report)
             else:
                 self.log(f"{emoji} {message.strip()}: 없음", level=level, also_to_report=also_to_report)
 

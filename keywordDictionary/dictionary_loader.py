@@ -142,25 +142,27 @@ def save_dictionary(new_data: Dict[str, dict], file_path="keywordDictionary/dict
     """
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
+    # 임시파일과 백업파일을 정의
     tmp_file_path = f"{file_path}.tmp"
     backup_file_path = f"{file_path}.backup"
 
     try:
-        # Step 1: Save data to temporary file
+
+        # 데이터 손실을 방지하기 위해 임시 파일에 먼저 저장
         with open(tmp_file_path, "w", encoding="utf-8") as tmp_file:
             json.dump(new_data, tmp_file, ensure_ascii=False, indent=4)
         logger.log(f"🟡 임시 파일 생성 완료: {tmp_file_path}", level="INFO")
 
-        # Step 2: Backup the original file if it exists
+        # 기존 파일이 있을 경우, 백업 파일을 생성
         if os.path.exists(file_path):
             shutil.copy2(file_path, backup_file_path)
             logger.log(f"🟡 백업 파일 생성 완료: {backup_file_path}", level="INFO")
 
-        # Step 3: Replace the original file with the temporary file
+        # 임시 파일을 원본 파일로 교체하여 저장
         shutil.move(tmp_file_path, file_path)
         logger.log(f"✅ 임시 파일에서 원본 파일로 교체 완료: {file_path}", level="INFO")
 
-        # Step 4: Verify saved data integrity
+        # 저장된 데이터를 다시 읽어 무결성을 검증
         with open(file_path, "r", encoding="utf-8") as file:
             loaded_data = json.load(file)
 
@@ -172,6 +174,7 @@ def save_dictionary(new_data: Dict[str, dict], file_path="keywordDictionary/dict
             return False
 
     except Exception as e:
+        # 저장 작업 중 오류가 발생한 경우 처리
         logger.log(f"❌ [오류] 저장 작업 중 문제 발생: {e}", level="ERROR")
 
         # 복구: 백업 파일이 있으면 복원
@@ -187,12 +190,14 @@ def save_dictionary(new_data: Dict[str, dict], file_path="keywordDictionary/dict
         return False
 
     finally:
-        # Ensure temporary file is removed if it still exists
+        # 저장작업 종료 후 (작업이 성공적으로 완료된 경우)
+
+        # 임시 파일 삭제 (남아 있는 경우 : 작업이 성공적으로 완료되면 임시 파일(.tmp)은 원본 파일로 교체되면서 삭제됨)
         if os.path.exists(tmp_file_path):
             os.remove(tmp_file_path)
             logger.log(f"⚠️ 최종 정리: 임시 파일 삭제 완료: {tmp_file_path}", level="INFO")
 
-        # Optionally remove backup file if no issues occurred
+        # 백업 파일 삭제 (남아 있는 경우)
         if os.path.exists(backup_file_path):
             os.remove(backup_file_path)
             logger.log(f"✅ 최종 정리: 백업 파일 삭제 완료: {backup_file_path}", level="INFO")

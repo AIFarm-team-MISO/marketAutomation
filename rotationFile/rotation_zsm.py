@@ -4,13 +4,17 @@ from utils.global_logger import logger
 import pandas as pd
 import os
 from utils.excel.excel_utils import make_input_file_path, make_output_file_path
-from config.settings import FILE_EXTENSION_xlsx
-from utils.excel.excel_utils import make_input_file_path, make_output_file_path, read_xls_all_sheets, save_excel_with_sheets,read_and_clean_first_sheet
+import config.settings as settings
+
+from config.settings import FILE_EXTENSION_xlsx, CURRENT_MARKET_NAME
+from utils.excel.excel_utils import make_input_file_path, make_output_file_path, read_xls_all_sheets, save_excel_with_sheets,read_and_clean_first_sheet,read_xlsx_all_sheets
 from utils.json.json_util import load_config
 from imageFilter.excel.excel_handler_xlsx import process_imageFiltering_excel_file_xlsx
 from utils.excel.excel_split import split_excel_by_rows
 from rotationFile.rotation_task_manager import generate_tasks_from_config, process_first_sheet
 from productNaming.name_handler import process_namingChange_excel_file
+from rotationFile.rotation_excel_edit_util import clear_column_data
+from utils.excel.excel_get_data import get_folder_name, get_market_name
 
 # 현재 파일 위치 기준으로 JSON 파일 경로 설정
 current_dir = os.path.dirname(__file__)
@@ -97,10 +101,17 @@ def make_rotation_excel(file_path, base_file_name):
 
         # 읽을 파일경로 출력 파일 이름 설정
         excel_file_path = make_input_file_path(file_path, base_file_name)
-        output_file_name = make_output_file_path(file_path, base_file_name, "_rotate_output", FILE_EXTENSION_xlsx)
+        output_file_name = make_output_file_path(file_path, base_file_name, "_rotatet", FILE_EXTENSION_xlsx)
+        _, file_extension = os.path.splitext(base_file_name)
 
-        # 모든 시트 읽기
-        sheets = read_xls_all_sheets(excel_file_path)
+    
+        # 모든 시트 읽기(파일확장명에 따라)
+        if file_extension.lower() == ".xlsx":
+            sheets = read_xlsx_all_sheets(excel_file_path)  # .xlsx 파일 처리
+        elif file_extension.lower() == ".xls":
+            sheets = read_xls_all_sheets(excel_file_path)  # .xls 파일 처리
+        else:
+            raise ValueError(f"Unsupported file format: {file_extension}. Only '.xls' and '.xlsx' are supported.")
 
         # 첫 번째 시트를 읽고 비어 있는 행 제거
         first_sheet_name, first_sheet_data = read_and_clean_first_sheet(sheets)
@@ -115,6 +126,16 @@ def make_rotation_excel(file_path, base_file_name):
         market_config = config.get(split_folder_name, {})
         if not market_config:  # market_config이 빈 딕셔너리 또는 None일 경우
             raise ValueError(f"JSON에 마켓 이름 '{split_folder_name}'이(가) 없습니다.")
+        
+        market_name = get_market_name(split_folder_name)
+        # 설정파일 값을 변경
+        settings.CURRENT_MARKET_NAME = market_name
+        logger.log(f"작업중인 마켓 : {market_name}")
+
+        if market_name == "쿠팡":
+            processed_sheet_data = clear_column_data(first_sheet_data, "브랜드")
+        else:
+            processed_sheet_data = first_sheet_data  # 원본 데이터 그대로 사용
 
         # 설정 파일에 따라 작업 생성
         tasks = generate_tasks_from_config(market_config, details_config)
@@ -123,7 +144,7 @@ def make_rotation_excel(file_path, base_file_name):
             # todo :  각폴더명에 따른 내용을 json 파일에 기록하자
             #          공통된 부분은 모두 bool 타입으로 기록하고 이미지필터링 파일나눔도 json에 기록해 받아와 체크한뒤 실행하도록 변경하자 
             # 컨트롤 타워 실행
-            modify_df = process_first_sheet(tasks, first_sheet_data)
+            modify_df = process_first_sheet(tasks, processed_sheet_data)
 
         except ValueError as e:
             logger.log(f"태스크 작업중 에러발생 : {e}", level="ERROR")
@@ -141,17 +162,17 @@ def make_rotation_excel(file_path, base_file_name):
             image_filtered_df = modify_df
             logger.log(f"{split_folder_name}은 이미지필터링 제외.", level="INFO", also_to_report=True, separator="none")
 
-        # image_filtered_df = process_namingChange_excel_file(file_path, base_file_name, 'GPT조합', task_type="auto", sheets=image_filtered_df)
+        naming_process_df = process_namingChange_excel_file(file_path, base_file_name, 'GPT조합', task_type="auto", sheets=image_filtered_df)
             
 
         # modify_df의 행 개수를 확인하여 분할 저장 여부 결정
-        if modify_df.shape[0] > 5000:
-            logger.log(f"{folder_name} 의 행갯수가 5000개를 넘어 {modify_df.shape[0]}행 이므로 행분할 실시.", level="INFO", also_to_report=True, separator="2line")
+        if naming_process_df.shape[0] > 5000:
+            logger.log(f"{folder_name} 의 행갯수가 5000개를 넘어 {naming_process_df.shape[0]}행 이므로 행분할 실시.", level="INFO", also_to_report=True, separator="2line")
 
             split_excel_by_rows(file_path, base_file_name)
         else:
             # 모든 시트 저장
-            save_excel_with_sheets(sheets, output_file_name, image_filtered_df, first_sheet_name)
+            save_excel_with_sheets(sheets, output_file_name, naming_process_df, first_sheet_name)
             
 
 
@@ -160,75 +181,7 @@ def make_rotation_excel(file_path, base_file_name):
         raise
 
 
-def get_folder_name(sheet_data, column_name="폴더명"):
-    """
-    시트 데이터에서 지정된 열(column_name)의 첫 번째 값에서 '_'로 구분된 첫 번째 부분을 추출합니다.
-    폴더명이 없는 경우 속행합니다.
 
-    Parameters:
-        sheet_data (pd.DataFrame): 작업 대상 데이터프레임.
-        column_name (str): 폴더명이 포함된 열 이름 (기본값: '폴더명').
-
-    Returns:
-        str: '_'로 구분된 첫 번째 부분의 값 (없을 경우 빈 문자열 반환).
-    """
-    try:
-        # 지정된 열(column_name)이 존재하는지 확인
-        if column_name not in sheet_data.columns:
-            logger.log(f"⚠️ 열 '{column_name}'이(가) 데이터프레임에 존재하지 않습니다. 속행합니다.", level="WARNING")
-            return ""
-
-        # 첫 번째 값 가져오기
-        folder_name = sheet_data[column_name].iloc[0] if not sheet_data.empty else ""
-
-        # 값이 NaN인 경우 처리
-        if pd.isna(folder_name):
-            logger.log(f"⚠️ 폴더명이 비어 있습니다. 속행합니다.", level="WARNING")
-            return ""
-
-        # '_'로 나누어 첫 번째 부분 추출
-        split_parts = folder_name.split("_")
-        if split_parts:
-            extracted_folder_name = split_parts[0].strip()  # 첫 번째 부분 추출 후 공백 제거
-            # logger.log(f"추출된 폴더명: {extracted_folder_name}", level="INFO")
-            
-            return folder_name, extracted_folder_name
-        else:
-            logger.log(f"⚠️ 폴더명 '{folder_name}'에서 '_'로 구분된 부분을 찾을 수 없습니다. 속행합니다.", level="WARNING")
-            return ""
-
-    except Exception as e:
-        logger.log(f"폴더명을 가져오는 중 에러 발생: {e}", level="ERROR")
-        return ""
-    
-def split_market_name(folder_name):
-    """
-    폴더명을 '-'로 나누어 각각 리스트에 담아 반환하며, 대괄호([ ])와 같은 특수문자를 제거합니다.
-
-    Parameters:
-        folder_name (str): 분리할 폴더명 문자열.
-
-    Returns:
-        list: '-'로 나누어진 모든 부분을 담은 리스트 (없으면 빈 리스트 반환).
-    """
-    try:
-        if not folder_name:
-            logger.log(f"⚠️ 폴더명이 비어 있습니다.", level="WARNING")
-            return []
-
-        # 특수문자 제거 및 '-'로 나누기
-        cleaned_folder_name = folder_name.replace("[", "").replace("]", "").strip()
-        parts = [part.strip() for part in cleaned_folder_name.split("-") if part.strip()]
-        if parts:
-            logger.log(f"폴더명 분리: '{folder_name}' -> Parts: {parts}", level="INFO")
-            return parts
-        else:
-            logger.log(f"⚠️ 폴더명을 '-'로 나눌 수 없습니다: '{folder_name}'", level="WARNING")
-            return []
-
-    except Exception as e:
-        logger.log(f"폴더명을 분리하는 중 에러 발생: {e}", level="ERROR")
-        return []
 
 
 choices = {

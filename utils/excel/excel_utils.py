@@ -701,6 +701,49 @@ def rename_and_delete_columns(dataframe: pd.DataFrame, target_column: str, new_c
     except Exception as e:
         logger.log(f"❌ 열 이름 변경 및 삭제 중 에러 발생: {e}", level="ERROR")
         raise
+    
+def rename_and_modify_columns(dataframe: pd.DataFrame, target_column: str, new_column_name: str, change_column_name: str) -> pd.DataFrame:
+    """
+    데이터프레임에서 특정 열의 이름을 변경하고 기존 새 열(new_column_name)의 이름을 다른 이름으로 변경하는 함수.
+    
+    :param dataframe: 수정할 데이터프레임
+    :param target_column: 이름을 변경할 대상 열의 이름
+    :param new_column_name: target_column을 변경할 새 이름
+    :param change_column_name: new_column_name을 변경할 새 이름
+    :return: 수정된 데이터프레임
+    """
+    try:
+        # 열 존재 여부 확인
+        if target_column not in dataframe.columns:
+            raise ValueError(f"'{target_column}' 열이 데이터프레임에 존재하지 않습니다.")
+        if new_column_name not in dataframe.columns:
+            raise ValueError(f"'{new_column_name}' 열이 데이터프레임에 존재하지 않습니다.")
+
+
+
+        # 열 이름 변경 (new_column_name -> change_column_name)
+        dataframe = dataframe.rename(columns={new_column_name: change_column_name})
+        logger.log(
+            f"✅ '{new_column_name}' 열의 이름을 '{change_column_name}'으로 변경 완료.",
+            level="INFO",
+            also_to_report=True,
+            separator="none"
+        )
+        
+        # 열 이름 변경 (target_column -> new_column_name)
+        dataframe = dataframe.rename(columns={target_column: new_column_name})
+        logger.log(
+            f"✅ '{target_column}' 열의 이름을 '{new_column_name}'으로 변경 완료.",
+            level="INFO",
+            also_to_report=True,
+            separator="none"
+        )
+
+        return dataframe
+
+    except Exception as e:
+        logger.log(f"❌ 열 이름 변경 중 에러 발생: {e}", level="ERROR")
+        raise
 
 
 def clean_up_excel_process():

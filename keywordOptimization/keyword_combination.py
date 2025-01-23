@@ -245,7 +245,7 @@ def remove_duplicates_and_optimize(keywords: List[str]) -> str:
     return optimized_name
 
 
-def combine_keywords(existing_data, basic_product_name, max_length=49):
+def combine_keywords(existing_data, basic_product_name, max_length=45):
     """
     네이밍 아이템을 기반으로 최적화된 상품명을 생성.
     
@@ -394,7 +394,14 @@ def combine_keywords(existing_data, basic_product_name, max_length=49):
     logger.log_list(f"💬 고정키워드 : ", fixed_keywords, level="INFO", also_to_report=True, separator="none")
     logger.log_list(f"💬 필터 및 랜덤화된 고정키워드 : ", processed_fixed_keywords, level="INFO", also_to_report=True, separator="none")
     #logger.log_list(f"💬 네이버연관검색어 : ", related_keywords, level="INFO", also_to_report=True, separator="none")
-    logger.log_list(f"💬 연관검색어 : ", gpt_related_keywords, level="INFO", also_to_report=True, separator="none")
+    # logger.log_list(f"💬 연관검색어 : ", gpt_related_keywords, level="INFO", also_to_report=True, separator="none")
+
+    # 최대 3개만 출력
+    display_related_keywords = gpt_related_keywords[:3]
+    # 로그에 출력
+    logger.log(f"💬 연관검색어(3개만출력): {display_related_keywords}", level="INFO", also_to_report=True, separator="none")
+
+
     logger.log_list(f"💬 패턴 : ", patterns, level="INFO", also_to_report=True, separator="none")
     logger.log_list(f"💬 조합키워드 리스트", final_keywords_unique, level="INFO", also_to_report=True, separator="none")
     logger.log(f"🚀 최적화된 상품명: '{optimized_name}' (글자 수: {len(optimized_name)})", level="INFO", also_to_report=True, separator="dash-2line")

@@ -98,21 +98,22 @@ def gpt_extract_main_and_sub_keywords(product_name, dictionary, model="gpt-3.5-t
         #         상품명이외의 단어도 사용할수 있게 함으로써 좀더 차별화를 두기위해서 현재 지워둠 .
 
 
-
-
-
-
         f"추가 작업1:\n"    
         f" 작업내용 : '제품군' 의 '연관검색어' 를 **반드시 10개** 추출하세요. \n"
-        f" - '연관검색어' 는 '제품군'과 관련성이 높아야 하며 실제 사용자가 쇼핑 검색에서 입력할 법한 간결하고 구체적인 키워드여야 합니다.\n"
-        f" - 연관검색어에는 '제품군'과 관련된 유의어를 포함하세요. 유의어는 비슷한 의미를 가지면서도 다양한 사용자 검색을 포착할 수 있어야 합니다.\n"
-        f" - 유의어를 포함하되, 10개를 생성하지 못할 경우 '조금 낮은 관련성'의 키워드를 포함해 10개를 무조건 반환하세요.\n"
-        f" - 유의어는 연관검색어의 다양성을 위해 포함하며, 너무 일반적이거나 제품과 관련이 없는 단어는 제외합니다.\n"
-        # f" - 키워드의 구체성보다 다양성을 우선시하십시오.\n"
+        f" - '연관검색어'는 '제품군'과 관련성이 매우 높아야 하며, 실제 사용자가 쇼핑 검색에서 입력할 법한 **간결하고 구체적인 키워드**여야 합니다.\n"
+        f" - '연관검색어'에는 '제품군'과 관련된 유의어를 포함하세요. 유의어는 비슷한 의미를 가지면서도 다양한 사용자 검색을 포착할 수 있어야 합니다.\n"
+        f" - '연관검색어'는 유의어를 포함하되, 실제 사용자가 일상생활에서 사용할법한 상황에 관련된 제품의 단어로 만들어 주세요.\n"
+        f" - '연관검색어'에 유의어를 포함하되, 10개를 생성하지 못할 경우 '조금 낮은 관련성'의 니치키워드를 포함해 10개를 무조건 반환하세요.\n"
+        f" - '연관검색어'의 유의어에는 한국식 외래어로의 변경(예: 물병 -> 보틀)도 포함합니다.\n"
+        f" - '연관검색어'에는 **브랜드명(예: 나이키, 샤넬, 프라다)**이나 특정 제품의 고유명칭은 포함하지 마세요.\n"
+        f" - '연관검색어'에는 **특정 상품명 **이나 **특정 제품의 고유명칭**은 포함하지 마세요.\n"
+        f" - '연관검색어'는 반드시 '제품군'에 포함된 일반적인 특성, 용도, 카테고리를 반영해야 하며, 추상적이거나 명사 이외의 단어는(예: '좋은', '최고')는 제외하세요.\n"
+        f" - '연관검색어'는 키워드의 구체성보다 '제품군'과의 연관성 및 다양성을 우선시 하십시오.\n"
 
         f" 추가작업1 특별지침:\n"
         f" - 특히, 한국어에서는 '붙여쓰기'(예: 관리도서)가 '띄어쓰기'(예: 관리 도서)보다 니치 키워드로 작용할 가능성이 높습니다.\n"
         f" - 따라서 '연관검색어' 생성 시, '붙여쓰기' 형태로 '니치키워드'를 우선적으로 생성해 주세요.\n"
+        f" - 따라서 '연관검색어' 생성 시, 그 제품이 가지고 있는 다양한 용도나 특성을 조합하여 '붙여쓰기' 형태로 '니치키워드'를 우선적으로 생성해 주세요.\n"
         f" - 예를 들어, '야간 독서 등' 대신 '야간독서등'과 같은 형태를 우선합니다.\n"
 
         f" 추가작업1 예시: \n"
@@ -120,21 +121,22 @@ def gpt_extract_main_and_sub_keywords(product_name, dictionary, model="gpt-3.5-t
         f"  연관검색어: 군인독서등, 야간독서조명, LED독서등, 밤독서등, 야간스탠드\n"
         f"  - 상품명: 클리어북\n"
         f"  연관검색어: 인사관리책, 회사파일, 문서관리노트, 클리어파일\n"
+        f"  - 상품명: 다용도 걸이식 차량용 미니 휴지통\n"
+        f"  연관검색어: 작은휴지통, 회사휴지통, 책상쓰레기통, 자동차휴지통, 승용차휴지통\n"
+
 
         f" 추가작업1 주의사항:\n"
-        f" - 주의 : 반드시 새로운 단어를 생성하지 마세요.\n"
-        f" - 주의 : 검색SEO와 니치키워드에 적합하도록 간결하고 실제 검색에서 활용될 법한 키워드만 생성하세요.\n"
-        f" - 주의 : 비현실적이거나 상품관 관련없는 단어(예:전생, 전투... )는 포함하지 마세요.\n"
+        f" - 주의: '연관검색어'에는 반드시 **브랜드명(예: 나이키, 샤넬, 프라다)**이나 **상품명**, **상표명**, 특정 고유명칭(예: 애플 아이폰)은 포함하지 마세요.\n"
+        f" - 주의: 검색 SEO와 니치키워드에 적합하도록 **간결하고 실제 검색에서 활용될 법한 키워드**만 생성하세요.\n"
+        f" - 주의 : 비현실적이거나 상품관 관련없는 단어(예:전생, 전투... )또는 용도, 사양등은 포함하지 마세요.\n"
         f" - 주의 : 중복되는 키워드는 제외하고 유사한 의미의 키워드 혹은 확장된 키워드로 바꿔 주세요.\n"
         f" - 주의 : '연관검색어'은 반드시 공백없는 키워드로만 만들어 주세요. \n"
         f"            예: 'DVD 케이스' ❌ -> 'DVD케이스' ✅\n"
         f" - 주의 : 반드시 숫자는 '연관검색어' 에서 제외하세요. \n"
-        f" - 주의 : '연관검색어'는 반드시 '제품군'과 연관성이 있어야 합니다.\n"
-
 
 
         f"추가 작업2:\n"  
-        f" 작업내용 :  '제품군'과 관련된 주요 '브랜드키워드' 를 **반드시 10개** 추출하세요. \n"
+        f" 작업내용 :  '제품군'과 관련된 주요 '브랜드키워드' 를 5개 추출하세요. \n"
         # f" - '브랜드키워드'는 실제 시장에서 존재하는 브랜드를 바탕으로, 제품군과 직접 관련성이 있어야 합니다.\n"
         # f" - 예를 들어, '제품군'이 '의자'인 경우에는 의자를 제조하거나 판매하는 실제 브랜드를 포함해야 합니다.\n"
         # f" - 브랜드명은 명확하고 간결해야 하며, 고객이 제품 구매 시 참고할 수 있는 브랜드이어야 합니다.\n"
@@ -144,7 +146,7 @@ def gpt_extract_main_and_sub_keywords(product_name, dictionary, model="gpt-3.5-t
         f" - '브랜드키워드' 는 실제 시장에서 제품군과 관련성이 높은 브랜드를 포함해야 합니다.\n"
         f" - 브랜드는 국제적으로 널리 알려진 브랜드뿐만 아니라, 지역적으로 사용되는 브랜드도 포함할 수 있습니다.\n"
         f" - 새로운 브랜드를 생성하지 말고, 제품군과 관련된 키워드를 기반으로 가장 가능성 높은 브랜드를 제안하세요.\n"
-        f" - 브랜드키워드가 10개 미만인 경우 가능한 최대한만 포함하세요.\n"
+        f" - 브랜드키워드가 5개 미만인 경우 가능한 갯수만 포함하세요.\n"
 
 
         f" 추가작업2 특별지침:\n"
@@ -152,8 +154,6 @@ def gpt_extract_main_and_sub_keywords(product_name, dictionary, model="gpt-3.5-t
         f" - '브랜드키워드'는 제품군의 범위를 벗어나지 않도록 하세요. 예를 들어, '운동화'의 브랜드키워드는 나이키, 아디다스 등 운동화 브랜드여야 하며, 관련 없는 브랜드는 포함하지 마세요.\n"
         f" - 중복되는 브랜드는 제외하고, 다양한 브랜드를 최대한 포함하세요.\n"
         f" - '브랜드키워드'는 유명 브랜드뿐 아니라, 중소기업 브랜드도 포함해야 합니다.\n"
-        f" - 제품군과 관련된 시장에서 실제로 사용되는 브랜드를 최대한 포함하세요.\n"
-        f" - '브랜드키워드'는 반드시 제품군의 카테고리와 연관성이 있어야 하며, 너무 일반적인 이름은 제외하세요.\n"
 
 
         f" 추가작업2 예시: \n"
@@ -166,12 +166,8 @@ def gpt_extract_main_and_sub_keywords(product_name, dictionary, model="gpt-3.5-t
 
         f" 추가작업2 주의사항:\n"
         f" - 반드시 **실제 브랜드**를 기반으로 작성하세요.\n"
-        f" - 브랜드키워드가 10개 미만인 경우, 가능한 최대한만 포함하세요.\n"
         f" - 중복된 브랜드 또는 다른 제품군과 혼동될 수 있는 브랜드는 제외하세요.\n"
         f" - 브랜드키워드는 '시장에 존재하는 브랜드 또는 제품군과 관련된 키워드' 여야 합니다.\n"
-        f" - 예를 들어, 브랜드가 실제로 부족할 경우 제품군과 관련된 시장 키워드를 포함하여 보완하세요.\n"
-
-    
 
 
         f"최종 응답 형식: JSON 형식으로 제공하세요. \n"
@@ -338,7 +334,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
                 # 연관검색어 가져오기
                 related_keywords = data.get("GPT연관검색어", [])
 
-                # 최대 5개만 출력
+                # 최대 3개만 출력
                 display_related_keywords = related_keywords[:3]
                 # 로그에 출력
                 logger.log(f"✅ 매칭된 연관검색어(3개만출력): {display_related_keywords}", level="INFO", also_to_report=True, separator="none")
@@ -347,7 +343,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
                 # 브랜드키워드 가져오기
                 bland_keywords = data.get("브랜드키워드", [])
 
-                # 최대 5개만 출력
+                # 최대 3개만 출력
                 display_bland_keywords = bland_keywords[:3]
                 logger.log(f"✅ 매칭된 브랜드키워드(3개만출력): {display_bland_keywords}", level="INFO", also_to_report=True, separator="none")
 
@@ -497,16 +493,21 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
             merged_related_keywords = list(existing_related_keywords | new_related_keywords)
             # 병합 결과를 사전에 업데이트
             dictionary[main_keyword]["GPT연관검색어"] = merged_related_keywords
-            logger.log(f"GPT연관검색어 병합 완료: {merged_related_keywords}", level="INFO")
+
+            # 최대 3개만 출력
+            display_related_keywords = merged_related_keywords[:3]
+            # 로그에 출력
+            logger.log(f"✅ GPT연관검색어 병합 완료(3개만출력): {display_related_keywords}", level="INFO", also_to_report=True, separator="none")
 
             # 브랜드키워드 병합
             existing_brand_keywords = set(dictionary[main_keyword].get("브랜드키워드", []))
             new_brand_keywords = set(gpt_result.get("브랜드키워드", []))
             merged_brand_keywords = list(existing_brand_keywords | new_brand_keywords)            
             dictionary[main_keyword]["브랜드키워드"] = merged_brand_keywords
-            logger.log(f"브랜드키워드 병합 완료: {merged_brand_keywords}", level="INFO")
-            logger.log(f"브랜드키워드 : {new_brand_keywords}", level="INFO")
-            logger.log(f"gpt_result : {gpt_result}", level="INFO")
+
+            # 최대 3개만 출력
+            display_bland_keywords = merged_brand_keywords[:3]
+            logger.log(f"✅ 브랜드키워드 병합 완료(3개만출력): {display_bland_keywords}", level="INFO", also_to_report=True, separator="none")
 
 
 

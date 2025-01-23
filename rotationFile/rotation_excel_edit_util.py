@@ -2,6 +2,31 @@ from utils.global_logger import logger
 
 import pandas as pd
 
+def clear_column_data(dataframe, column_name):
+    """
+    특정 열의 데이터를 모두 삭제(해당 열을 NaN으로 설정)하는 함수.
+    
+    :param dataframe: 데이터프레임
+    :param column_name: 데이터를 삭제할 열 이름
+    :return: 수정된 데이터프레임
+    """
+    try:
+        if column_name not in dataframe.columns:
+            raise ValueError(f"데이터프레임에 '{column_name}' 열이 존재하지 않습니다.")
+        
+        # 초기 데이터 수 로깅
+        row_count = len(dataframe)
+        logger.log(f"✅ '{column_name}' 열의 데이터 삭제 작업 시작 (총 {row_count}행).", level="INFO")
+        
+        # 열 데이터 삭제 (NaN으로 설정)
+        dataframe[column_name] = None  # 또는 dataframe[column_name] = pd.NA
+        
+        logger.log(f"✅ '{column_name}' 열의 데이터가 모두 삭제되었습니다.", level="INFO")
+        return dataframe
+    except Exception as e:
+        raise ValueError(f"'{column_name}' 열의 데이터를 삭제하는 중 문제가 발생했습니다: {e}")
+
+
 def remove_empty_rows(dataframe, column_name):
     """
     특정 열이 비어있는 행을 삭제하는 함수
