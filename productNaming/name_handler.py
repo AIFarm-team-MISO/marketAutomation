@@ -104,7 +104,7 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
         if not market_config:  # market_config이 빈 딕셔너리 또는 None일 경우
             raise ValueError(f"JSON에 마켓 이름 '{split_folder_name}'이(가) 없습니다.")
         
-        market_name = get_market_name(split_folder_name)
+        market_name, channel_name = get_market_name(split_folder_name)
         # 설정파일 값을 변경
     else:
         
@@ -138,7 +138,8 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
     # logger.log_list("필터링된 리스트", filterd_list, level="INFO") #필터링된 리스트
 
     # ▶️ gpt 비용, 시간 확인, 프로그램실행유무
-    run_filtering_item_process(filterd_list, "상품명가공", task_type)
+    #run_filtering_item_process(filterd_list, "상품명가공", task_type)
+    run_filtering_item_process(filterd_list, "상품명가공", "single")
     # run_filtering_item_process(filterd_list, "상품명가공", "auto")
     
     # 기본상품명 분석(메인과 보조키워드 추출) 및 연관검색어 추출

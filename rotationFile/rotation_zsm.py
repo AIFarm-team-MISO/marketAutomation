@@ -13,7 +13,8 @@ from imageFilter.excel.excel_handler_xlsx import process_imageFiltering_excel_fi
 from utils.excel.excel_split import split_excel_by_rows
 from rotationFile.rotation_task_manager import generate_tasks_from_config, process_first_sheet
 from productNaming.name_handler import process_namingChange_excel_file
-from rotationFile.rotation_excel_edit_util import clear_column_data
+from rotationFile.rotation_excel_edit_util import clear_column_data, add_prefix_to_column
+from rotationFile.rotation_excel_edit_util import update_column_to_9999, adjust_column_by_percentage, swap_image_column
 from utils.excel.excel_get_data import get_folder_name, get_market_name
 
 # 현재 파일 위치 기준으로 JSON 파일 경로 설정
@@ -118,6 +119,8 @@ def make_rotation_excel(file_path, base_file_name):
 
         # 대상시트에서 '폴더명' 이름 가져오기
         folder_name, split_folder_name = get_folder_name(first_sheet_data, column_name="폴더명")
+        logger.log(f"folder_name : {folder_name}")
+        logger.log(f"split_folder_name : {split_folder_name}")
 
 
         # 순환파일 JSON 설정파일 로드 
@@ -127,15 +130,34 @@ def make_rotation_excel(file_path, base_file_name):
         if not market_config:  # market_config이 빈 딕셔너리 또는 None일 경우
             raise ValueError(f"JSON에 마켓 이름 '{split_folder_name}'이(가) 없습니다.")
         
-        market_name = get_market_name(split_folder_name)
+        market_name, channel_name = get_market_name(split_folder_name)
+
+
         # 설정파일 값을 변경
         settings.CURRENT_MARKET_NAME = market_name
         logger.log(f"작업중인 마켓 : {market_name}")
 
         if market_name == "쿠팡":
+            # 브랜드명을 모두지움
             processed_sheet_data = clear_column_data(first_sheet_data, "브랜드")
+
+        elif market_name == "도매토피아":
+            # [도매토피아-GT]
+            # 판매자관리코드 접두사만듬 
+            modify_sellercode = add_prefix_to_column(first_sheet_data, "판매자 관리코드", channel_name)
+            modify_count = update_column_to_9999(modify_sellercode, "수량*") #수량변경
+            modify_price = adjust_column_by_percentage(modify_count, "판매가*", 5, "인하") #판매가변경
+            processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지2')
+
+
+        elif market_name == "네이버":
+            # 네이버는 json에 네이버용 도매토피아 만들어야됨 아마.. [네이버-GT]등으로
+            processed_sheet_data = add_prefix_to_column(first_sheet_data, "판매자 관리코드", channel_name)
         else:
             processed_sheet_data = first_sheet_data  # 원본 데이터 그대로 사용
+
+
+
 
         # 설정 파일에 따라 작업 생성
         tasks = generate_tasks_from_config(market_config, details_config)
@@ -161,6 +183,11 @@ def make_rotation_excel(file_path, base_file_name):
         else:
             image_filtered_df = modify_df
             logger.log(f"{split_folder_name}은 이미지필터링 제외.", level="INFO", also_to_report=True, separator="none")
+
+
+        # save_excel_with_sheets(sheets, output_file_name, image_filtered_df, first_sheet_name)
+
+
 
         naming_process_df = process_namingChange_excel_file(file_path, base_file_name, 'GPT조합', task_type="auto", sheets=image_filtered_df)
             

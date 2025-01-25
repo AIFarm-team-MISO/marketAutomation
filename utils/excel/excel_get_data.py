@@ -89,21 +89,23 @@ def get_folder_name(sheet_data, column_name="폴더명"):
         logger.log(f"폴더명을 가져오는 중 에러 발생: {e}", level="ERROR")
         return ""
     
-def get_market_name(folder_name: str) -> str:
+def get_market_name(folder_name: str)  -> tuple:
     """
-    대괄호([])를 제거하고, '-' 앞의 부분(마켓 이름)을 추출하는 함수.
+    대괄호([])를 제거하고, '-'로 분리하여 앞부분(마켓 이름)과 뒷부분(채널 이름)을 반환하는 함수.
 
     :param folder_name: 처리할 폴더 이름 (예: "[쿠팡-블루채널]")
-    :return: 추출된 마켓 이름 (예: "쿠팡")
+    :return: (마켓 이름, 채널 이름) 튜플 (예: ("쿠팡", "블루채널"))
     """
     try:
         # 대괄호 제거
         cleaned_name = folder_name.strip("[]")
         
-        # '-'로 분리하여 앞부분 추출
-        market_name = cleaned_name.split("-")[0]
+        # '-'로 분리
+        parts = cleaned_name.split("-")
+        market_name = parts[0].strip() if len(parts) > 0 else ""
+        channel_name = parts[1].strip() if len(parts) > 1 else ""
         
-        return market_name.strip()  # 앞뒤 공백 제거 후 반환
+        return market_name, channel_name
     except Exception as e:
         raise ValueError(f"폴더 이름 처리 중 에러 발생: {e}")
     

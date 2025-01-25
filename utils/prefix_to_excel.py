@@ -367,7 +367,7 @@ def process_add_prefix_to_excel_in_folder_with_sheets(folder_path, file_name, co
                     for col_idx in range(sheet.ncols):
                         cell_value = sheet.cell_value(row_idx, col_idx)
 
-                        # C 열 처리 (접두사와 사용자 정의 문자열 설정)
+                        # C 열 처리 (접두사와 사용자 정의 문자열 설정)(폴더명 추가)
                         if col_idx == column_indices.get("C") and row_idx >= 2:  # 3번째 행부터 처리
                             cell_value = set_column_to_custom_string(prefix, "도매토피아")
 

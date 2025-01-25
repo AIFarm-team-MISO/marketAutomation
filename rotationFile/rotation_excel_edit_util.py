@@ -2,6 +2,154 @@ from utils.global_logger import logger
 
 import pandas as pd
 
+def swap_image_column(dataframe: pd.DataFrame, column1: str, column2: str) -> pd.DataFrame:
+    """
+    두 열의 값을 교환하고, 두 열 중 하나라도 비어 있는 경우 해당 행을 삭제합니다.
+
+    :param dataframe: 값을 교환할 데이터프레임
+    :param column1: 첫 번째 열 이름
+    :param column2: 두 번째 열 이름
+    :return: 수정된 데이터프레임
+    """
+    try:
+        # 열이 데이터프레임에 존재하는지 확인
+        if column1 not in dataframe.columns or column2 not in dataframe.columns:
+            raise ValueError(f"'{column1}' 또는 '{column2}' 열이 데이터프레임에 존재하지 않습니다.")
+
+        # 두 열 중 하나라도 비어 있는 경우 해당 행 삭제
+        initial_row_count = len(dataframe)
+        dataframe = dataframe.dropna(subset=[column1, column2])
+        removed_rows_count = initial_row_count - len(dataframe)
+
+        if removed_rows_count > 0:
+            print(f"⚠️ 두 열 중 하나라도 비어 있는 {removed_rows_count}개의 행이 삭제되었습니다.")
+
+        # 열 값 교환
+        dataframe[column1], dataframe[column2] = dataframe[column2], dataframe[column1]
+
+        print(f"✅ '{column1}' 열과 '{column2}' 열의 값이 교환되었습니다.")
+
+        return dataframe
+
+    except Exception as e:
+        raise ValueError(f"열 값 교환 중 문제가 발생했습니다: {e}")
+
+def adjust_column_by_percentage(dataframe, column_name, percentage, operation):
+    """
+    지정된 열의 모든 숫자 값을 비율에 따라 증가 또는 감소시키는 함수.
+    문자열로 된 숫자 값이 포함된 경우, 이를 숫자로 변환하여 처리.
+
+    :param dataframe: pandas DataFrame
+    :param column_name: 값을 조정할 열의 이름
+    :param percentage: 조정할 비율 (10은 10%를 의미)
+    :param operation: "increase" 또는 "decrease" 중 하나를 입력하여 값을 증가 또는 감소
+    :return: 수정된 DataFrame
+    :raises ValueError: 열이 없거나 operation 값이 잘못된 경우 예외 발생
+    """
+    try:
+        # 열이 데이터프레임에 존재하는지 확인
+        if column_name not in dataframe.columns:
+            raise ValueError(f"'{column_name}' 열이 데이터프레임에 존재하지 않습니다.")
+
+        # 열의 데이터가 숫자 또는 문자열로 된 숫자인지 확인
+        def convert_to_numeric(value):
+            try:
+                return float(value)
+            except ValueError:
+                raise ValueError(f"'{column_name}' 열에 숫자가 아닌 값이 포함되어 있습니다: {value}")
+
+        dataframe[column_name] = dataframe[column_name].apply(convert_to_numeric)
+
+        # 조정 비율을 계산 (10%는 0.1로 변환)
+        adjustment_factor = percentage / 100
+
+        # 증가 또는 감소 작업 수행
+        if operation == "인상":
+            dataframe[column_name] = (dataframe[column_name] * (1 + adjustment_factor)).astype(int)
+        elif operation == "인하":
+            dataframe[column_name] = (dataframe[column_name] * (1 - adjustment_factor)).astype(int)
+        else:
+            raise ValueError("operation 값은 '인상' 또는 '인하'만 가능합니다.")
+
+        # 마지막 자릿수를 0으로 변경
+        dataframe[column_name] = (dataframe[column_name] // 10) * 10
+
+        # 작업 성공 메시지 출력
+        logger.log(f"✅ '{column_name}' 열의 값이 {percentage}% {operation} 되었습니다.")
+        return dataframe
+
+    except Exception as e:
+        print(f"❌ 작업 중 오류 발생: {e}")
+        raise SystemExit(f"프로그램 종료: {e}")
+
+
+
+def update_column_to_9999(dataframe: pd.DataFrame, column_name: str) -> pd.DataFrame:
+    """
+    특정 열의 모든 값을 숫자 9999로 변경하는 함수.
+
+    :param dataframe: pandas DataFrame
+    :param column_name: 값을 변경할 열 이름
+    :return: 값이 변경된 DataFrame
+    """
+    try:
+        # 열 이름 존재 여부 확인
+        if column_name not in dataframe.columns:
+            raise ValueError(f"'{column_name}' 열이 데이터프레임에 존재하지 않습니다.")
+
+        # 열 값을 9999로 변경
+        dataframe[column_name] = 9999
+
+        # 변경 완료 로그 출력
+        logger.log(f"✅ '{column_name}' 열의 모든 값이 9999로 변경되었습니다.")
+
+        return dataframe
+
+    except Exception as e:
+        raise ValueError(f"'{column_name}' 열의 값을 9999로 변경하는 중 문제가 발생했습니다: {e}")
+
+def add_prefix_to_column(dataframe, column_name, prefix, suffix=None):
+    """
+    특정 열의 값에 접두사(prefix)와 접미사(suffix)를 추가하는 함수.
+    소수점 문제를 해결하고, 접두사와 접미사 사이에 '_'를 자동으로 추가.
+
+    :param dataframe: 데이터프레임
+    :param column_name: 값을 수정할 열 이름
+    :param prefix: 추가할 접두사
+    :param suffix: 추가할 접미사 (기본값: None)
+    :return: 수정된 데이터프레임
+    """
+    try:
+        if column_name not in dataframe.columns:
+            raise ValueError(f"데이터프레임에 '{column_name}' 열이 존재하지 않습니다.")
+        
+        # 초기 데이터 수 로깅
+        row_count = len(dataframe)
+        logger.log(f"✅ '{column_name}' 열의 접두사 '{prefix}' 추가 작업 시작 (총 {row_count}행).", level="INFO")
+        
+        # 열 값 변환
+        def transform_value(value):
+            # 소수점 문제 해결 (값이 float인 경우 정수로 변환 가능)
+            if isinstance(value, float) and value.is_integer():
+                value = int(value)
+            # None 또는 NaN은 변환하지 않음
+            if pd.isna(value):
+                return value
+            # 접두사와 접미사 추가
+            if suffix:
+                return f"{prefix}_{value}_{suffix}"
+            else:
+                return f"{prefix}_{value}"
+        
+        dataframe[column_name] = dataframe[column_name].apply(transform_value)
+        
+        logger.log(f"✅ '{column_name}' 열의 접두사와 접미사가 성공적으로 추가되었습니다.", level="INFO")
+        return dataframe
+    except Exception as e:
+        raise ValueError(f"'{column_name}' 열의 데이터를 수정하는 중 문제가 발생했습니다: {e}")
+
+
+
 def clear_column_data(dataframe, column_name):
     """
     특정 열의 데이터를 모두 삭제(해당 열을 NaN으로 설정)하는 함수.

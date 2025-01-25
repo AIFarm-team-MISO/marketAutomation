@@ -53,7 +53,7 @@ def split_excel_by_rows(file_path, base_file_name):
     :param base_file_name: 생성할 파일의 기본 이름
     """
 
-    rows_per_file = 1000
+    rows_per_file = 4500
 
     try:
 

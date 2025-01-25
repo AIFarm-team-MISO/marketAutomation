@@ -511,7 +511,6 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
 
 
 
-
              # 반환 데이터 생성
             gpt_data = {
                 "기본상품명": product_name,  # 단일 값
