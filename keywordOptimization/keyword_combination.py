@@ -260,6 +260,23 @@ def combine_keywords(existing_data, basic_product_name, max_length=45):
     related_keywords = existing_data.get("네이버연관검색어", [])
     gpt_related_keywords = existing_data.get("GPT연관검색어", [])
     patterns = existing_data.get("패턴", [])
+    brand_keywords = existing_data.get("브랜드키워드", [])
+
+    # 1️⃣ 연관검색어 필터링: 연관검색어의 브랜드 키워드 제거(브랜드 키워드가 비어있지 않을 경우에만 필터링 수행)
+    if brand_keywords:
+        filtered_out_keywords = [
+            keyword for keyword in gpt_related_keywords
+            if any(brand in keyword for brand in brand_keywords)
+        ]
+        gpt_related_keywords = [
+            keyword for keyword in gpt_related_keywords
+            if not any(brand in keyword for brand in brand_keywords)
+        ]
+        logger.log(f"💬 필터링된 키워드 (브랜드 키워드와 매칭됨): {filtered_out_keywords}", level="INFO", also_to_report=True, separator="none")
+    else:
+        logger.log(f"💬 브랜드 키워드가 비어 있어 필터링 작업을 건너뜁니다.", level="INFO")
+    logger.log(f"💬 최종 연관검색어 (브랜드 키워드 제거 후): {gpt_related_keywords}", level="INFO")
+    
 
 
     # 기본상품명에서 메인키워드를 제외한 나머지를 고정 키워드로 설정
@@ -401,6 +418,10 @@ def combine_keywords(existing_data, basic_product_name, max_length=45):
     # 로그에 출력
     logger.log(f"💬 연관검색어(3개만출력): {display_related_keywords}", level="INFO", also_to_report=True, separator="none")
 
+    # 추가필터링 작업 
+    filter_list = ["구름백", "구름디자인"] # 필터링 리스트 정의
+    filtered_words = [word for word in optimized_name.split() if word not in filter_list]
+    optimized_name = " ".join(filtered_words)
 
     logger.log_list(f"💬 패턴 : ", patterns, level="INFO", also_to_report=True, separator="none")
     logger.log_list(f"💬 조합키워드 리스트", final_keywords_unique, level="INFO", also_to_report=True, separator="none")

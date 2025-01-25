@@ -1,4 +1,5 @@
 from keywordOptimization.keyword_combination import analyze_patterns,analyze_related_patterns, combine_keywords
+from keywordDictionary.dictionary_loader import load_dictionary, save_dictionary
 
 from utils.global_logger import logger
 
@@ -27,6 +28,43 @@ def gpt_result_generate_name(basic_product_name, dictionary, name_strength=49):
     """
     logger.log(f"📌 {basic_product_name} : 필터링시작", also_to_report=True, separator="none")
     logger.log(f"📌 마켓글자수제한 : {name_strength}", also_to_report=True, separator="none")
+
+
+    # 브랜드키워드중 연관검색어 있는것들 삭제하는 코드 
+    # for main_keyword, keyword_data in dictionary.items():
+    #         # 브랜드 키워드와 연관검색어 가져오기
+    #         brand_keywords = keyword_data.get("브랜드키워드", [])
+    #         related_keywords = keyword_data.get("GPT연관검색어", [])
+
+    #         # 브랜드 키워드가 없으면 건너뜀
+    #         if not brand_keywords:
+    #             logger.log(f"💬 '{main_keyword}'의 브랜드 키워드가 비어 있어 필터링 작업을 건너뜁니다.", level="INFO")
+    #             continue
+
+    #         # 필터링된 연관검색어와 제거된 연관검색어 구분
+    #         filtered_out_keywords = [
+    #             keyword for keyword in related_keywords
+    #             if any(brand in keyword for brand in brand_keywords)
+    #         ]
+    #         updated_related_keywords = [
+    #             keyword for keyword in related_keywords
+    #             if keyword not in filtered_out_keywords
+    #         ]
+
+    #         # 필터링 결과 로그 출력
+    #         if filtered_out_keywords:
+    #             logger.log(f"💬 '{main_keyword}'에서 제거된 연관검색어 (브랜드와 매칭됨):", level="INFO")
+    #             for keyword in filtered_out_keywords:
+    #                 matching_brands = [brand for brand in brand_keywords if brand in keyword]
+    #                 logger.log(f"    🔹 연관검색어: '{keyword}' -> 매칭된 브랜드 키워드: {matching_brands}", level="INFO")
+
+    #         # 사전 데이터 업데이트
+    #         dictionary[main_keyword]["GPT연관검색어"] = updated_related_keywords
+            
+    # save_dictionary(dictionary)
+
+
+
 
     # 1. 기본상품명을 통해 그데이터의 메인키워드 추출
     main_keyword = find_main_keyword_by_basic_name(dictionary, basic_product_name)
