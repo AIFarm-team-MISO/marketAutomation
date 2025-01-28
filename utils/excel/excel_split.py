@@ -45,7 +45,7 @@ def save_split_excel_files(first_sheet_data, sheets, file_path, base_file_name, 
     logger.log(f"무결성 체크 : 총행갯수 {total_rows}행 분할 완료.", also_to_report=True, separator="2line")
 
 
-def split_excel_by_rows(file_path, base_file_name):
+def split_excel_by_rows(file_path, base_file_name, task_type="single", sheets=None, modify_data=None, first_sheet_name=None):
     """
     엑셀 파일의 행을 지정한 크기로 나누어 각 파일을 생성합니다.
 
@@ -56,22 +56,31 @@ def split_excel_by_rows(file_path, base_file_name):
     rows_per_file = 4500
 
     try:
+        if sheets is None: # 단독실행일경우 
 
-        excel_file_path = make_input_file_path(file_path, base_file_name)
-        # output_file_name = make_output_file_path(file_path, base_file_name, "_image_filtered_output", FILE_EXTENSION_xlsx)
-        _, file_extension = os.path.splitext(base_file_name)
+            excel_file_path = make_input_file_path(file_path, base_file_name)
+            # output_file_name = make_output_file_path(file_path, base_file_name, "_image_filtered_output", FILE_EXTENSION_xlsx)
+            _, file_extension = os.path.splitext(base_file_name)
 
 
-        # 모든 시트 읽기(파일확장명에 따라)
-        if file_extension.lower() == ".xlsx":
-            sheets = read_xlsx_all_sheets(excel_file_path)  # .xlsx 파일 처리
-        elif file_extension.lower() == ".xls":
-            sheets = read_xls_all_sheets(excel_file_path)  # .xls 파일 처리
-        else:
-            raise ValueError(f"Unsupported file format: {file_extension}. Only '.xls' and '.xlsx' are supported.")
+            # 모든 시트 읽기(파일확장명에 따라)
+            if file_extension.lower() == ".xlsx":
+                sheets = read_xlsx_all_sheets(excel_file_path)  # .xlsx 파일 처리
+            elif file_extension.lower() == ".xls":
+                sheets = read_xls_all_sheets(excel_file_path)  # .xls 파일 처리
+            else:
+                raise ValueError(f"Unsupported file format: {file_extension}. Only '.xls' and '.xlsx' are supported.")
 
-        # 첫 번째 시트를 읽고 비어 있는 행 제거
-        first_sheet_name, first_sheet_data = read_and_clean_first_sheet(sheets)
+            # 첫 번째 시트를 읽고 비어 있는 행 제거
+            first_sheet_name, first_sheet_data = read_and_clean_first_sheet(sheets)
+
+        else: # 시트가 제공된 경우, 첫 번째 시트 및 정제처리가 필요없음 : 자동화실행일 경우
+            logger.log(f"시트가 존재하여 순환가공된 파일 기준으로 분할시작!")
+            sheets = sheets
+            first_sheet_name = first_sheet_name
+            first_sheet_data = modify_data
+
+        
 
         # 원본번호 기준으로 번호정렬 및 데이터 타입 변환
         first_sheet_data = first_sheet_data.copy()

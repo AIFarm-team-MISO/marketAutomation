@@ -369,7 +369,7 @@ def extract_keywords(product_name, dictionary, model="gpt-3.5-turbo"):
 
         import time  # 재시도 간 대기 시간을 위해
 
-        MAX_RETRIES = 3  # 최대 재시도 횟수
+        MAX_RETRIES = 5  # 최대 재시도 횟수
         RETRY_DELAY = 2  # 재시도 간 대기 시간 (초)
 
         retry_count = 0  # 재시도 횟수 추적

@@ -152,7 +152,8 @@ def make_rotation_excel(file_path, base_file_name):
 
         elif market_name == "네이버":
             # 네이버는 json에 네이버용 도매토피아 만들어야됨 아마.. [네이버-GT]등으로
-            processed_sheet_data = add_prefix_to_column(first_sheet_data, "판매자 관리코드", channel_name)
+            # processed_sheet_data = add_prefix_to_column(first_sheet_data, "판매자 관리코드", channel_name)
+            processed_sheet_data = first_sheet_data  # 원본 데이터 그대로 사용
         else:
             processed_sheet_data = first_sheet_data  # 원본 데이터 그대로 사용
 
@@ -176,6 +177,8 @@ def make_rotation_excel(file_path, base_file_name):
         image_filtering = market_config.get("image_filtering", False)
         logger.log(f"{split_folder_name} 이미지필터링유무: " + str(image_filtering), also_to_report=True, separator="1line")
 
+
+
         # 이미지필터링 
         if image_filtering: #이미지 필터링이 true 라면
             image_filtered_df = process_imageFiltering_excel_file_xlsx(file_path, base_file_name, task_type="auto", sheets=modify_df)
@@ -188,15 +191,18 @@ def make_rotation_excel(file_path, base_file_name):
         # save_excel_with_sheets(sheets, output_file_name, image_filtered_df, first_sheet_name)
 
 
-
-        naming_process_df = process_namingChange_excel_file(file_path, base_file_name, 'GPT조합', task_type="auto", sheets=image_filtered_df)
+        if market_name != "네이버":
+            naming_process_df = process_namingChange_excel_file(file_path, base_file_name, 'GPT조합', task_type="auto", sheets=image_filtered_df)
+        else:
+            naming_process_df = image_filtered_df
+            logger.log(f"{market_name}은 상품명가공 제외.", level="INFO", also_to_report=True, separator="none")
             
 
         # modify_df의 행 개수를 확인하여 분할 저장 여부 결정
         if naming_process_df.shape[0] > 5000:
             logger.log(f"{folder_name} 의 행갯수가 5000개를 넘어 {naming_process_df.shape[0]}행 이므로 행분할 실시.", level="INFO", also_to_report=True, separator="2line")
 
-            split_excel_by_rows(file_path, base_file_name)
+            split_excel_by_rows(file_path, base_file_name, task_type="auto", sheets=sheets, modify_data=naming_process_df)
         else:
             # 모든 시트 저장
             save_excel_with_sheets(sheets, output_file_name, naming_process_df, first_sheet_name)
