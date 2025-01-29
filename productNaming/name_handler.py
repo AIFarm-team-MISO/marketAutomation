@@ -87,12 +87,8 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
         
         first_sheet_name, first_sheet_data = read_and_clean_first_sheet(sheets)
 
-    else: # 편집된 시트데이터가 넘어온 경우, 첫 번째 시트 및 정제처리가 필요없음 : 자동화실행
-        first_sheet_data = sheets
-
-    if task_type=="single":
         # 대상시트에서 '폴더명' 이름 가져오기
-        folder_name, split_folder_name = get_folder_name(first_sheet_data, column_name="폴더명")
+        folder_name, split_folder_name, dome_name = get_folder_name(first_sheet_data, column_name="폴더명")
 
         # 순환파일 JSON 설정파일 로드 
         config = load_config(ROTATION_JSON_PATH)
@@ -102,10 +98,13 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
             raise ValueError(f"JSON에 마켓 이름 '{split_folder_name}'이(가) 없습니다.")
         
         market_name, channel_name = get_market_name(split_folder_name)
+
+    else: # 편집된 시트데이터가 넘어온 경우, 첫 번째 시트 및 정제처리가 필요없음 : 자동화실행
+        first_sheet_data = sheets
+
         # 설정파일 값을 변경
-    else:
-        
         market_name = settings.CURRENT_MARKET_NAME
+        
 
     if market_name == "쿠팡" or market_name == "11번가":
         name_strength = 99
