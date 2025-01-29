@@ -16,6 +16,8 @@ from productNaming.name_handler import process_namingChange_excel_file
 from rotationFile.rotation_excel_edit_util import clear_column_data, add_prefix_to_column
 from rotationFile.rotation_excel_edit_util import update_column_to_9999, adjust_column_by_percentage, swap_image_column
 from utils.excel.excel_get_data import get_folder_name, get_market_name
+from rotationFile.rotation_market_process import market_process
+
 
 # 현재 파일 위치 기준으로 JSON 파일 경로 설정
 current_dir = os.path.dirname(__file__)
@@ -72,6 +74,21 @@ details_config = {
     }
 }
 
+'''
+    <상품 순환파일생성 프로그램> 
+
+    - 실행전 준비사항 -
+    1. 파일명 넣기
+    2. 팔린제품 룩업처리
+    3. 프로그램 실행
+
+    - 주의사항 - 
+    각 마켓의 속성은 rotationInfo.json 에 기록됨 
+       
+
+
+'''
+
 def make_rotation_excel(file_path, base_file_name):
     '''
     1. < 카테고리 번호* >열 비어있는 행삭제
@@ -102,7 +119,7 @@ def make_rotation_excel(file_path, base_file_name):
 
         # 읽을 파일경로 출력 파일 이름 설정
         excel_file_path = make_input_file_path(file_path, base_file_name)
-        output_file_name = make_output_file_path(file_path, base_file_name, "_rotatet", FILE_EXTENSION_xlsx)
+        output_file_name = make_output_file_path(file_path, base_file_name, "_rotatet_output", FILE_EXTENSION_xlsx)
         _, file_extension = os.path.splitext(base_file_name)
 
     
@@ -118,46 +135,25 @@ def make_rotation_excel(file_path, base_file_name):
         first_sheet_name, first_sheet_data = read_and_clean_first_sheet(sheets)
 
         # 대상시트에서 '폴더명' 이름 가져오기
-        folder_name, split_folder_name = get_folder_name(first_sheet_data, column_name="폴더명")
-        logger.log(f"folder_name : {folder_name}")
-        logger.log(f"split_folder_name : {split_folder_name}")
+        folder_name, split_folder_name, dome_name = get_folder_name(first_sheet_data, column_name="폴더명")
+        logger.log(f"폴더명 : {folder_name} , 마켓명 : {split_folder_name} , 도매처 : {dome_name} ", also_to_report=True, separator="1line")
 
 
-        # 순환파일 JSON 설정파일 로드 
+        # 순환파일 JSON 설정파일 로드 : 마켓명에 따른 설정 가져오기  
         config = load_config(config_path)
-
         market_config = config.get(split_folder_name, {})
+
         if not market_config:  # market_config이 빈 딕셔너리 또는 None일 경우
             raise ValueError(f"JSON에 마켓 이름 '{split_folder_name}'이(가) 없습니다.")
         
-        market_name, channel_name = get_market_name(split_folder_name)
+        market_platform, market_name = get_market_name(split_folder_name)
+        logger.log(f"플랫폼 : {market_platform}, 마켓명 : {market_name} ", also_to_report=True, separator="none")
 
+        # 설정파일 값을 변경 : 다른함수에서 마켓종류가 필요할때 쓰기위해
+        settings.CURRENT_MARKET_NAME = market_platform
 
-        # 설정파일 값을 변경
-        settings.CURRENT_MARKET_NAME = market_name
-        logger.log(f"작업중인 마켓 : {market_name}")
-
-        if market_name == "쿠팡":
-            # 브랜드명을 모두지움
-            processed_sheet_data = clear_column_data(first_sheet_data, "브랜드")
-
-        elif market_name == "도매토피아":
-            # [도매토피아-GT]
-            # 판매자관리코드 접두사만듬 
-            modify_sellercode = add_prefix_to_column(first_sheet_data, "판매자 관리코드", channel_name)
-            modify_count = update_column_to_9999(modify_sellercode, "수량*") #수량변경
-            modify_price = adjust_column_by_percentage(modify_count, "판매가*", 5, "인하") #판매가변경
-            processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지2')
-
-
-        elif market_name == "네이버":
-            # 네이버는 json에 네이버용 도매토피아 만들어야됨 아마.. [네이버-GT]등으로
-            # processed_sheet_data = add_prefix_to_column(first_sheet_data, "판매자 관리코드", channel_name)
-            processed_sheet_data = first_sheet_data  # 원본 데이터 그대로 사용
-        else:
-            processed_sheet_data = first_sheet_data  # 원본 데이터 그대로 사용
-
-
+        # 마켓별 초기설정
+        processed_sheet_data = market_process(first_sheet_data, market_platform, market_name, dome_name)
 
 
         # 설정 파일에 따라 작업 생성
@@ -191,18 +187,18 @@ def make_rotation_excel(file_path, base_file_name):
         # save_excel_with_sheets(sheets, output_file_name, image_filtered_df, first_sheet_name)
 
 
-        if market_name != "네이버":
+        if market_platform != "네이버":
             naming_process_df = process_namingChange_excel_file(file_path, base_file_name, 'GPT조합', task_type="auto", sheets=image_filtered_df)
         else:
             naming_process_df = image_filtered_df
-            logger.log(f"{market_name}은 상품명가공 제외.", level="INFO", also_to_report=True, separator="none")
+            logger.log(f"{market_platform} 는 상품명가공 제외.", level="INFO", also_to_report=True, separator="none")
             
 
         # modify_df의 행 개수를 확인하여 분할 저장 여부 결정
         if naming_process_df.shape[0] > 5000:
             logger.log(f"{folder_name} 의 행갯수가 5000개를 넘어 {naming_process_df.shape[0]}행 이므로 행분할 실시.", level="INFO", also_to_report=True, separator="2line")
 
-            split_excel_by_rows(file_path, base_file_name, task_type="auto", sheets=sheets, modify_data=naming_process_df)
+            split_excel_by_rows(file_path, base_file_name, task_type="auto", sheets=sheets, modify_data=naming_process_df, first_sheet_name=first_sheet_name)
         else:
             # 모든 시트 저장
             save_excel_with_sheets(sheets, output_file_name, naming_process_df, first_sheet_name)

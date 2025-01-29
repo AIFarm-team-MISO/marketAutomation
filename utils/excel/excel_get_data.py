@@ -50,7 +50,7 @@ def get_column_values_with_validation(sheet: pd.DataFrame, column_name: str) -> 
 
 def get_folder_name(sheet_data, column_name="폴더명"):
     """
-    시트 데이터에서 지정된 열(column_name)의 첫 번째 값에서 '_'로 구분된 첫 번째 부분을 추출합니다.
+    시트 데이터에서 지정된 열(column_name)의 첫 번째 값에서 '_'로 구분된 첫 번째 및 두 번째 부분을 추출합니다.
     폴더명이 없는 경우 속행합니다.
 
     Parameters:
@@ -58,13 +58,13 @@ def get_folder_name(sheet_data, column_name="폴더명"):
         column_name (str): 폴더명이 포함된 열 이름 (기본값: '폴더명').
 
     Returns:
-        str: '_'로 구분된 첫 번째 부분의 값 (없을 경우 빈 문자열 반환).
+        tuple: ('원본 폴더명', '첫 번째 부분', '두 번째 부분')
     """
     try:
         # 지정된 열(column_name)이 존재하는지 확인
         if column_name not in sheet_data.columns:
             logger.log(f"⚠️ 열 '{column_name}'이(가) 데이터프레임에 존재하지 않습니다. 속행합니다.", level="WARNING")
-            return ""
+            return "", "", ""
 
         # 첫 번째 값 가져오기
         folder_name = sheet_data[column_name].iloc[0] if not sheet_data.empty else ""
@@ -72,22 +72,18 @@ def get_folder_name(sheet_data, column_name="폴더명"):
         # 값이 NaN인 경우 처리
         if pd.isna(folder_name):
             logger.log(f"⚠️ 폴더명이 비어 있습니다. 속행합니다.", level="WARNING")
-            return ""
+            return "", "", ""
 
-        # '_'로 나누어 첫 번째 부분 추출
+        # '_'로 나누어 첫 번째 및 두 번째 부분 추출
         split_parts = folder_name.split("_")
-        if split_parts:
-            extracted_folder_name = split_parts[0].strip()  # 첫 번째 부분 추출 후 공백 제거
-            # logger.log(f"추출된 폴더명: {extracted_folder_name}", level="INFO")
-            
-            return folder_name, extracted_folder_name
-        else:
-            logger.log(f"⚠️ 폴더명 '{folder_name}'에서 '_'로 구분된 부분을 찾을 수 없습니다. 속행합니다.", level="WARNING")
-            return ""
+        extracted_folder_name = split_parts[0].strip() if split_parts else ""
+        extracted_dome_name = split_parts[1].strip() if len(split_parts) > 1 else ""
 
+        return folder_name, extracted_folder_name, extracted_dome_name
+    
     except Exception as e:
-        logger.log(f"폴더명을 가져오는 중 에러 발생: {e}", level="ERROR")
-        return ""
+        logger.log(f"⚠️ 오류 발생: {str(e)}", level="ERROR")
+        return "", "", ""
     
 def get_market_name(folder_name: str)  -> tuple:
     """

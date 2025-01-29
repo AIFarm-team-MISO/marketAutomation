@@ -27,7 +27,7 @@ def swap_image_column(dataframe: pd.DataFrame, column1: str, column2: str) -> pd
         # 열 값 교환
         dataframe[column1], dataframe[column2] = dataframe[column2], dataframe[column1]
 
-        print(f"✅ '{column1}' 열과 '{column2}' 열의 값이 교환되었습니다.")
+        logger.log(f"✅ '{column1}' 열과 '{column2}' 열의 값이 교환되었습니다.", level="INFO", also_to_report=True, separator="none")
 
         return dataframe
 
@@ -75,7 +75,7 @@ def adjust_column_by_percentage(dataframe, column_name, percentage, operation):
         dataframe[column_name] = (dataframe[column_name] // 10) * 10
 
         # 작업 성공 메시지 출력
-        logger.log(f"✅ '{column_name}' 열의 값이 {percentage}% {operation} 되었습니다.")
+        logger.log(f"✅ '{column_name}' 열의 값이 {percentage}% {operation} 되었습니다.", level="INFO", also_to_report=True, separator="none")
         return dataframe
 
     except Exception as e:
@@ -101,7 +101,7 @@ def update_column_to_9999(dataframe: pd.DataFrame, column_name: str) -> pd.DataF
         dataframe[column_name] = 9999
 
         # 변경 완료 로그 출력
-        logger.log(f"✅ '{column_name}' 열의 모든 값이 9999로 변경되었습니다.")
+        logger.log(f"✅ '{column_name}' 열의 모든 값이 9999로 변경되었습니다.", level="INFO", also_to_report=True, separator="none")
 
         return dataframe
 
@@ -125,7 +125,7 @@ def add_prefix_to_column(dataframe, column_name, prefix, suffix=None):
         
         # 초기 데이터 수 로깅
         row_count = len(dataframe)
-        logger.log(f"✅ '{column_name}' 열의 접두사 '{prefix}' 추가 작업 시작 (총 {row_count}행).", level="INFO")
+        # logger.log(f"✅ '{column_name}' 열의 접두사 '{prefix}' 추가 작업 시작 (총 {row_count}행).", level="INFO", also_to_report=True, separator="none")
         
         # 열 값 변환
         def transform_value(value):
@@ -143,7 +143,7 @@ def add_prefix_to_column(dataframe, column_name, prefix, suffix=None):
         
         dataframe[column_name] = dataframe[column_name].apply(transform_value)
         
-        logger.log(f"✅ '{column_name}' 열의 접두사와 접미사가 성공적으로 추가되었습니다.", level="INFO")
+        logger.log(f"✅ '{column_name}' 열의 접두사 열의 접두사 '{prefix}' 추가완료.", level="INFO", also_to_report=True, separator="none")
         return dataframe
     except Exception as e:
         raise ValueError(f"'{column_name}' 열의 데이터를 수정하는 중 문제가 발생했습니다: {e}")
@@ -169,7 +169,7 @@ def clear_column_data(dataframe, column_name):
         # 열 데이터 삭제 (NaN으로 설정)
         dataframe[column_name] = None  # 또는 dataframe[column_name] = pd.NA
         
-        logger.log(f"✅ '{column_name}' 열의 데이터가 모두 삭제되었습니다.", level="INFO")
+        logger.log(f"✅ '{column_name}' 열의 데이터가 모두 삭제되었습니다.", level="INFO", also_to_report=True, separator="dash-1line")
         return dataframe
     except Exception as e:
         raise ValueError(f"'{column_name}' 열의 데이터를 삭제하는 중 문제가 발생했습니다: {e}")

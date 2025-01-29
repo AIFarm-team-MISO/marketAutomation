@@ -58,13 +58,12 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
     """
     Parameters:
     - file_path (str): 엑셀 파일이 위치한 폴더 경로
-    - file_name (str): 엑셀 파일 이름 (확장자 제외)
-    - flag (str) : 가공형태 'GPT조합',  '상위검색'등 상품명 가공타입
+    - base_file_name (str): 엑셀 파일 이름 (확장자 제외)
+    - opt_type (str) : 가공형태 'GPT조합',  '상위검색'등 상품명 가공타입
+    - task_type (str) : single 개별실행, auto 자동실행
+    - sheets : 시트가 있는경우 자동실행
 
     """ 
-
-    # 리포트 파일명 생성
-    logger.prepend_report_file_name('상품명가공-'+base_file_name)
 
     # 가공타입 설정 : 현재 GPT 연관검색어 
     opt_type = opt_type
@@ -72,7 +71,7 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
     logger.log(f"▶️ 상품명가공시작 ▶️ 가공타입 : {opt_type} , 작업타입 : {task_type} ", level="INFO", also_to_report=True, separator="2line")
     
     # 파일 실행타입에 따른 시트데이터 생성
-    if sheets is None: # 단독실행일경우 
+    if sheets is None: # 단독실행으로 편집된 시트데이터가 없는경우
         excel_file_path = make_input_file_path(file_path, base_file_name)
         output_file_name = make_output_file_path(file_path, base_file_name, "_namingChange_output", FILE_EXTENSION_xlsx)
         _, file_extension = os.path.splitext(base_file_name)
@@ -88,10 +87,8 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
         
         first_sheet_name, first_sheet_data = read_and_clean_first_sheet(sheets)
 
-    else: # 시트가 제공된 경우, 첫 번째 시트 및 정제처리가 필요없음 : 자동화실행일 경우  
+    else: # 편집된 시트데이터가 넘어온 경우, 첫 번째 시트 및 정제처리가 필요없음 : 자동화실행
         first_sheet_data = sheets
-
-    ###################
 
     if task_type=="single":
         # 대상시트에서 '폴더명' 이름 가져오기
@@ -109,13 +106,13 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
     else:
         
         market_name = settings.CURRENT_MARKET_NAME
-    
-    logger.log(f"상품명가공 작업중인 마켓 : {market_name}")
 
     if market_name == "쿠팡" or market_name == "11번가":
         name_strength = 99
     else:  #쿠팡, 11번가 이외의 마켓 일경우
         name_strength = 49
+
+    logger.log(f"상품명가공 플랫폼 : {market_name} , 글자수 : {name_strength}", also_to_report=True, separator="none")
 
 
     # ▶️ '상품명*' 앞에 새로운 열(가공결과) 삽입 (가공상품명의 결과를 추가하기 위해)
@@ -145,7 +142,6 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
     # 기본상품명 분석(메인과 보조키워드 추출) 및 연관검색어 추출
     logger.log(f"⏩ 기본상품명 분석(메인과 보조키워드 추출) 및 연관검색어 추출작업시작 ", level="INFO", also_to_report=True, separator="none")
     total_items, initial_existing_count, added_to_dictionary_count, extract_namingData_list = process_naming_list_with_gpt(dictionary, naming_list, missing_threshold=1)
-
 
 
     logger.log("▶️ GPT의 결과에 따른 가공 상품명 조합시작 ▶️", also_to_report=True, separator="2line")
