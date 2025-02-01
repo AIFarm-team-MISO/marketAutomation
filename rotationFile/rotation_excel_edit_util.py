@@ -173,6 +173,31 @@ def clear_column_data(dataframe, column_name):
         return dataframe
     except Exception as e:
         raise ValueError(f"'{column_name}' 열의 데이터를 삭제하는 중 문제가 발생했습니다: {e}")
+    
+def clear_image_columns(dataframe, columns):
+    """
+    지정된 이미지 열의 모든 내용을 지우는 함수.
+    
+    :param dataframe: pandas DataFrame (작업 대상)
+    :param columns: 리스트 (지울 열 이름 리스트)
+    :return: (수정된 데이터프레임, 변경된 행 수)
+    """
+    try:
+        # 변경 전 카운트 (비어있지 않은 값의 개수)
+        initial_count = dataframe[columns].notna().sum().sum()
+        
+        # 값 제거
+        dataframe[columns] = ""
+        
+        # 변경된 행 수
+        modified_rows = initial_count
+        
+        logger.log(f"🔄 지정된 열 {columns}의 모든 값이 삭제되었습니다. 총 {modified_rows}개 셀이 수정되었습니다.", level="INFO")
+        
+        return dataframe, modified_rows
+    
+    except Exception as e:
+        raise ValueError(f"🚨 '{columns}' 열의 내용을 지우는 중 오류 발생: {e}")
 
 
 def remove_empty_rows(dataframe, column_name):
@@ -186,7 +211,7 @@ def remove_empty_rows(dataframe, column_name):
         initial_count = len(dataframe)  # 초기 행 수
         dataframe = dataframe[dataframe[column_name].notna()]  # 비어있지 않은 행 필터링
         removed_count = initial_count - len(dataframe)  # 삭제된 행 수 계산
-        logger.log(f"{column_name} 열에서 {removed_count}개의 행 삭제", level="INFO")
+        logger.log(f"{column_name} 열에서 {removed_count}개의 행 삭제", level="INFO", also_to_report=True, separator="none")
 
         return dataframe, removed_count
     except Exception as e:
@@ -204,11 +229,88 @@ def remove_food_category_rows(dataframe, column_name):
         initial_count = len(dataframe)  # 초기 행 수
         dataframe = dataframe[~dataframe[column_name].isin(FOOD_CATEGORIES_NUMBERS)]  # 음식 카테고리를 제외
         removed_count = initial_count - len(dataframe)  # 삭제된 행 수 계산
-        logger.log(f"{column_name} 열에서 음식 카테고리 {removed_count}개의 행이 삭제되었습니다.", level="INFO")
+        logger.log(f"{column_name} 열에서 음식 카테고리 {removed_count}개의 행이 삭제되었습니다.", level="INFO", also_to_report=True, separator="none")
 
         return dataframe, removed_count
     except Exception as e:
         raise ValueError(f"{column_name} 열에서 음식 카테고리 행을 삭제하는 중 문제가 발생했습니다: {e}")
+    
+
+from config.settings import ADULT_CATEGORIES_NUMBERS
+def remove_adult_category_rows(dataframe, column_name):
+    """
+    카테고리 번호가 19금(성인) 카테고리인 행을 삭제하는 함수
+    :param dataframe: 데이터프레임
+    :param column_name: 기준 열 이름
+    :return: 수정된 데이터프레임, 삭제된 행 수
+    """
+    try:
+        initial_count = len(dataframe)  # 초기 행 수
+        dataframe = dataframe[~dataframe[column_name].isin(ADULT_CATEGORIES_NUMBERS)]  # 19금 카테고리를 제외
+        removed_count = initial_count - len(dataframe)  # 삭제된 행 수 계산
+        logger.log(f"{column_name} 열에서 19금 카테고리 {removed_count}개의 행이 삭제되었습니다.", level="INFO", also_to_report=True, separator="none")
+
+        return dataframe, removed_count
+    except Exception as e:
+        raise ValueError(f"{column_name} 열에서 19금 카테고리 행을 삭제하는 중 문제가 발생했습니다: {e}")
+    
+import pandas as pd
+
+def convert_http_to_https(dataframe, columns):
+    """
+    지정된 열의 URL에서 'http://'를 'https://'로 변환하는 함수.
+    
+    :param dataframe: pandas DataFrame (작업 대상)
+    :param columns: 리스트 (수정할 열 이름 리스트)
+    :return: (수정된 데이터프레임, 변경된 행 수)
+    """
+    try:
+        initial_count = (dataframe[columns].apply(lambda col: col.str.startswith("http://"), axis=0)).sum().sum()  # 변경 전 http:// 개수
+        
+        dataframe[columns] = dataframe[columns].apply(
+            lambda col: col.map(lambda x: x.replace("http://", "https://") if isinstance(x, str) and x.startswith("http://") else x)
+        )
+
+        
+        updated_count = (dataframe[columns].apply(lambda col: col.str.startswith("http://"), axis=0)).sum().sum()  # 변경 후 남아있는 http:// 개수
+        modified_rows = initial_count - updated_count  # 실제 변경된 행 수
+        
+        logger.log(f"🔄 이미지열들 에서 {modified_rows}개의 'http://' URL을 'https://'로 변경", level="INFO", also_to_report=True, separator="none")
+        
+        return dataframe, modified_rows
+    
+    except Exception as e:
+        raise ValueError(f"🚨 'http://'을 'https://'로 변환하는 중 오류 발생: {e}")
+
+
+def convert_column_str(dataframe, column_name, new_str):
+    """
+    지정된 열의 문자열을 새로운 문자열로 변경하는 함수.
+    
+    :param dataframe: pandas DataFrame (작업 대상)
+    :param column_name: str (수정할 열 이름)
+    :param new_str: str (새로운 문자열)
+    :return: (수정된 데이터프레임, 변경된 행 수)
+    """
+    try:
+        # 변경 전 카운트 (수정 대상 열의 전체 행 수)
+        initial_count = len(dataframe[column_name])
+        
+        # 문자열 치환
+        dataframe[column_name] = new_str
+        
+        # 변경된 행 수
+        modified_rows = initial_count
+        
+        logger.log(f"🔄 '{column_name}' 열의 모든 값이 '{new_str}'로 변경되었습니다. 총 {modified_rows}개 행이 수정되었습니다.", level="INFO")
+        
+        return dataframe, modified_rows
+    
+    except Exception as e:
+        raise ValueError(f"🚨 '{column_name}' 열을 '{new_str}'로 변경하는 중 오류 발생: {e}")
+
+
+
 
 def remove_duplicate_rows(dataframe, column_name, keep_type="remove_all"):
     """
@@ -235,7 +337,7 @@ def remove_duplicate_rows(dataframe, column_name, keep_type="remove_all"):
             raise ValueError(f"Invalid keep_type: {keep_type}. Use 'keep_one' or 'remove_all'.")
 
         removed_count = initial_count - len(dataframe)  # 삭제된 행 수 계산
-        logger.log(f"<{column_name}> 열에서 중복된 {removed_count}개의 행이 삭제되었습니다. (처리 방식: {keep_type})", level="INFO")
+        logger.log(f"<{column_name}> 열에서 중복된 {removed_count}개의 행이 삭제되었습니다. (처리 방식: {keep_type})", level="INFO", also_to_report=True, separator="none")
 
         return dataframe, removed_count
 
@@ -253,7 +355,7 @@ def remove_options_rows(dataframe, column_name):
         initial_count = len(dataframe)  # 초기 행 수
         dataframe = dataframe[dataframe[column_name].isna()]  # 비어있는 행 필터링
         removed_count = initial_count - len(dataframe)  # 삭제된 행 수 계산
-        logger.log(f"{column_name} 열에서 옵션이 있는 {removed_count}개의 행이 삭제되었습니다.", level="DEBUG")
+        logger.log(f"{column_name} 열에서 옵션이 있는 {removed_count}개의 행이 삭제되었습니다.", level="DEBUG", also_to_report=True, separator="none")
 
         return dataframe, removed_count
     except Exception as e:
@@ -289,7 +391,7 @@ def clean_search_keywords(dataframe, column_name):
         # 변경된 데이터 수 계산
         changed_count = int((original_keywords != dataframe[column_name]).sum())
 
-        logger.log(f"{column_name}열의 검색어가 정리되었습니다. 변경된 데이터 수: {changed_count}", level="DEBUG")
+        logger.log(f"{column_name}열의 검색어가 정리되었습니다. 변경된 데이터 수: {changed_count}", level="DEBUG", also_to_report=True, separator="none")
         return dataframe, changed_count
     except Exception as e:
         raise ValueError(f"{column_name} 열의 검색어를 정리하는 중 문제가 발생했습니다: {e}")
@@ -322,9 +424,9 @@ def update_column_value(dataframe, column_name, value):
         # logger.log(f"변경 후 데이터: {dataframe[column_name].unique()}", level="DEBUG")
 
         if changed_count > 0:
-            logger.log(f"{column_name} 열의 값이 모두 '{value}'로 변경되었습니다. 변경된 데이터 수: {changed_count}", level="INFO")
+            logger.log(f"{column_name} 열의 값이 모두 '{value}'로 변경되었습니다. 변경된 데이터 수: {changed_count}", level="INFO", also_to_report=True, separator="none")
         else:
-            logger.log(f"{column_name} 열의 값은 이미 '{value}'로 설정되어 있습니다. 변경된 데이터가 없습니다.", level="INFO")
+            logger.log(f"{column_name} 열의 값은 이미 '{value}'로 설정되어 있습니다. 변경된 데이터가 없습니다.", level="INFO", also_to_report=True, separator="none")
 
         return dataframe, changed_count
     except Exception as e:

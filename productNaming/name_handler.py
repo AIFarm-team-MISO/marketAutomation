@@ -108,7 +108,9 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
 
     if market_name == "쿠팡" or market_name == "11번가":
         name_strength = 99
-    else:  #쿠팡, 11번가 이외의 마켓 일경우
+    elif market_name == "톡스토어":
+        name_strength = 69
+    else:  #쿠팡, 11번가 이외의 마켓 스마트스토어 등일경우
         name_strength = 49
 
     logger.log(f"상품명가공 플랫폼 : {market_name} , 글자수 : {name_strength}", also_to_report=True, separator="none")

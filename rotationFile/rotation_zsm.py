@@ -53,7 +53,7 @@ details_config = {
         "type": "deletion"
     },
     "remove_duplicate_rows": {
-        "description": "'{column}' 열에서 중복 제거 (방법: {method})",
+        "description": "'{column}' 열에서 중복 제거",
         "type": "deletion"
     },
     "remove_options_rows": {

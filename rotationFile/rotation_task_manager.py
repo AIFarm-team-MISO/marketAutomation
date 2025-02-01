@@ -18,12 +18,14 @@ def process_first_sheet(tasks, sheet_data):
 
     try:
         logger.log(f"첫 번째 시트 작업 시작 ({len(tasks)}개 작업 실행).", level="INFO", also_to_report=True, separator="1line")
+        # logger.log(f"첫 번째 시트 작업 ({tasks}개 작업 실행).", level="INFO", also_to_report=True, separator="1line")
         
         # 최초 입력 데이터프레임 복사
         result_sheet_data = sheet_data.copy()
     
 
         for i, (task_func, task_type, task_description, args) in enumerate(tasks):
+            
 
             logger.log(f"{i + 1}번 작업 시작: {task_description}", level="INFO", also_to_report=True, separator="dash-1line")
                     
@@ -165,7 +167,7 @@ def generate_tasks_from_config(market_config, details_config):
                 logger.log(f"⚠️ 태스크 스킵됨: {key}의 설정 형식이 유효하지 않음", level="WARNING")
 
     # JSON 설정 키별 태스크 추가
-    logger.log("🛠️ JSON 설정 기반 태스크 추가 시작", level="INFO")
+    logger.log("🛠️ JSON 설정 기반 태스크 추가 시작", level="INFO",also_to_report=False, separator="1line")
     # logger.log(f"현재 JSON 설정: {market_config}", level="DEBUG")
 
     # 태스크 정의
