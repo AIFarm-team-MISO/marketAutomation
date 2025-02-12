@@ -272,10 +272,17 @@ def combine_keywords(existing_data, basic_product_name, max_length=45):
             keyword for keyword in gpt_related_keywords
             if not any(brand in keyword for brand in brand_keywords)
         ]
-        logger.log(f"💬 필터링된 키워드 (브랜드 키워드와 매칭됨): {filtered_out_keywords}", level="INFO", also_to_report=True, separator="none")
+        # 최대 3개만 출력
+        display_filtered_out_keywords = filtered_out_keywords[:3]
+        logger.log(f"💬 필터링된 키워드 (브랜드 키워드와 매칭됨): {display_filtered_out_keywords}", level="INFO", also_to_report=True, separator="none")
     else:
         logger.log(f"💬 브랜드 키워드가 비어 있어 필터링 작업을 건너뜁니다.", level="INFO")
-    logger.log(f"💬 최종 연관검색어 (브랜드 키워드 제거 후): {gpt_related_keywords}", level="INFO")
+
+    # 최대 3개만 출력
+    display_gpt_related_keywords = gpt_related_keywords[:3]
+    logger.log(f"💬 최종 연관검색어 (브랜드 키워드 제거 후): {display_gpt_related_keywords}", level="INFO")
+
+    
     
 
 
@@ -419,7 +426,7 @@ def combine_keywords(existing_data, basic_product_name, max_length=45):
     logger.log(f"💬 연관검색어(3개만출력): {display_related_keywords}", level="INFO", also_to_report=True, separator="none")
 
     # 추가필터링 작업 
-    filter_list = ["구름백", "구름디자인"] # 필터링 리스트 정의
+    filter_list = ["구름백", "구름디자인", "크록스"] # 필터링 리스트 정의
     filtered_words = [word for word in optimized_name.split() if word not in filter_list]
     optimized_name = " ".join(filtered_words)
 

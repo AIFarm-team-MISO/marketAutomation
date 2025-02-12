@@ -156,6 +156,7 @@ def make_rotation_excel(file_path, base_file_name):
         processed_sheet_data = market_process(first_sheet_data, market_platform, market_name, dome_name)
 
 
+
         # 설정 파일에 따라 작업 생성
         tasks = generate_tasks_from_config(market_config, details_config)
 
@@ -188,14 +189,21 @@ def make_rotation_excel(file_path, base_file_name):
 
 
         if market_platform != "네이버":
+            logger.log(f"{market_name} 는 상품명가공 시작.", level="INFO", also_to_report=True, separator="none")
             naming_process_df = process_namingChange_excel_file(file_path, base_file_name, 'GPT조합', task_type="auto", sheets=image_filtered_df)
-        else:
-            naming_process_df = image_filtered_df
-            logger.log(f"{market_platform} 는 상품명가공 제외.", level="INFO", also_to_report=True, separator="none")
+            
+        elif market_platform == "네이버":
+            if market_name == "툴몬스터" and dome_name == "3MRO-가구인테리어" :
+                
+                logger.log(f"{market_name} 는 상품명가공 시작.", level="INFO", also_to_report=True, separator="none")
+                naming_process_df = process_namingChange_excel_file(file_path, base_file_name, 'GPT조합', task_type="auto", sheets=image_filtered_df)
+            else:
+                naming_process_df = image_filtered_df
+                logger.log(f"{market_platform}, {dome_name} 은 상품명가공 제외.", level="INFO", also_to_report=True, separator="none")
             
 
         # modify_df의 행 개수를 확인하여 분할 저장 여부 결정
-        if naming_process_df.shape[0] > 5000:
+        if naming_process_df.shape[0] > 5000 and dome_name != '도매토피아':
             logger.log(f"{folder_name} 의 행갯수가 5000개를 넘어 {naming_process_df.shape[0]}행 이므로 행분할 실시.", level="INFO", also_to_report=True, separator="2line")
 
             split_excel_by_rows(file_path, base_file_name, task_type="auto", sheets=sheets, modify_data=naming_process_df, first_sheet_name=first_sheet_name)

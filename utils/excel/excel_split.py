@@ -53,7 +53,7 @@ def split_excel_by_rows(file_path, base_file_name, task_type="single", sheets=No
     :param base_file_name: 생성할 파일의 기본 이름
     """
 
-    rows_per_file = 4500
+    rows_per_file = 1500
 
     try:
         if sheets is None: # 단독실행일경우 

@@ -106,12 +106,12 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
         market_name = settings.CURRENT_MARKET_NAME
         
 
-    if market_name == "쿠팡" or market_name == "11번가":
-        name_strength = 99
+    if market_name == "쿠팡" or market_name == "11번가" or market_name == "고도몰":
+        name_strength = 100
     elif market_name == "톡스토어":
-        name_strength = 69
+        name_strength = 70
     else:  #쿠팡, 11번가 이외의 마켓 스마트스토어 등일경우
-        name_strength = 49
+        name_strength = 50
 
     logger.log(f"상품명가공 플랫폼 : {market_name} , 글자수 : {name_strength}", also_to_report=True, separator="none")
 
@@ -136,8 +136,8 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
     # logger.log_list("필터링된 리스트", filterd_list, level="INFO") #필터링된 리스트
 
     # ▶️ gpt 비용, 시간 확인, 프로그램실행유무
-    #run_filtering_item_process(filterd_list, "상품명가공", task_type)
-    run_filtering_item_process(filterd_list, "상품명가공", "single")
+    run_filtering_item_process(filterd_list, "상품명가공", task_type)
+    #run_filtering_item_process(filterd_list, "상품명가공", "single")
     # run_filtering_item_process(filterd_list, "상품명가공", "auto")
     
     # 기본상품명 분석(메인과 보조키워드 추출) 및 연관검색어 추출
@@ -171,18 +171,31 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
             logger.log(f"⚠️ 상품명조합 중 예외 발생: {e}. namingData: {gptData}", level="ERROR")
             raise ValueError(f"⚠️ 상품명조합 중 예외 발생: {e}. namingData: {gptData}")
 
+    '''
+        - 기존시트에 가공상품명을 넣을때 지킬사항 -
+        1. 기존에 편집된 시트데이터 modified_sheet는 상품명이 입력될때까지 변경이 일어나면 안된다
+        2. modified_sheet에서 추출된 naming_list가  gpt_optimized_name_list로 만들어지기까지 리스트의 갯수에 변동이 있으면 안된다
 
-    # ▶️ 시트에 가공상품명 적용 
+        *** 위의 전제가 없다면 이후 기존상품명에 가공된 상품명이 매칭 안될 가능성이 있음
+            단 modified_sheet에 가공상품명이 담긴 후에는 modified_sheet를 편집해도 문제가 없음 
+
+    '''
+    # 시트에 가공상품명 적용 전 검증로직 
     if len(modified_sheet) != len(gpt_optimized_name_list):
         raise ValueError(
-            f"Sheet row count ({len(modified_sheet)}) does not match optimized_name_list length ({len(gpt_optimized_name_list)})."
+            f"기존시트 데이터의 길이가 ({len(modified_sheet)}) 가공상품명 데이터 길이 ({len(gpt_optimized_name_list)} 와 매칭안됨)."
         )
 
+
+    # ▶️ 시트에 가공상품명 적용 
     modified_sheet = modified_sheet.copy()
     modified_sheet["가공결과"] = gpt_optimized_name_list
 
-    # ▶️ "판매자관리코드" 열 문자열 앞에 opt_type 추가
-    modified_sheet["판매자 관리코드"] = modified_sheet["판매자 관리코드"].apply(lambda x: f"{opt_type+"-"}{x}" if pd.notnull(x) else x)
+    # ▶️ "판매자관리코드" 열 문자열 앞에 opt_type 추가 (만약 같은 접두사가 붙어있다면 붙이지 않음)
+    modified_sheet["판매자 관리코드"] = modified_sheet["판매자 관리코드"].apply(
+    lambda x: f"{opt_type}-{x}" if pd.notnull(x) and not str(x).startswith(f"{opt_type}-") else x
+)
+
 
     # # ▶️ 작업 유형이 "single"인 경우 열 이름 변경 및 기존 열 삭제
     # if task_type == "auto":
@@ -197,10 +210,10 @@ def process_namingChange_excel_file(file_path, base_file_name, opt_type, task_ty
     logger.log_message_with_list("💡 기본상품명 :", basic_product_names, level="INFO", also_to_report=True)
     logger.log_message_with_list("🌟 가공결과 :", gpt_optimized_name_list, level="INFO", also_to_report=True)
 
-    #가공타입을 판매자관리코드에 접두사로 추가 
-    modified_sheet = update_seller_codes(modified_sheet, "판매자 관리코드", opt_type)
+    #가공타입을 판매자관리코드에 접두사로 추가 - 필요업음, 중복작업
+    # modified_sheet = update_seller_codes(modified_sheet, "판매자 관리코드", opt_type)
 
-    #기존 상품명열을 삭제하고 가공상품명으로 대체 
+    #기존 상품명열을 삭제하고 가공상품명으로 대체 - 필요업음, 중복작업
     # modified_sheet = rename_and_delete_columns(modified_sheet, "가공결과", "상품명*", "상품명*")
 
     # 가공상품명 열이름을 상품명 열이름으로 대체

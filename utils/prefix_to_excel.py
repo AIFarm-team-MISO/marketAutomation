@@ -381,7 +381,7 @@ def process_add_prefix_to_excel_in_folder_with_sheets(folder_path, file_name, co
 
                         # F 열 처리 (가격 조정 : 현재 5프로 다운 )
                         if col_idx == column_indices.get("F") and row_idx >= 2:  # 3번째 행부터 처리
-                            cell_value = adjust_column_value(cell_value, adjustment_percentage=5, increase=False)
+                            cell_value = adjust_column_value(cell_value, adjustment_percentage=30, increase=False)
 
                         # M 열 처리 (O 열 값으로 교체)
                         if col_idx == column_indices.get("M") and row_idx >= 2:  # 3번째 행부터 처리

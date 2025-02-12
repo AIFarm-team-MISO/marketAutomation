@@ -36,10 +36,11 @@ def get_column_values_with_validation(sheet: pd.DataFrame, column_name: str) -> 
             raise SystemExit(f"프로그램 종료: '{column_name}' 열에 NaN 값이 포함되어 있습니다.")
         
         # 데이터 순서 검증
-        validate_data_order(column_values, sheet, f"'{column_name}' 열")
+        # validate_data_order(column_values, sheet, f"'{column_name}' 열")
         
-        logger.log(f"✅ '{column_name}' 열에서 {len(column_values)}개의 데이터를 성공적으로 가져왔습니다.", level="INFO")
+        logger.log(f"✅ '{column_name}' 열에서 {len(column_values)}개의 데이터를 성공적으로 가져왔습니다.", level="INFO",also_to_report=True, separator="none")
         return column_values
+    
     except SystemExit as e:
         logger.log(str(e), level="CRITICAL")
         raise

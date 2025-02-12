@@ -17,27 +17,29 @@ def validate_data_order(data: list, sheet: pd.DataFrame, title: str) -> None:
         sheet_index = sheet.index.tolist()
         # 비교 대상 인덱스 생성
         data_index = list(range(len(data)))
+
+        logger.log(f"✅ data_index: {data_index}", level="INFO",also_to_report=True, separator="none")
+        logger.log(f"✅ sheet_index: {sheet_index}", level="INFO",also_to_report=True, separator="none")
         
         # 데이터 순서 검증
         if data_index != sheet_index:
             logger.log(
                 f"❌ {title}: 데이터 순서가 원본 데이터와 일치하지 않습니다.",
-                level="ERROR"
-            )
+                level="ERROR",also_to_report=True, separator="none")
+            
             logger.log(
                 f"원본 인덱스: {sheet_index}\n현재 데이터 인덱스: {data_index}",
-                level="DEBUG"
-            )
+                level="DEBUG",also_to_report=True, separator="none")
+            
             raise ValueError(
                 f"{title}: 데이터 순서가 일치하지 않습니다. "
-                f"원본 인덱스: {sheet_index}, 현재 데이터 인덱스: {data_index}"
-            )
+                f"원본 인덱스: {sheet_index}, 현재 데이터 인덱스: {data_index}" ,also_to_report=True, separator="none")
         
         # 검증 성공
         logger.log(
             f"✅ {title}: 데이터 순서 검증 완료. {len(data)}개의 항목.",
-            level="INFO"
-        )
+            level="INFO",also_to_report=True, separator="none")
+        
         # logger.log(f"✅ 원본 인덱스: {sheet_index}, 현재 데이터 인덱스: {data_index}",level="INFO")
 
     except ValueError as e:

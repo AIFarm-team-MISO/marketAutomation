@@ -110,7 +110,7 @@ if __name__ == "__main__":
         "도매토피아 가공": {
             "path": CODE_EXCEL_PATH,  # 처리할 파일 경로
             "function": process_add_prefix_to_excel_in_folder_with_sheets,  # 실행할 함수
-            "args": ['B', 'GT_'],  # 위치 인자
+            "args": ['B', 'GK_'],  # 위치 인자
             "kwargs": {}  # 키워드 인자
         },
         "순환 파일 테스트": {

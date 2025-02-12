@@ -4,35 +4,40 @@ import pandas as pd
 
 def swap_image_column(dataframe: pd.DataFrame, column1: str, column2: str) -> pd.DataFrame:
     """
-    두 열의 값을 교환하고, 두 열 중 하나라도 비어 있는 경우 해당 행을 삭제합니다.
+    두 열의 값을 교환하고, column1이 비어 있는 경우 해당 행을 삭제하며,
+    column2가 비어 있는 경우 column1의 데이터를 column2에 복사합니다.
 
     :param dataframe: 값을 교환할 데이터프레임
-    :param column1: 첫 번째 열 이름
-    :param column2: 두 번째 열 이름
+    :param column1: 첫 번째 열 이름 (비어 있으면 행 삭제 대상)
+    :param column2: 두 번째 열 이름 (비어 있으면 column1 값을 복사)
     :return: 수정된 데이터프레임
     """
     try:
         # 열이 데이터프레임에 존재하는지 확인
         if column1 not in dataframe.columns or column2 not in dataframe.columns:
             raise ValueError(f"'{column1}' 또는 '{column2}' 열이 데이터프레임에 존재하지 않습니다.")
-
-        # 두 열 중 하나라도 비어 있는 경우 해당 행 삭제
+        
+        # column1이 비어있는 경우 해당 행 삭제
         initial_row_count = len(dataframe)
-        dataframe = dataframe.dropna(subset=[column1, column2])
+        dataframe = dataframe.dropna(subset=[column1])
         removed_rows_count = initial_row_count - len(dataframe)
-
+        
         if removed_rows_count > 0:
-            print(f"⚠️ 두 열 중 하나라도 비어 있는 {removed_rows_count}개의 행이 삭제되었습니다.")
-
+            logger.log(f"⚠️ '{column1}' 열이 비어 있는 {removed_rows_count}개의 행이 삭제되었습니다.", level="WARNING", also_to_report=True, separator="none")
+        
+        # column2가 비어있는 경우 column1 값을 복사
+        dataframe[column2] = dataframe[column2].fillna(dataframe[column1])
+        
         # 열 값 교환
         dataframe[column1], dataframe[column2] = dataframe[column2], dataframe[column1]
-
+        
         logger.log(f"✅ '{column1}' 열과 '{column2}' 열의 값이 교환되었습니다.", level="INFO", also_to_report=True, separator="none")
-
+        
         return dataframe
-
+    
     except Exception as e:
         raise ValueError(f"열 값 교환 중 문제가 발생했습니다: {e}")
+    
 
 def adjust_column_by_percentage(dataframe, column_name, percentage, operation):
     """
@@ -143,7 +148,7 @@ def add_prefix_to_column(dataframe, column_name, prefix, suffix=None):
         
         dataframe[column_name] = dataframe[column_name].apply(transform_value)
         
-        logger.log(f"✅ '{column_name}' 열의 접두사 열의 접두사 '{prefix}' 추가완료.", level="INFO", also_to_report=True, separator="none")
+        logger.log(f"✅ '{column_name}' 열의 접두사 {row_count}개 열의 접두사 '{prefix}' 추가완료.", level="INFO", also_to_report=True, separator="none")
         return dataframe
     except Exception as e:
         raise ValueError(f"'{column_name}' 열의 데이터를 수정하는 중 문제가 발생했습니다: {e}")
@@ -281,6 +286,34 @@ def convert_http_to_https(dataframe, columns):
     
     except Exception as e:
         raise ValueError(f"🚨 'http://'을 'https://'로 변환하는 중 오류 발생: {e}")
+    
+def replace_base_url(dataframe, columns, old_base_url, new_base_url):
+    """
+    지정된 열의 URL에서 특정 base URL을 새로운 base URL로 변경하는 함수.
+    
+    :param dataframe: pandas DataFrame (작업 대상)
+    :param columns: 리스트 (수정할 열 이름 리스트)
+    :param old_base_url: 문자열 (기존 base URL)
+    :param new_base_url: 문자열 (새로운 base URL)
+    :return: (수정된 데이터프레임, 변경된 행 수)
+    """
+    try:
+        initial_count = (dataframe[columns].apply(lambda col: col.str.startswith(old_base_url), axis=0)).sum().sum()  # 변경 전 개수
+        
+        dataframe[columns] = dataframe[columns].apply(
+            lambda col: col.map(lambda x: x.replace(old_base_url, new_base_url) if isinstance(x, str) and x.startswith(old_base_url) else x)
+        )
+        
+        updated_count = (dataframe[columns].apply(lambda col: col.str.startswith(old_base_url), axis=0)).sum().sum()  # 변경 후 남아있는 개수
+        modified_rows = initial_count - updated_count  # 실제 변경된 행 수
+        
+        logger.log(f"🔄 이미지열들 에서 {modified_rows}개의 URL base를 '{old_base_url}'에서 '{new_base_url}'로 변경", level="INFO", also_to_report=True, separator="none")
+        
+        return dataframe, modified_rows
+    
+    except Exception as e:
+        raise ValueError(f"🚨 URL base를 변경하는 중 오류 발생: {e}")
+
 
 
 def convert_column_str(dataframe, column_name, new_str):
