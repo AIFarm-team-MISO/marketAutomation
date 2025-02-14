@@ -6,6 +6,7 @@ from typing import List, Set
 import random
 
 from keywordOptimization.randomize_keyword import randomize_pattern_length
+from config.settings import FILTER_KEYWORDS
 
 from utils.global_logger import logger
 
@@ -427,8 +428,7 @@ def combine_keywords(existing_data, basic_product_name, max_length=45):
 
     # 추가 브랜드네임 필터링 작업 
     filter_list = ["구름백", "구름디자인", "크록스", "멜킨"]
-    harmful_list = ["니코틴", "담배", "마약", "가습", "가습기", "쌍꺼플테이프", "티팬티", "가스보일러", "온수매트", "보일러헤드","19금"]
-    filtered_words = [word for word in optimized_name.split() if word not in filter_list + harmful_list]
+    filtered_words = [word for word in optimized_name.split() if word not in filter_list + FILTER_KEYWORDS]
     optimized_name = " ".join(filtered_words)
 
     logger.log_list(f"💬 패턴 : ", patterns, level="INFO", also_to_report=True, separator="none")
