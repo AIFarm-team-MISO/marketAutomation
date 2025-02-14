@@ -20,7 +20,7 @@ def process_all_excel_files(folder_path):
 
     for file_name in os.listdir(folder_path):
         # _output 파일 처리
-        if file_name.endswith("_output.xlsx"):
+        if file_name.endswith("_output.xlsx") or file_name.endswith("_output.xls"):
             output_file_path = os.path.join(folder_path, file_name)
 
             # 파일 닫기 및 삭제 시도

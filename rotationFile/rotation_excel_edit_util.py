@@ -221,6 +221,44 @@ def remove_empty_rows(dataframe, column_name):
         return dataframe, removed_count
     except Exception as e:
         raise ValueError(f"{column_name} 열에서 비어있는 행을 삭제하는 중 문제가 발생했습니다: {e}")
+    
+
+def input_column_with_str(dataframe, column_name, input_string):
+    """
+    멀티 인덱스 컬럼에서 특정 열에 지정된 문자열을 입력하는 함수
+
+    :param dataframe: DataFrame (멀티 인덱스 컬럼 포함 가능)
+    :param column_name: 기준 열 이름 (첫 번째 레벨 기준)
+    :param input_string: 입력할 문자열
+    :return: 수정된 데이터프레임
+    """
+    try:
+        # 멀티 인덱스 처리: 첫 번째 레벨에서 column_name 선택
+        if isinstance(dataframe.columns, pd.MultiIndex):
+            # 첫 번째 레벨에 column_name이 존재하는지 확인
+            if column_name in dataframe.columns.get_level_values(0):
+                dataframe.loc[:, pd.IndexSlice[column_name, :]] = input_string
+            else:
+                raise KeyError(f"'{column_name}' 컬럼을 찾을 수 없습니다.")
+        else:
+            # 단일 인덱스일 경우 기존 방식 사용
+            if column_name in dataframe.columns:
+                dataframe[column_name] = input_string
+            else:
+                raise KeyError(f"'{column_name}' 컬럼을 찾을 수 없습니다.")
+
+        logger.log(f"'{column_name}' 열에 지정된 문자열이 입력되었습니다.", level="INFO")
+
+        return dataframe
+
+    except Exception as e:
+        raise ValueError(f"'{column_name}' 열에 문자열 입력 중 문제가 발생했습니다: {e}")
+
+    
+  
+
+
+
 
 from config.settings import FOOD_CATEGORIES_NUMBERS
 def remove_food_category_rows(dataframe, column_name):
@@ -259,7 +297,32 @@ def remove_adult_category_rows(dataframe, column_name):
     except Exception as e:
         raise ValueError(f"{column_name} 열에서 19금 카테고리 행을 삭제하는 중 문제가 발생했습니다: {e}")
     
-import pandas as pd
+
+def filter_product_name(dataframe, product_name_column, filter_keywords):
+    """
+    상품명 기준으로 행을 필터링하는 함수
+    :param dataframe: 데이터프레임
+    :param product_name_column: 상품명 열 이름
+    :param filter_keywords: 필터링할 키워드 리스트
+    :return: 필터링된 데이터프레임, 삭제된 행 수
+    """
+    try:
+        # 상품명 키워드 필터링
+        initial_count = len(dataframe)
+        keyword_pattern = '|'.join(filter_keywords)
+        dataframe = dataframe[~dataframe[product_name_column].str.contains(keyword_pattern, case=False, na=False)]
+        after_keyword_filter_count = len(dataframe)
+        keyword_removed_count = initial_count - after_keyword_filter_count
+
+        logger.log(f"{product_name_column} 열에서 {keyword_removed_count}개의 금지 키워드 행이 삭제되었습니다.", level="INFO", also_to_report=True, separator="none")
+
+        return dataframe, keyword_removed_count
+    except Exception as e:
+        raise ValueError(f"데이터프레임 필터링 중 문제가 발생했습니다: {e}")
+
+
+
+
 
 def convert_http_to_https(dataframe, columns):
     """

@@ -1,6 +1,7 @@
 from utils.global_logger import logger
 
 from config.settings import EXCEL_IMAGE_FILTER_PATH, CATEGORY_CHECK_EXCEL_PATH, NAMING_EXCEL_PATH, CODE_EXCEL_PATH, EXCEL_FILTER_PATH, EXCEL_SPLIT_PATH
+from config.settings import EXCEL_GODOMOLL_PATH
 # from imageFilter.excel.excel_handler import process_imageFiltering_excel_file #이전 이미지 필터링함수
 from imageFilter.excel.excel_handler_xlsx import process_imageFiltering_excel_file_xlsx
 from rotationAuto.login.zsm_login import login_and_navigate, close_driver
@@ -13,6 +14,7 @@ from utils.check_food_category import process_folder_for_category_check
 from utils.excel.excel_get_name import process_all_excel_files
 from rotationFile.rotation_zsm import make_rotation_excel
 from utils.excel.excel_split import split_excel_by_rows
+from rotationFile.godoRotation.rotation_godo import make_rotation_godo
 
 
 
@@ -124,6 +126,12 @@ if __name__ == "__main__":
             "function": split_excel_by_rows,  # 실행할 함수
             "args": [],  # 위치 인자
             "kwargs": {}  # 키워드 인자
+        },
+            "고도몰 순환파일": {
+            "path": EXCEL_GODOMOLL_PATH,  # 처리할 파일 경로
+            "function": make_rotation_godo,  # 실행할 함수
+            "args": [],  # 위치 인자
+            "kwargs": {}  # 키워드 인자
         }
     }
 
@@ -135,7 +143,8 @@ if __name__ == "__main__":
             "2": "상품명 가공",
             "3": "도매토피아 가공",
             "4": "순환 파일 테스트",
-            "44": "파일분할 테스트"
+            "44": "파일분할 테스트",
+            "5": "고도몰 순환파일"
         }
 
         # Logger를 사용해 선택지 출력

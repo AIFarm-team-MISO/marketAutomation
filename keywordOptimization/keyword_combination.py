@@ -425,9 +425,10 @@ def combine_keywords(existing_data, basic_product_name, max_length=45):
     # 로그에 출력
     logger.log(f"💬 연관검색어(3개만출력): {display_related_keywords}", level="INFO", also_to_report=True, separator="none")
 
-    # 추가필터링 작업 
-    filter_list = ["구름백", "구름디자인", "크록스"] # 필터링 리스트 정의
-    filtered_words = [word for word in optimized_name.split() if word not in filter_list]
+    # 추가 브랜드네임 필터링 작업 
+    filter_list = ["구름백", "구름디자인", "크록스", "멜킨"]
+    harmful_list = ["니코틴", "담배", "마약", "가습", "가습기", "쌍꺼플테이프", "티팬티", "가스보일러", "온수매트", "보일러헤드","19금"]
+    filtered_words = [word for word in optimized_name.split() if word not in filter_list + harmful_list]
     optimized_name = " ".join(filtered_words)
 
     logger.log_list(f"💬 패턴 : ", patterns, level="INFO", also_to_report=True, separator="none")

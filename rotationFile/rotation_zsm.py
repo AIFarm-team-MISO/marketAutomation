@@ -189,8 +189,11 @@ def make_rotation_excel(file_path, base_file_name):
 
 
         if market_platform != "네이버":
+
+
             logger.log(f"{market_name} 는 상품명가공 시작.", level="INFO", also_to_report=True, separator="none")
             naming_process_df = process_namingChange_excel_file(file_path, base_file_name, 'GPT조합', task_type="auto", sheets=image_filtered_df)
+
             
         elif market_platform == "네이버":
             if market_name == "툴몬스터" and dome_name == "3MRO-가구인테리어" :
@@ -200,6 +203,10 @@ def make_rotation_excel(file_path, base_file_name):
             else:
                 naming_process_df = image_filtered_df
                 logger.log(f"{market_platform}, {dome_name} 은 상품명가공 제외.", level="INFO", also_to_report=True, separator="none")
+
+        
+        
+       
             
 
         # modify_df의 행 개수를 확인하여 분할 저장 여부 결정
