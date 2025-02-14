@@ -307,9 +307,9 @@ def filter_product_name(dataframe, product_name_column, filter_keywords):
     :return: 필터링된 데이터프레임, 삭제된 행 수
     """
     try:
-        # 상품명 키워드 필터링
+        # 상품명 키워드 필터링 (단어 경계를 사용하여 독립적인 단어만 필터링)
         initial_count = len(dataframe)
-        keyword_pattern = '|'.join(filter_keywords)
+        keyword_pattern = '|'.join(f"\\b{word}\\b" for word in filter_keywords)
         dataframe = dataframe[~dataframe[product_name_column].str.contains(keyword_pattern, case=False, na=False)]
         after_keyword_filter_count = len(dataframe)
         keyword_removed_count = initial_count - after_keyword_filter_count
