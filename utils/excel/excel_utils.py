@@ -7,6 +7,7 @@ import pandas as pd
 import win32com.client
 import pythoncom
 from config.settings import FILE_EXTENSION_xls
+import pyexcel as pe
 
 
 def save_excel_with_sheets(sheets, output_file_name, modified_df=None, modified_sheet_name=None):
@@ -120,73 +121,14 @@ def save_excel_for_godo(sheets, output_file_name, modified_df=None, modified_she
         logger.log(f"엑셀 저장 중 오류 발생: {e}", level="ERROR")
         raise
 
-import pandas as pd
-import pyexcel as pe
 
-def save_excel_for_godo_as_xls(sheets, output_file_name, modified_df=None, modified_sheet_name=None):
-    """
-    고도몰용 엑셀 파일을 저장하는 함수.
-    멀티 인덱스 2행 구조를 수동으로 삽입하고, 2행 후에 1행을 비운 후 데이터 저장.
-    Excel 97-2003 형식(.xls)으로 저장합니다.
-    """
-    try:
-        if output_file_name is None:
-            raise ValueError("출력 파일 이름이 지정되지 않았습니다.")
-
-        logger.log_separator()
-
-        if modified_df is not None:
-            if modified_sheet_name is None:
-                modified_sheet_name = list(sheets.keys())[0]
-            sheets[modified_sheet_name] = modified_df
-
-        # 모든 시트를 저장할 딕셔너리 생성
-        book_dict = {}
-
-        for sheet_name, sheet_df in sheets.items():
-            if isinstance(sheet_df.columns, pd.MultiIndex):
-                headers = sheet_df.columns
-                header_rows = [list(headers.get_level_values(0)), list(headers.get_level_values(1))]
-
-                # 2행 헤더 생성
-                header_df = pd.DataFrame([header_rows[0], header_rows[1]], columns=headers)
-
-                # 빈 행 생성
-                empty_row = pd.DataFrame([[""] * len(headers)], columns=headers)
-
-                # 데이터프레임 결합: 헤더 → 빈 행 → 데이터
-                sheet_df_with_empty_row = pd.concat([header_df, empty_row, sheet_df], ignore_index=True)
-
-                # 멀티 인덱스를 단일 인덱스로 변환
-                sheet_df_with_empty_row.columns = ['_'.join(str(c) for c in col) for col in headers]
-
-                # DataFrame을 리스트의 리스트로 변환하여 저장
-                book_dict[sheet_name] = [sheet_df_with_empty_row.columns.tolist()] + sheet_df_with_empty_row.values.tolist()
-            else:
-                # 단일 인덱스의 경우
-                book_dict[sheet_name] = [sheet_df.columns.tolist()] + sheet_df.values.tolist()
-
-        # .xls 파일로 저장
-        pe.save_book_as(bookdict=book_dict, dest_file_name=output_file_name)
-
-        file_name = os.path.basename(output_file_name)
-        logger.log(f"변경된 파일 저장 완료 (Excel 97-2003 형식): {file_name}", level="INFO", also_to_report=True, separator="2line")
-
-    except Exception as e:
-        logger.log(f"엑셀 저장 중 오류 발생: {e}", level="ERROR")
-        raise
-
-import pandas as pd
-import pyexcel as pe
-
-import pandas as pd
-import pyexcel as pe
+# Pandas 경고 제거 옵션 추가
+pd.set_option('future.no_silent_downcasting', True)
 
 def save_excel_for_godo_as_xls_fixed(sheets, output_file_name, modified_df=None, modified_sheet_name=None):
     """
     고도몰용 엑셀 파일을 저장하는 함수.
     멀티 인덱스 2행 구조를 수동으로 삽입하고, 2행 후에 1행을 비운 후 데이터 저장.
-    Excel 97-2003 형식(.xls)으로 저장합니다.
     """
     try:
         if output_file_name is None:
@@ -206,34 +148,47 @@ def save_excel_for_godo_as_xls_fixed(sheets, output_file_name, modified_df=None,
             if isinstance(sheet_df.columns, pd.MultiIndex):
                 headers = sheet_df.columns
 
-                # 2행 헤더 생성 (멀티 인덱스 유지)
-                header_df = pd.DataFrame([list(headers.get_level_values(0)), list(headers.get_level_values(1))])
+                # 1. 멀티 인덱스 헤더 추출
+                level1_headers = list(headers.get_level_values(0))
+                level2_headers = list(headers.get_level_values(1))
 
-                # 빈 행 생성 (컬럼 수에 맞춰)
-                empty_row = pd.DataFrame([[""] * sheet_df.shape[1]])
+                # 2. 컬럼 개수 확인
+                assert len(level1_headers) == len(level2_headers) == sheet_df.shape[1]
 
-                # 데이터프레임 결합: 헤더 → 빈 행 → 데이터
-                combined_df = pd.concat([header_df, empty_row, sheet_df], ignore_index=True)
+                # 3. 2행 헤더를 리스트로 변환
+                header_list = [level1_headers, level2_headers]
 
-                # 멀티 인덱스를 단일 인덱스로 변환
-                combined_df.columns = [' '.join(str(c) for c in col).strip() for col in headers]
+                # 4. 빈 행 삽입 (컬럼 수를 정확히 유지)
+                empty_row = [[""] * sheet_df.shape[1]]
 
-                # DataFrame을 리스트의 리스트로 변환하여 저장
-                book_dict[sheet_name] = [combined_df.columns.tolist()] + combined_df.values.tolist()
+                # 5. 데이터 변환 (경고 발생 방지)
+                sheet_df_cleaned = sheet_df.where(pd.notna(sheet_df), "").astype(str)
+
+                # 6. 최종 데이터 구조 구성 (헤더 → 빈 행 → 데이터)
+                final_data = header_list + empty_row + sheet_df_cleaned.values.tolist()
+
+                # 7. book_dict에 추가
+                book_dict[sheet_name] = final_data
 
             else:
-                # 단일 인덱스의 경우
-                book_dict[sheet_name] = [sheet_df.columns.tolist()] + sheet_df.values.tolist()
+                # 단일 인덱스의 경우 빈 값 처리
+                sheet_df_cleaned = sheet_df.where(pd.notna(sheet_df), "").astype(str)
+                book_dict[sheet_name] = [sheet_df.columns.tolist()] + sheet_df_cleaned.values.tolist()
 
         # .xls 파일로 저장
         pe.save_book_as(bookdict=book_dict, dest_file_name=output_file_name)
 
         file_name = os.path.basename(output_file_name)
-        logger.log(f"변경된 파일 저장 완료 (Excel 97-2003 형식): {file_name}", level="INFO", also_to_report=True, separator="2line")
+        logger.log(f"변경된 파일 저장 완료 (Excel 97-2003 형식, pyexcel 사용): {file_name}", level="INFO", also_to_report=True, separator="2line")
 
     except Exception as e:
         logger.log(f"엑셀 저장 중 오류 발생: {e}", level="ERROR")
         raise
+
+
+
+
+
 
 
 
@@ -310,7 +265,7 @@ def set_dual_column_headers(df):
 def remove_rows_gododata(sheets):
     """
     첫 번째 시트를 읽어 반환
-    쓰지 않는 2번째 및 3번째 행을 제거하여 반환
+    NaN으로만 이루어진 행만 제거하여 반환 (특정 행 삭제 없음)
 
     :param sheets: 엑셀 시트 딕셔너리
     :return: 첫 번째 시트 이름과 정리된 데이터프레임
@@ -328,17 +283,18 @@ def remove_rows_gododata(sheets):
         logger.log(f"데이터 타입: {type(dual_colum_sheet_data)}")
         logger.log(dual_colum_sheet_data.head(5))
 
-        # 2번째(인덱스 1) 및 3번째 행(인덱스 2) 삭제 (복사본 사용)
-        if len(dual_colum_sheet_data) > 2:
-            dual_colum_sheet_data = dual_colum_sheet_data.copy()
-            dual_colum_sheet_data.drop(index=[2], inplace=True)
-            logger.log(f"첫 번째 시트 '{first_sheet_name}'에서 2번째 및 3번째 행 삭제 완료.", level="INFO")
-        else:
-            logger.log(f"첫 번째 시트 '{first_sheet_name}'의 행 수가 3 미만으로, 삭제할 행이 없습니다.", level="WARNING")
+        # 삭제 전 데이터 크기 출력
+        initial_rows = dual_colum_sheet_data.shape[0]
+        logger.log(f"삭제 전 데이터 크기: {initial_rows} 행", level="DEBUG")
 
-        # 비어있는 행 제거 (복사본 사용)
-        cleaned_data = dual_colum_sheet_data.copy().dropna(how='all')
-        logger.log(f"첫 번째 시트 '{first_sheet_name}'를 읽어오고 비어있는 행 제거 완료.", level="INFO")
+        # ✅ NaN만 삭제 (특정 행 삭제 X)
+        cleaned_data = dual_colum_sheet_data.dropna(how='all')
+
+        # 삭제 후 데이터 크기 출력
+        after_cleaning_rows = cleaned_data.shape[0]
+        logger.log(f"NaN 행 제거 후 데이터 크기: {after_cleaning_rows} 행", level="DEBUG")
+
+        logger.log(f"첫 번째 시트 '{first_sheet_name}'를 읽어오고 NaN 제거 완료.", level="INFO")
 
         # 인덱스 초기화
         cleaned_data.reset_index(drop=True, inplace=True)
@@ -349,6 +305,7 @@ def remove_rows_gododata(sheets):
     except Exception as e:
         logger.log(f"첫 번째 시트를 읽고 정리하는 중 에러 발생: {e}", level="ERROR")
         raise ValueError(f"첫 번째 시트를 읽고 정리하는 중 문제가 발생했습니다: {e}")
+
 
 
 

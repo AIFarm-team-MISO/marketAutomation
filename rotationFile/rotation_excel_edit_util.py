@@ -223,36 +223,34 @@ def remove_empty_rows(dataframe, column_name):
         raise ValueError(f"{column_name} 열에서 비어있는 행을 삭제하는 중 문제가 발생했습니다: {e}")
     
 
-def input_column_with_str(dataframe, column_name, input_string):
+def input_column_with_value(dataframe, column_name, input_value):
     """
-    멀티 인덱스 컬럼에서 특정 열에 지정된 문자열을 입력하는 함수
+    멀티 인덱스 컬럼에서 특정 열에 지정된 값을 입력하는 함수 (문자열 또는 숫자 가능)
 
     :param dataframe: DataFrame (멀티 인덱스 컬럼 포함 가능)
     :param column_name: 기준 열 이름 (첫 번째 레벨 기준)
-    :param input_string: 입력할 문자열
+    :param input_value: 입력할 값 (문자열 또는 숫자)
     :return: 수정된 데이터프레임
     """
     try:
         # 멀티 인덱스 처리: 첫 번째 레벨에서 column_name 선택
         if isinstance(dataframe.columns, pd.MultiIndex):
-            # 첫 번째 레벨에 column_name이 존재하는지 확인
             if column_name in dataframe.columns.get_level_values(0):
-                dataframe.loc[:, pd.IndexSlice[column_name, :]] = input_string
+                dataframe.loc[:, pd.IndexSlice[column_name, :]] = input_value
             else:
                 raise KeyError(f"'{column_name}' 컬럼을 찾을 수 없습니다.")
         else:
-            # 단일 인덱스일 경우 기존 방식 사용
             if column_name in dataframe.columns:
-                dataframe[column_name] = input_string
+                dataframe[column_name] = input_value
             else:
                 raise KeyError(f"'{column_name}' 컬럼을 찾을 수 없습니다.")
 
-        logger.log(f"'{column_name}' 열에 지정된 문자열이 입력되었습니다.", level="INFO")
+        logger.log(f"'{column_name}' 열에 '{input_value}' 값이 입력되었습니다.", level="INFO")
 
         return dataframe
 
     except Exception as e:
-        raise ValueError(f"'{column_name}' 열에 문자열 입력 중 문제가 발생했습니다: {e}")
+        raise ValueError(f"'{column_name}' 열에 값 입력 중 문제가 발생했습니다: {e}")
 
     
   

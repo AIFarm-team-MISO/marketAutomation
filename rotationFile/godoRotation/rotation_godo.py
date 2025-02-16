@@ -7,10 +7,12 @@ import config.settings as settings
 
 from config.settings import FILE_EXTENSION_xls, FILE_EXTENSION_xlsx, CURRENT_MARKET_NAME
 from utils.excel.excel_utils import make_input_file_path, make_output_file_path, read_xls_all_sheets, save_excel_with_sheets,read_and_clean_first_sheet,read_xlsx_all_sheets
-from utils.excel.excel_utils import remove_rows_gododata, save_excel_for_godo, set_dual_column_headers, save_excel_for_godo_as_xls, save_excel_for_godo_as_xls_fixed
+from utils.excel.excel_utils import remove_rows_gododata, save_excel_for_godo, set_dual_column_headers, save_excel_for_godo_as_xls_fixed
 
-from rotationFile.rotation_excel_edit_util import input_column_with_str,remove_food_category_rows, remove_duplicate_rows
+from rotationFile.rotation_excel_edit_util import input_column_with_value,remove_food_category_rows, remove_duplicate_rows
 from rotationFile.rotation_excel_edit_util import remove_options_rows, clean_search_keywords, update_column_value
+from utils.excel.excel_get_data import get_folder_name, get_market_name
+from utils.json.json_util import load_config
 
 def make_rotation_godo(file_path, base_file_name):
     '''
@@ -48,13 +50,22 @@ def make_rotation_godo(file_path, base_file_name):
         # 첫 번째 시트를 읽고 비어 있는 행 제거
         first_sheet_name, first_sheet_data = remove_rows_gododata(sheets)
 
+        logger.log(f"파일이름:  {base_file_name}")
 
-        modify_sheet = input_column_with_str(first_sheet_data, "카테고리 코드", '3')
+        # [고도몰-파타르시스]_파라브러_GPT_가격대마진
+        market, domename = extract_market_and_supplier(file_name)
+        logger.log(f"마켓명: {market}, 도매이름: {domename}")
+
+        # 마켓과 도매처에 따른 설정값 반환
+        shiping_code = get_category_code(market, domename)  
+
+        modify_sheet = input_column_with_value(first_sheet_data, "배송비 고유번호", int(shiping_code))
 
         #상위 5줄 출력
         logger.log(modify_sheet.head(5))
 
         save_excel_for_godo_as_xls_fixed(sheets, output_file_name, modify_sheet, first_sheet_name)
+        
 
         
 
@@ -62,3 +73,65 @@ def make_rotation_godo(file_path, base_file_name):
     except Exception as e:
         logger.log(f"고도몰 순환파일 자동화중 에러가 발생: {e}", level="ERROR")
         raise
+
+def get_category_code(market_name, supplier_name):
+    """
+    마켓명과 도매이름에 따라 카테고리 코드를 결정하는 함수.
+
+    :param market_name: 추출된 마켓명 (예: "파타르시스")
+    :param supplier_name: 추출된 도매이름 (예: "파라브러")
+    :return: 카테고리 코드 (예: "3")
+    """
+    category_mapping = {
+        "파타르시스": {
+            "파라브러": "1",
+            "필우": "6",
+            "셀프": "8"
+        },
+        "블루채널": {
+            "파라브러": "7",
+            "기본값": "10",  # 기본값
+        },
+    }
+
+    # 마켓명과 도매이름이 일치하는 경우 반환, 없으면 기본값 반환
+    return category_mapping.get(market_name, {}).get(supplier_name, "1")  # 기본값 "1"
+
+import re
+import os
+
+def extract_market_and_supplier(file_name):
+    """
+    파일명에서 마켓명과 도매이름을 추출하는 함수.
+    
+    :param file_name: 원본 파일명 (예: "[고도몰-파타르시스]_파라브러_GPT_가격대마진.xls")
+    :return: (마켓명, 도매이름) 튜플 (예: ("파타르시스", "파라브러"))
+    """
+    # 1. 확장자 제거
+    file_name_without_ext, _ = os.path.splitext(file_name)
+
+    # 2. '_' 기준으로 분리
+    parts = file_name_without_ext.split('_')
+
+    if len(parts) < 2:
+        raise ValueError(f"잘못된 파일명 형식: {file_name}")
+
+    # 3. 마켓명 추출 (대괄호 제거 및 '-' 기준으로 분리)
+    market_part = parts[0]  # "[고도몰-파타르시스]"
+    market_match = re.search(r"\[(.*?)\]", market_part)  # 대괄호 내용 추출
+
+    if not market_match:
+        raise ValueError(f"마켓명을 찾을 수 없음: {file_name}")
+
+    market_full = market_match.group(1)  # "고도몰-파타르시스"
+    market_name = market_full.split('-')[-1]  # "파타르시스"
+
+    # 4. 도매이름 추출 (두 번째 '_' 이후 값)
+    supplier_name = parts[1]  # "파라브러"
+
+    return market_name, supplier_name
+
+# 테스트 실행
+file_name = "[고도몰-파타르시스]_파라브러_GPT_가격대마진.xls"
+market, supplier = extract_market_and_supplier(file_name)
+print(f"마켓명: {market}, 도매이름: {supplier}")

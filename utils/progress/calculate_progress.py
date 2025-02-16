@@ -311,17 +311,17 @@ def run_filtering_item_process(filtered_item_list, process_type, task_type="sing
 
     # 결과 출력
     logger.log_separator()
-    logger.log(f"=== {process_type} 프로세스 예비 분석 ===")
-    logger.log(f"총 작업 대상 갯수: {total_items}개")
-    logger.log(f"사전에 이미 처리된 작업대상 갯수: {filtered_count}개")
-    logger.log(f"API 호출 작업대상 갯수 : {unfiltered_count}개")
-    logger.log(f"예상 비용: ${estimated_cost_usd:.2f} (USD) / {int(estimated_cost_krw):,} 원 (KRW)")
-    logger.log(f"예상 소요 시간: {int(estimated_time_min)}분 {int(remaining_seconds)}초")
+    logger.log(f"=== {process_type} 프로세스 예비 분석 ===", also_to_report=True, separator="2line")
+    logger.log(f"총 작업 대상 갯수: {total_items}개", also_to_report=True, separator="none")
+    logger.log(f"사전에 이미 처리된 작업대상 갯수: {filtered_count}개", also_to_report=True, separator="none")
+    logger.log(f"API 호출 작업대상 갯수 : {unfiltered_count}개", also_to_report=True, separator="none")
+    logger.log(f"예상 비용: ${estimated_cost_usd:.2f} (USD) / {int(estimated_cost_krw):,} 원 (KRW)", also_to_report=True, separator="none")
+    logger.log(f"예상 소요 시간: {int(estimated_time_min)}분 {int(remaining_seconds)}초", also_to_report=True, separator="none")
     logger.log_separator()
 
 
     if task_type == "auto":
-        logger.log(f"▶️ 자동 실행 모드 활성화 {task_type} 작업).", level="INFO")
+        logger.log(f"▶️ 자동 실행 모드 활성화 {task_type} 작업).", level="INFO", also_to_report=True, separator="none")
         return True  # 바로 진행
     
     else:
