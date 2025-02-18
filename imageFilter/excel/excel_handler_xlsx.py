@@ -7,8 +7,10 @@ from utils.excel.excel_utils import read_xls_all_sheets, save_excel_with_sheets,
 from config.settings import FILE_EXTENSION_xls, FILE_EXTENSION_xlsx, FILTERED_URL_FILE
 from imageFilter.excel.image_processing_xlsx import process_image_urls_xlsx
 from utils.excel.excel_process_utils import insert_excel_column, sort_sheet, colum_highlight_sheet, delete_rows_by_condition, colum_highlight_sheet
+from utils.excel.excel_process_utils import extract_main_image_urls_multiindex, insert_excel_multiindex_columns_with_values
 from utils.validate.validate_dataframe import validate_data_integrity
 from utils.excel.excel_utils import read_and_clean_first_sheet
+from imageFilter.imageFilterDictionary.dictionary_handler import load_dictionary, save_image_filter_dictionary
 
 
 # 현재 파일 위치 기준으로 JSON 파일 경로 설정
@@ -101,4 +103,74 @@ def process_imageFiltering_excel_file_xlsx(file_path, base_file_name, task_type=
     
 
 
+
+def godo_imageFiltering_excel(sheets):
+    """
+    이미지 필터링 작업을 처리하는 함수 (단독 작업 및 자동화 작업 지원)
+    :param file_path: 파일 경로
+    :param base_file_name: 기본 파일 이름
+    :param task_type: 작업 타입 ("single" 또는 "auto")
+    """
+
+    logger.log_separator()
+    logger.log('🖼️  고도몰 이미지필터링 작업 시작 🖼️')
+
+
+    # 함수 실행 (이미지명 앞에 필터링결과 및 썸네일이미지 컬럼 추가)
+    updated_sheets = insert_excel_multiindex_columns_with_values(sheets, "이미지명")
+
+    task_type = "single"
+    image_column_name = "썸네일이미지"
+    seller_code_column_index = "자체상품코드"
+
+    # ✅ main 이미지 URL 추출 (반드시 list로 변환)
+    main_image_list = extract_main_image_urls_multiindex(updated_sheets)
+
+    filtered_result = load_dictionary(main_image_list)
+    logger.log_list("filtered_result ", filtered_result, level="INFO")
+
+    return updated_sheets
     
+
+    # # 이미지 필터링 
+    # filtered_sheets  = process_image_urls_xlsx(updated_sheets, image_column_name, seller_code_column_index, task_type)
+    
+    # # 중복-문자있음 위로 정렬
+    # filtered_sort_sheets = sort_sheet(filtered_sheets, '필터링결과', "중복-문자있음")
+
+    # if task_type=="single":
+
+    #     # 강조처리 파일명 생성 
+    #     # 강조작업을 할 파일이름 : 정렬이후 "중복-문자있음" 행 빨간색 강조, 이후 엑셀파일에 저장됨
+    #     highlight_output_file_name = make_output_file_path(file_path, base_file_name, "_image_filtered_highlight_output", FILE_EXTENSION_xlsx)
+    #     colum_highlight_sheet(sheets, filtered_sort_sheets, '필터링결과', "중복-문자있음", highlight_output_file_name)
+
+    #     logger.log(f" 이미지 필터링 : {task_type} 작업이 성공적으로 완료되었습니다.", level="INFO", also_to_report=True, separator="2line")
+        
+    # elif task_type=="auto":
+
+    #     #강조처리삭제 파일명 생성, 이곳 활성화시에는 validate_data_integrity(무결성)필요
+    #     filtered_sort_complete_sheets, rows_to_delete_count = delete_rows_by_condition(filtered_sort_sheets, '필터링결과', "중복-문자있음")
+        
+    #     # 무결성 검증 호출
+    #     validate_data_integrity(
+    #         initial_count=len(filtered_sort_sheets),                        #최초갯수
+    #         filtered_sort_complete_sheets=filtered_sort_complete_sheets,    #결과시트
+    #         processed_count=rows_to_delete_count,                           #처리된갯수
+    #         task_name="중복-문자있음 행삭제",                                 #처리명
+    #         task_type="deletion"                                            #처리타입
+    #     )
+
+    #     # 자동화 작업: 작업 완료 메시지만 출력
+    #     logger.log(f" 이미지 필터링  : {task_type} 작업이 성공적으로 완료되었습니다.", level="INFO", also_to_report=True, separator="2line")
+
+    #     # 결과 반환
+    #     return filtered_sort_complete_sheets
+    
+
+
+import pandas as pd
+
+
+
+

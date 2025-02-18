@@ -9,10 +9,11 @@ from config.settings import FILE_EXTENSION_xls, FILE_EXTENSION_xlsx, CURRENT_MAR
 from utils.excel.excel_utils import make_input_file_path, make_output_file_path, read_xls_all_sheets, save_excel_with_sheets,read_and_clean_first_sheet,read_xlsx_all_sheets
 from utils.excel.excel_utils import remove_rows_gododata, save_excel_for_godo, set_dual_column_headers, save_excel_for_godo_as_xls_fixed
 
-from rotationFile.rotation_excel_edit_util import input_column_with_value,remove_food_category_rows, remove_duplicate_rows
+from rotationFile.rotation_excel_edit_util import input_ship_column,remove_food_category_rows, remove_duplicate_rows
 from rotationFile.rotation_excel_edit_util import remove_options_rows, clean_search_keywords, update_column_value
 from utils.excel.excel_get_data import get_folder_name, get_market_name
 from utils.json.json_util import load_config
+from imageFilter.excel.excel_handler_xlsx import godo_imageFiltering_excel
 
 def make_rotation_godo(file_path, base_file_name):
     '''
@@ -56,15 +57,30 @@ def make_rotation_godo(file_path, base_file_name):
         market, domename = extract_market_and_supplier(file_name)
         logger.log(f"마켓명: {market}, 도매이름: {domename}")
 
-        # 마켓과 도매처에 따른 설정값 반환
-        shiping_code = get_category_code(market, domename)  
-
-        modify_sheet = input_column_with_value(first_sheet_data, "배송비 고유번호", int(shiping_code))
+        # 배송관련 데이터 입력 : 초기셋팅 완료 
+        shiping_code = get_shiping_code(market, domename)  
+        modify_sheet = input_ship_column(first_sheet_data, "배송비 고유번호", int(shiping_code))
 
         #상위 5줄 출력
         logger.log(modify_sheet.head(5))
 
-        save_excel_for_godo_as_xls_fixed(sheets, output_file_name, modify_sheet, first_sheet_name)
+
+        # 이미지 필터링
+        # '이미지명' 칼럼 에서 값을 가져옴(더블칼럼이용) 해서 이미지내용을 필터해서 받아온값으로 이미지리스트를 만들어야함 
+        image_filtered_df = godo_imageFiltering_excel(modify_sheet)
+        
+
+
+
+        # 상품명 가공 
+
+
+
+
+
+
+
+        save_excel_for_godo_as_xls_fixed(sheets, output_file_name, image_filtered_df, first_sheet_name)
         
 
         
@@ -74,7 +90,7 @@ def make_rotation_godo(file_path, base_file_name):
         logger.log(f"고도몰 순환파일 자동화중 에러가 발생: {e}", level="ERROR")
         raise
 
-def get_category_code(market_name, supplier_name):
+def get_shiping_code(market_name, supplier_name):
     """
     마켓명과 도매이름에 따라 카테고리 코드를 결정하는 함수.
 

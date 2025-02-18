@@ -223,7 +223,7 @@ def remove_empty_rows(dataframe, column_name):
         raise ValueError(f"{column_name} 열에서 비어있는 행을 삭제하는 중 문제가 발생했습니다: {e}")
     
 
-def input_column_with_value(dataframe, column_name, input_value):
+def input_ship_column(dataframe, column_name, input_value):
     """
     멀티 인덱스 컬럼에서 특정 열에 지정된 값을 입력하는 함수 (문자열 또는 숫자 가능)
 
@@ -247,10 +247,60 @@ def input_column_with_value(dataframe, column_name, input_value):
 
         logger.log(f"'{column_name}' 열에 '{input_value}' 값이 입력되었습니다.", level="INFO")
 
-        return dataframe
+
+        # 고정으로 값을 입력할 8개 컬럼과 값 매핑
+        fixed_values = {
+            "배송 안내 입력선택": "selection",
+            "배송 안내": "002001",
+            "AS 안내 입력선택": "selection",
+            "AS 안내": "003001",
+            "환불 안내 입력선택": "selection",
+            "환불 안내": "004001",
+            "교환 안내 입력선택": "selection",
+            "교환 안내": "005001",
+        }
+
+        # 기존 코드 적용
+        fixed_ship_sheet = input_fixed_values(dataframe, fixed_values)
+
+        return fixed_ship_sheet
 
     except Exception as e:
         raise ValueError(f"'{column_name}' 열에 값 입력 중 문제가 발생했습니다: {e}")
+    
+
+
+def input_fixed_values(dataframe, column_value_dict):
+    """
+    멀티 인덱스 컬럼에서 특정 열들에 대해 고정된 값을 입력하는 함수.
+    : 배송관련 입력값 
+
+    :param dataframe: DataFrame (멀티 인덱스 컬럼 포함 가능)
+    :param column_value_dict: {컬럼명: 입력값} 형태의 딕셔너리
+    :return: 수정된 데이터프레임
+    """
+    try:
+        # 멀티 인덱스 컬럼 처리
+        if isinstance(dataframe.columns, pd.MultiIndex):
+            for column_name, input_value in column_value_dict.items():
+                if column_name in dataframe.columns.get_level_values(0):
+                    dataframe.loc[:, pd.IndexSlice[column_name, :]] = input_value
+                else:
+                    logger.log(f"'{column_name}' 컬럼을 찾을 수 없습니다.", level="WARNING")
+        else:
+            # 단일 인덱스 컬럼 처리
+            for column_name, input_value in column_value_dict.items():
+                if column_name in dataframe.columns:
+                    dataframe[column_name] = input_value
+                else:
+                    logger.log(f"'{column_name}' 컬럼을 찾을 수 없습니다.", level="WARNING")
+
+        logger.log(f"배송관련 열 {len(column_value_dict)}개 컬럼에 고정값 입력 완료.", level="INFO")
+
+        return dataframe
+
+    except Exception as e:
+        raise ValueError(f"여러 컬럼에 값 입력 중 문제가 발생했습니다: {e}")
 
     
   

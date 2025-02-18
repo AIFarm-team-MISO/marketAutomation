@@ -2,7 +2,7 @@ from utils.global_logger import logger
 
 from rotationFile.rotation_excel_edit_util import clear_column_data, add_prefix_to_column, remove_adult_category_rows, convert_http_to_https, convert_column_str,filter_product_name
 from rotationFile.rotation_excel_edit_util import update_column_to_9999, adjust_column_by_percentage, swap_image_column, clear_image_columns, replace_base_url
-from config.settings import FILTER_KEYWORDS
+from config.settings import FILTER_KEYWORDS, FILTER_UNIT_KEYWORDS
 
 columns_to_update = ["목록 이미지*", "이미지1(대표/기본이미지)*", "이미지2", "이미지3", "이미지4", "이미지5"]
 
@@ -10,7 +10,7 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
     logger.log(f"- '{market_platform}, {dome_name}' 초기 셋팅시작 -", level="INFO", also_to_report=True, separator="none")
 
     # 금지 상품 제거
-    forbid_df, keyword_removed_count  = filter_product_name(first_sheet_data, "상품명*", FILTER_KEYWORDS)
+    forbid_df, keyword_removed_count  = filter_product_name(first_sheet_data, "상품명*", FILTER_KEYWORDS + FILTER_UNIT_KEYWORDS)
 
     # 19금 카테고리 제거
     fitered_df, removed_count  = remove_adult_category_rows(forbid_df, "카테고리 번호*")
@@ -87,6 +87,21 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
             new_str = "기타/중국"
 
         convert_str_data, modified_rows = convert_column_str(fitered_df, "원산지*", new_str)
+
+
+
+        if dome_name == "도매토피아":
+
+            change_url_df, modified_count = replace_base_url(convert_str_data, columns_to_update, "https://callenge2000.shopon.biz/data/goods_img", "https://dmtusr.vipweb.kr")
+
+            modify_sellercode = add_prefix_to_column(change_url_df, "판매자 관리코드", "GT") # 판매자관리코드 접두사만듬
+            modify_count = update_column_to_9999(modify_sellercode, "수량*")                   # 수량변경
+            modify_price = adjust_column_by_percentage(modify_count, "판매가*", 5, "인하")      # 판매가변경
+            processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지2')
+
+
+
+
 
         processed_sheet_data = convert_str_data 
     
