@@ -46,14 +46,13 @@ def make_rotation_godo(file_path, base_file_name):
         else:
             raise ValueError(f"Unsupported file format: {file_extension}. Only '.xls' and '.xlsx' are supported.")
         
-        
 
-        # 첫 번째 시트를 읽고 비어 있는 행 제거
-        first_sheet_name, first_sheet_data = remove_rows_gododata(sheets)
+        # ✅ 첫 번째 행을 보관하면서 첫 번째 시트 데이터 가져오기
+        first_sheet_name, first_row_values, first_sheet_data = remove_rows_gododata(sheets)
 
-        logger.log(f"파일이름:  {base_file_name}")
 
         # [고도몰-파타르시스]_파라브러_GPT_가격대마진
+        logger.log(f"파일이름:  {base_file_name}")
         market, domename = extract_market_and_supplier(file_name)
         logger.log(f"마켓명: {market}, 도매이름: {domename}")
 
@@ -61,26 +60,19 @@ def make_rotation_godo(file_path, base_file_name):
         shiping_code = get_shiping_code(market, domename)  
         modify_sheet = input_ship_column(first_sheet_data, "배송비 고유번호", int(shiping_code))
 
-        #상위 5줄 출력
-        logger.log(modify_sheet.head(5))
 
-
-        # 이미지 필터링
-        # '이미지명' 칼럼 에서 값을 가져옴(더블칼럼이용) 해서 이미지내용을 필터해서 받아온값으로 이미지리스트를 만들어야함 
-        image_filtered_df = godo_imageFiltering_excel(modify_sheet)
+        # 
+        # 이미지 필터링 : '이미지명' 칼럼 에서 값을 가져와 이미지내용을 필터해서 받아온값으로 이미지리스트를 만들어야함 
+        image_filtered_df = godo_imageFiltering_excel(file_path, base_file_name, modify_sheet)
         
 
 
 
         # 상품명 가공 
 
+        # 엑셀저장 
+        save_excel_for_godo_as_xls_fixed(sheets, output_file_name, first_row_values, image_filtered_df, first_sheet_name)
 
-
-
-
-
-
-        save_excel_for_godo_as_xls_fixed(sheets, output_file_name, image_filtered_df, first_sheet_name)
         
 
         

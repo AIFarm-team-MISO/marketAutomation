@@ -125,10 +125,13 @@ def save_excel_for_godo(sheets, output_file_name, modified_df=None, modified_she
 # Pandas 경고 제거 옵션 추가
 pd.set_option('future.no_silent_downcasting', True)
 
-def save_excel_for_godo_as_xls_fixed(sheets, output_file_name, modified_df=None, modified_sheet_name=None):
+def save_excel_for_godo_as_xls_fixed(sheets, output_file_name, first_row_values, modified_df=None, modified_sheet_name=None):
     """
     고도몰용 엑셀 파일을 저장하는 함수.
-    멀티 인덱스 2행 구조를 수동으로 삽입하고, 2행 후에 1행을 비운 후 데이터 저장.
+    - 첫 번째 행은 `modified_df`의 컬럼명을 삽입
+    - 두 번째 행은 `first_row_values`를 삽입
+    - 세 번째 행을 빈 행으로 추가
+    - 네 번째 행부터 실제 데이터 저장
     """
     try:
         if output_file_name is None:
@@ -145,45 +148,35 @@ def save_excel_for_godo_as_xls_fixed(sheets, output_file_name, modified_df=None,
         book_dict = {}
 
         for sheet_name, sheet_df in sheets.items():
-            if isinstance(sheet_df.columns, pd.MultiIndex):
-                headers = sheet_df.columns
+            # ✅ 1. 첫 번째 행: 기존 `modified_df`의 컬럼명 (리스트 변환)
+            header_row = [list(sheet_df.columns)]  # 1행
 
-                # 1. 멀티 인덱스 헤더 추출
-                level1_headers = list(headers.get_level_values(0))
-                level2_headers = list(headers.get_level_values(1))
+            # ✅ 2. 두 번째 행: 보관된 `first_row_values`
+            first_row_data = [first_row_values]  # 2행
 
-                # 2. 컬럼 개수 확인
-                assert len(level1_headers) == len(level2_headers) == sheet_df.shape[1]
+            # ✅ 3. 세 번째 행: 빈 행 추가
+            empty_row = [[""] * sheet_df.shape[1]]  # 3행
 
-                # 3. 2행 헤더를 리스트로 변환
-                header_list = [level1_headers, level2_headers]
+            # ✅ 4. NaN을 빈 문자열("")로 변환하여 정리
+            sheet_df_cleaned = sheet_df.where(pd.notna(sheet_df), "").astype(str)
 
-                # 4. 빈 행 삽입 (컬럼 수를 정확히 유지)
-                empty_row = [[""] * sheet_df.shape[1]]
+            # ✅ 5. 최종 데이터 구성 (1행: 컬럼명 → 2행: 원본 첫 행 → 3행: 빈 행 → 4행부터 데이터)
+            final_data = header_row + first_row_data + empty_row + sheet_df_cleaned.values.tolist()
 
-                # 5. 데이터 변환 (경고 발생 방지)
-                sheet_df_cleaned = sheet_df.where(pd.notna(sheet_df), "").astype(str)
+            # ✅ 6. book_dict에 추가 (엑셀 저장용 데이터)
+            book_dict[sheet_name] = final_data
 
-                # 6. 최종 데이터 구조 구성 (헤더 → 빈 행 → 데이터)
-                final_data = header_list + empty_row + sheet_df_cleaned.values.tolist()
-
-                # 7. book_dict에 추가
-                book_dict[sheet_name] = final_data
-
-            else:
-                # 단일 인덱스의 경우 빈 값 처리
-                sheet_df_cleaned = sheet_df.where(pd.notna(sheet_df), "").astype(str)
-                book_dict[sheet_name] = [sheet_df.columns.tolist()] + sheet_df_cleaned.values.tolist()
-
-        # .xls 파일로 저장
+        # ✅ .xls 파일로 저장
         pe.save_book_as(bookdict=book_dict, dest_file_name=output_file_name)
 
         file_name = os.path.basename(output_file_name)
-        logger.log(f"변경된 파일 저장 완료 (Excel 97-2003 형식, pyexcel 사용): {file_name}", level="INFO", also_to_report=True, separator="2line")
+        logger.log(f"✅ 변경된 파일 저장 완료 (Excel 97-2003 형식, pyexcel 사용): {file_name}", level="INFO", also_to_report=True, separator="2line")
 
     except Exception as e:
-        logger.log(f"엑셀 저장 중 오류 발생: {e}", level="ERROR")
+        logger.log(f"❌ 엑셀 저장 중 오류 발생: {e}", level="ERROR")
         raise
+
+
 
 
 
@@ -264,31 +257,29 @@ def set_dual_column_headers(df):
 
 def remove_rows_gododata(sheets):
     """
-    첫 번째 시트를 읽어 반환
-    NaN으로만 이루어진 행만 제거하여 반환 (특정 행 삭제 없음)
+    첫 번째 시트를 읽어 반환.
+    첫 번째 행을 별도로 저장하고, NaN으로만 이루어진 행만 제거하여 반환.
 
     :param sheets: 엑셀 시트 딕셔너리
-    :return: 첫 번째 시트 이름과 정리된 데이터프레임
+    :return: (첫 번째 시트 이름, 첫 번째 행 리스트, 정리된 데이터프레임)
     """
     try:
         # 첫 번째 시트 가져오기
         first_sheet_name = list(sheets.keys())[0]
         first_sheet_data = sheets[first_sheet_name]
 
-        # 멀티 인덱스 적용
-        dual_colum_sheet_data = set_dual_column_headers(first_sheet_data)
+        # ✅ 첫 번째 행을 별도로 저장
+        first_row_values = first_sheet_data.iloc[0].tolist()
 
-        # 데이터 구조 확인
-        logger.log(f" - 최초 데이터 - ")
-        logger.log(f"데이터 타입: {type(dual_colum_sheet_data)}")
-        logger.log(dual_colum_sheet_data.head(5))
+        # ✅ 첫 번째 행을 제거한 후 데이터프레임 유지
+        df_without_first_row = first_sheet_data.iloc[1:].reset_index(drop=True)
 
         # 삭제 전 데이터 크기 출력
-        initial_rows = dual_colum_sheet_data.shape[0]
+        initial_rows = df_without_first_row.shape[0]
         logger.log(f"삭제 전 데이터 크기: {initial_rows} 행", level="DEBUG")
 
         # ✅ NaN만 삭제 (특정 행 삭제 X)
-        cleaned_data = dual_colum_sheet_data.dropna(how='all')
+        cleaned_data = df_without_first_row.dropna(how='all')
 
         # 삭제 후 데이터 크기 출력
         after_cleaning_rows = cleaned_data.shape[0]
@@ -300,11 +291,12 @@ def remove_rows_gododata(sheets):
         cleaned_data.reset_index(drop=True, inplace=True)
         logger.log(f"첫 번째 시트 데이터 인덱스 정렬 완료: {cleaned_data.index}", level="DEBUG")
 
-        return first_sheet_name, cleaned_data
+        return first_sheet_name, first_row_values, cleaned_data  # ✅ 첫 번째 행을 함께 반환
 
     except Exception as e:
         logger.log(f"첫 번째 시트를 읽고 정리하는 중 에러 발생: {e}", level="ERROR")
         raise ValueError(f"첫 번째 시트를 읽고 정리하는 중 문제가 발생했습니다: {e}")
+
 
 
 

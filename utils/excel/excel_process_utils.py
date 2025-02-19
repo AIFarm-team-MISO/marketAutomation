@@ -153,93 +153,94 @@ def insert_excel_multiindex_column(first_sheet_data, existing_column_name, new_c
         raise ValueError(f"멀티 인덱스에서 열 삽입 중 문제가 발생했습니다: {e}")
     
 
-def insert_excel_multiindex_columns_with_values(df, existing_column_name):
+def insert_excel_columns_with_values(df, existing_column_name, filter_image_column_name, filtered_result_column_name):
     """
-    멀티 인덱스(더블 컬럼)에서 지정된 열 앞에 '필터링결과'와 '썸네일이미지' 컬럼을 삽입하고,
-    '썸네일이미지' 컬럼에 extract_main_image_urls_multiindex() 함수에서 추출한 main URL을 입력하는 함수.
+    멀티 인덱스(더블 컬럼) 및 일반 컬럼 모두에서 
+    '필터링결과'와 '썸네일이미지' 컬럼을 삽입하고,
+    '썸네일이미지' 컬럼에 extract_main_image_urls() 함수에서 추출한 main URL을 입력하는 함수.
 
     Parameters:
-        df (pd.DataFrame): 편집된 데이터프레임 (멀티 인덱스 컬럼 포함).
-        existing_column_name (str): 기준이 되는 첫 번째 레벨의 컬럼명 (예: "이미지명").
+        df (pd.DataFrame): 데이터프레임 (멀티 인덱스 또는 일반 인덱스)
+        existing_column_name (str): 기준이 되는 컬럼명 (예: "이미지명")
+        filter_image_column_name (str): 썸네일만 추출한 칼럼명
+        filtered_result_column_name (str): 필터링후 결과값이 입력되는 컬럼명
 
     Returns:
         pd.DataFrame: 수정된 데이터프레임
     """
     try:
-        if not isinstance(df.columns, pd.MultiIndex):
-            raise ValueError("데이터프레임의 컬럼이 멀티 인덱스가 아닙니다. 멀티 인덱스가 필요합니다.")
+        # ✅ 멀티 인덱스 여부 확인
+        is_multiindex = isinstance(df.columns, pd.MultiIndex)
 
-        # 첫 번째 레벨에서 기준 열 위치 찾기
-        first_level_columns = df.columns.get_level_values(0)
-        if existing_column_name not in first_level_columns:
-            raise KeyError(f"'{existing_column_name}' 컬럼을 찾을 수 없습니다.")
+        # ✅ 기준 열 존재 여부 확인
+        if is_multiindex:
+            first_level_columns = df.columns.get_level_values(0)
+            if existing_column_name not in first_level_columns:
+                raise KeyError(f"❌ 멀티 인덱스에서 '{existing_column_name}' 컬럼을 찾을 수 없습니다.")
+            base_idx = list(first_level_columns).index(existing_column_name)
+        else:
+            if existing_column_name not in df.columns:
+                raise KeyError(f"❌ 일반 컬럼에서 '{existing_column_name}'을 찾을 수 없습니다.")
+            base_idx = df.columns.get_loc(existing_column_name)
 
-        base_idx = list(first_level_columns).index(existing_column_name)
+        # ✅ main 이미지 URL 추출
+        main_image_list = extract_main_image_urls(df, column_name=existing_column_name)
 
-        # ✅ main 이미지 URL 추출 (반드시 list로 변환)
-        main_image_list = extract_main_image_urls_multiindex(df)
-
-        # 삽입할 컬럼과 기본값 설정
+        # ✅ 삽입할 컬럼과 기본값 설정
         new_columns_with_values = {
-            ("필터링결과", "result"): "",  # 빈 값
-            ("썸네일이미지", "sum_image"): main_image_list  # main 이미지 URL 리스트
+            (filtered_result_column_name, "result") if is_multiindex else filtered_result_column_name: "",  # 빈 값
+            (filter_image_column_name, "sum_image") if is_multiindex else filter_image_column_name: main_image_list  # main 이미지 URL
         }
 
-        # 기존 df 복사
+        # ✅ 기존 df 복사
         updated_df = df.copy()
 
-        # 새로운 열 추가
-        new_columns = list(updated_df.columns)
-        for col_tuple in reversed(new_columns_with_values.keys()):  # 역순으로 삽입하여 순서 유지
-            new_columns.insert(base_idx, col_tuple)
+        # ✅ 컬럼 삽입
+        for col, value in reversed(new_columns_with_values.items()):
+            col_name = col if is_multiindex else str(col)
+            updated_df.insert(base_idx, col_name, value)
 
-        # 컬럼 재정렬
-        updated_df = updated_df.reindex(columns=new_columns)
+        logger.log(f"✅ '{existing_column_name}' 앞에 '필터링결과'와 '썸네일이미지' 컬럼 추가 완료.", level="INFO")
 
-        # 값 입력
-        for col_tuple, values in new_columns_with_values.items():
-            if isinstance(values, list) and len(values) == len(updated_df):  # 리스트 데이터 입력 (예: 이미지 URL)
-                updated_df[col_tuple] = values
-            else:  # 기본 값 입력 (빈 값 "")
-                updated_df[col_tuple] = ""
-
-        logger.log(f"'{existing_column_name}' 앞에 '필터링결과' 및 '썸네일이미지' 컬럼이 추가되었습니다.", level="INFO")
-
-        return updated_df  # ✅ 수정된 데이터프레임 반환
+        return updated_df
 
     except Exception as e:
-        raise ValueError(f"멀티 인덱스에서 열 삽입 및 값 입력 중 문제가 발생했습니다: {e}")
+        raise ValueError(f"❌ 열 삽입 및 값 입력 중 문제가 발생했습니다: {e}")
+
 
     
 
-def extract_main_image_urls_multiindex(dataframe, column_name="이미지명"):
+def extract_main_image_urls(dataframe, column_name="이미지명"):
     """
+    '이미지명' 열에서 'main' 이후의 이미지 URL을 추출하여 리스트로 반환하는 함수.
+    
+    ✅ 멀티 인덱스 & 단일 인덱스 모두 지원.
+    
+    Parameters:
+        dataframe (pd.DataFrame): 데이터프레임 (멀티 인덱스 또는 일반 인덱스).
+        column_name (str): 이미지 URL이 저장된 컬럼명 (기본값: "이미지명").
 
-    -> 이미지명의 데이터가 확대, 상세, 썸네일, 리스트이미지 로 이루어져 있어 
-    이중 main(썸네일) 의 url를 리스트로 반환하는 함수 
-
-    멀티 인덱스(더블 컬럼)에서 '이미지명' 칼럼을 찾아 'main' 이후의 URL을 추출하여 리스트로 반환.
-
-    :param dataframe: DataFrame (멀티 인덱스 컬럼 포함)
-    :param column_name: 이미지 URL이 저장된 첫 번째 레벨 컬럼명 (기본값: "이미지명")
-    :return: 'main' 이후의 URL 리스트 (NaN 값은 무시)
+    Returns:
+        list: 'main' 이후의 이미지 URL 리스트.
     """
     try:
         extracted_urls = []
 
-        # 멀티 인덱스 여부 확인
-        if not isinstance(dataframe.columns, pd.MultiIndex):
-            raise ValueError("데이터프레임의 컬럼이 멀티 인덱스가 아닙니다. 멀티 인덱스가 필요합니다.")
+        # ✅ 멀티 인덱스 여부 확인
+        is_multiindex = isinstance(dataframe.columns, pd.MultiIndex)
 
-        # 첫 번째 레벨에서 column_name 찾기
-        first_level_columns = dataframe.columns.get_level_values(0)
-        if column_name not in first_level_columns:
-            raise KeyError(f"'{column_name}' 컬럼을 찾을 수 없습니다.")
+        # ✅ 컬럼 찾기 (멀티 인덱스일 경우 첫 번째 레벨 기준)
+        if is_multiindex:
+            first_level_columns = dataframe.columns.get_level_values(0)
+            if column_name not in first_level_columns:
+                raise KeyError(f"❌ 멀티 인덱스에서 '{column_name}' 컬럼을 찾을 수 없습니다.")
+            target_columns = [col for col in dataframe.columns if col[0] == column_name]
+        else:
+            if column_name not in dataframe.columns:
+                raise KeyError(f"❌ 일반 컬럼에서 '{column_name}'을 찾을 수 없습니다.")
+            target_columns = [column_name]
 
-        # 해당하는 모든 서브 컬럼 찾기
-        target_columns = [col for col in dataframe.columns if col[0] == column_name]
-
-        # 데이터프레임의 각 행에서 'main' 이후의 URL 추출
+        # ✅ 데이터프레임의 각 행에서 'main' 이후의 URL 추출
         for _, row in dataframe[target_columns].dropna(how="all").iterrows():
             main_url = None
 
@@ -250,19 +251,17 @@ def extract_main_image_urls_multiindex(dataframe, column_name="이미지명"):
                     for section in sections:
                         if section.startswith("main^|^"):
                             main_url = section.split("^|^")[1]  # 'main^|^' 이후의 URL 추출
-                            break  # 첫 번째 'main'을 찾으면 중단
+                            break
                 if main_url:
                     extracted_urls.append(main_url)
-                    break  # 첫 번째 'main'이 발견되면 해당 행에서 더 이상 탐색하지 않음
-            else:
-                extracted_urls.append("")  # 'main' URL이 없는 경우 빈 문자열 추가
+                    break
 
-        logger.log(f"멀티 인덱스에서 'main' 이후의 이미지 URL {len(extracted_urls)}개 추출 완료.", level="INFO")
-
-        return list(extracted_urls)  # 리스트로 변환하여 반환
+        logger.log(f"✅ '{column_name}'에서 main 이미지 URL {len(extracted_urls)}개 추출 완료.", level="INFO")
+        return extracted_urls
 
     except Exception as e:
-        raise ValueError(f"멀티 인덱스에서 이미지명 칼럼의 main URL을 추출하는 중 문제가 발생했습니다: {e}")
+        raise ValueError(f"❌ 이미지명 칼럼에서 main URL을 추출하는 중 문제가 발생했습니다: {e}")
+
 
 
 
