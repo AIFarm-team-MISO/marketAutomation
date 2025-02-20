@@ -143,9 +143,13 @@ def godo_imageFiltering_excel(file_path, base_file_name,sheets):
         task_name="중복-문자있음 행삭제",                                 #처리명
         task_type="deletion"                                            #처리타입
     )
-    # ✅ 6. **필터링된 컬럼 제거** (여기 추가!)
+    # ✅ 6. **필터링된 컬럼 제거** (복사본 생성 후 제거)
     columns_to_remove = [filter_image_column_name, filtered_result_column_name]
 
+    # 데이터프레임 복사
+    filtered_sort_complete_sheets = filtered_sort_complete_sheets.copy()
+
+    # 컬럼 제거
     for col in columns_to_remove:
         if col in filtered_sort_complete_sheets.columns:
             filtered_sort_complete_sheets.drop(columns=[col], inplace=True)

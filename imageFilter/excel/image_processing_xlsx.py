@@ -135,34 +135,42 @@ def image_filtering_process(filtered_result, sheet, seller_code_column_name, ima
         '''
         # 필터링 결과를 데이터프레임에 기록
         for idx, (status, image_url) in enumerate(data):
-            row_idx = idx  # 필터링된 데이터의 행 번호
+            try:
 
-            # URL 확인 및 비교
-            if image_column_name not in sheet.columns:
-                raise ValueError(f"⚠️ '{image_column_name}' 열이 데이터프레임에 존재하지 않습니다.")
+                        # 🔍 디버그 로그
+                logger.log(f"🔍 [디버그] {idx + 1}번째 행 처리 중 - 상태: {status}, 이미지 URL: {image_url}", level="DEBUG")
 
-            # 특정 행(row_idx)의 지정된 열(image_column_name)에서 값 가져오기
-            # 조건: 값이 NaN이 아닌 경우 해당 값을 반환, 그렇지 않으면 None 반환
-            if pd.notna(sheet.at[row_idx, image_column_name]):
-                cell_url = sheet.at[row_idx, image_column_name]  # 셀의 URL 값 가져오기
-            else:
-                # 값이 NaN인 경우 로그를 기록하고 프로그램 종료
-                error_message = f"⚠️ 행 {row_idx + 1}의 '{image_column_name}' 열 값이 비어 있습니다." 
-                logger.log(error_message, level="ERROR")  # 에러 로그 기록
-                raise ValueError(error_message)  # 프로그램 종료
-            # row_idx + 1으로 표시하는 이유는 사용자입장에서 행을 판별하기 쉽게 하기 위해서임
+                # ✅ 안전한 접근 (iloc 사용)
+                if idx >= len(sheet):
+                    logger.log(f"⚠️ [경고] 유효하지 않은 인덱스 접근: {idx} (총 {len(sheet)}개 행)", level="WARNING")
+                    continue
 
-            # URL 비교를 통해 무결성 확인
-            normalized_image_url = str(image_url).strip().lower()
-            normalized_cell_url = str(cell_url).strip().lower()
+                # 📸 이미지 URL 가져오기
+                cell_url = sheet.iloc[idx][image_column_name] if pd.notna(sheet.iloc[idx][image_column_name]) else ""
 
-            if normalized_image_url == normalized_cell_url:
-                # 필터링 결과를 기록
-                sheet.at[row_idx, "필터링결과"] = status
-                logger.log(f"✅ 행 {row_idx + 1}: 필터링 결과 '{status}' 기록 완료.", level="DEBUG")
-            else:
-                # 불일치 로그 기록
-                logger.log(f"⚠️ URL 불일치 - 행 {row_idx + 1}, 기대값: {normalized_image_url}, 실제값: {normalized_cell_url}", level="WARNING")
+                # 🔄 URL 비교
+                normalized_image_url = str(image_url).strip().lower()
+                normalized_cell_url = str(cell_url).strip().lower()
+
+                # ✅ 무결성 검사 및 필터링 결과 기록
+                if normalized_image_url == normalized_cell_url:
+                    sheet.at[sheet.index[idx], "필터링결과"] = status
+                    logger.log(f"✅ [성공] 행 {idx + 1}: '{status}' 기록 완료.", level="INFO")
+                else:
+                    logger.log(f"⚠️ [불일치] 행 {idx + 1}: 기대값과 실제값 불일치", level="WARNING")
+
+
+            except KeyError as ke:
+                logger.log(f"❌ [키에러] 행 {idx  + 1} - {ke}", level="ERROR")
+                raise
+            except IndexError as ie:
+                logger.log(f"❌ [인덱스에러] 행 {idx  + 1} - {ie}", level="ERROR")
+                raise
+            except Exception as e:
+                logger.log(f"❌ [예외 발생] 행 {idx  + 1} - {type(e).__name__}: {e}", level="ERROR")
+                raise
+
+
 
         logger.log("✅ 모든 필터링 결과가 성공적으로 기록되었습니다.", level="INFO")
 

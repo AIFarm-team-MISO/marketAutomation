@@ -125,7 +125,7 @@ def save_excel_for_godo(sheets, output_file_name, modified_df=None, modified_she
 # Pandas 경고 제거 옵션 추가
 pd.set_option('future.no_silent_downcasting', True)
 
-def save_excel_for_godo_as_xls_fixed(sheets, output_file_name, first_row_values, modified_df=None, modified_sheet_name=None):
+def save_excel_for_godo_as_xls_fixed(sheets, output_file_path, first_row_values, modified_df=None, modified_sheet_name=None):
     """
     고도몰용 엑셀 파일을 저장하는 함수.
     - 첫 번째 행은 `modified_df`의 컬럼명을 삽입
@@ -134,7 +134,7 @@ def save_excel_for_godo_as_xls_fixed(sheets, output_file_name, first_row_values,
     - 네 번째 행부터 실제 데이터 저장
     """
     try:
-        if output_file_name is None:
+        if output_file_path is None:
             raise ValueError("출력 파일 이름이 지정되지 않았습니다.")
 
         logger.log_separator()
@@ -167,9 +167,9 @@ def save_excel_for_godo_as_xls_fixed(sheets, output_file_name, first_row_values,
             book_dict[sheet_name] = final_data
 
         # ✅ .xls 파일로 저장
-        pe.save_book_as(bookdict=book_dict, dest_file_name=output_file_name)
+        pe.save_book_as(bookdict=book_dict, dest_file_name=output_file_path)
 
-        file_name = os.path.basename(output_file_name)
+        file_name = os.path.basename(output_file_path)
         logger.log(f"✅ 변경된 파일 저장 완료 (Excel 97-2003 형식, pyexcel 사용): {file_name}", level="INFO", also_to_report=True, separator="2line")
 
     except Exception as e:
@@ -285,7 +285,7 @@ def remove_rows_gododata(sheets):
         after_cleaning_rows = cleaned_data.shape[0]
         logger.log(f"NaN 행 제거 후 데이터 크기: {after_cleaning_rows} 행", level="DEBUG")
 
-        logger.log(f"첫 번째 시트 '{first_sheet_name}'를 읽어오고 NaN 제거 완료.", level="INFO")
+        logger.log(f"첫 번째 시트 '{first_sheet_name}'를 읽어오고 NaN 제거 완료.", level="INFO", also_to_report=True, separator="2line")
 
         # 인덱스 초기화
         cleaned_data.reset_index(drop=True, inplace=True)

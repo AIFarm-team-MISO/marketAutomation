@@ -216,11 +216,11 @@ def remove_empty_rows(dataframe, column_name):
         initial_count = len(dataframe)  # 초기 행 수
         dataframe = dataframe[dataframe[column_name].notna()]  # 비어있지 않은 행 필터링
         removed_count = initial_count - len(dataframe)  # 삭제된 행 수 계산
-        logger.log(f"{column_name} 열에서 {removed_count}개의 행 삭제", level="INFO", also_to_report=True, separator="none")
+        logger.log(f"✅ {column_name} 열에서 {removed_count}개의 비어있는 행 삭제", level="INFO", also_to_report=True, separator="none")
 
         return dataframe, removed_count
     except Exception as e:
-        raise ValueError(f"{column_name} 열에서 비어있는 행을 삭제하는 중 문제가 발생했습니다: {e}")
+        raise ValueError(f"✅ {column_name} 열에서 비어있는 행을 삭제하는 중 문제가 발생했습니다: {e}")
     
 
 def input_ship_column(dataframe, column_name, input_value):
@@ -245,7 +245,7 @@ def input_ship_column(dataframe, column_name, input_value):
             else:
                 raise KeyError(f"'{column_name}' 컬럼을 찾을 수 없습니다.")
 
-        logger.log(f"'{column_name}' 열에 '{input_value}' 값이 입력되었습니다.", level="INFO")
+        logger.log(f"'{column_name}' 열에 '{input_value}' 값이 입력되었습니다.", level="INFO", also_to_report=True, separator="none")
 
 
         # 고정으로 값을 입력할 8개 컬럼과 값 매핑
@@ -295,7 +295,7 @@ def input_fixed_values(dataframe, column_value_dict):
                 else:
                     logger.log(f"'{column_name}' 컬럼을 찾을 수 없습니다.", level="WARNING")
 
-        logger.log(f"배송관련 열 {len(column_value_dict)}개 컬럼에 고정값 입력 완료.", level="INFO")
+        logger.log(f"배송관련 열 {len(column_value_dict)}개 컬럼에 고정값 입력 완료.", level="INFO", also_to_report=True, separator="none")
 
         return dataframe
 
@@ -362,7 +362,29 @@ def filter_product_name(dataframe, product_name_column, filter_keywords):
         after_keyword_filter_count = len(dataframe)
         keyword_removed_count = initial_count - after_keyword_filter_count
 
-        logger.log(f"{product_name_column} 열에서 {keyword_removed_count}개의 금지 키워드 행이 삭제되었습니다.", level="INFO", also_to_report=True, separator="none")
+        logger.log(f"✅ {product_name_column} 열에서 {keyword_removed_count}개의 금지 키워드 행이 삭제완료.", level="INFO", also_to_report=True, separator="none")
+
+        return dataframe, keyword_removed_count
+    except Exception as e:
+        raise ValueError(f"데이터프레임 필터링 중 문제가 발생했습니다: {e}")
+    
+def filter_product_code(dataframe, product_code, filter_keywords):
+    """
+    상품명 기준으로 행을 필터링하는 함수
+    :param dataframe: 데이터프레임
+    :param product_name_column: 상품명 열 이름
+    :param filter_keywords: 필터링할 키워드 리스트
+    :return: 필터링된 데이터프레임, 삭제된 행 수
+    """
+    try:
+        # 상품명 키워드 필터링 (단어 경계를 사용하여 독립적인 단어만 필터링)
+        initial_count = len(dataframe)
+        keyword_pattern = '|'.join(f"\\b{word}\\b" for word in filter_keywords)
+        dataframe = dataframe[~dataframe[product_code].str.contains(keyword_pattern, case=False, na=False)]
+        after_keyword_filter_count = len(dataframe)
+        keyword_removed_count = initial_count - after_keyword_filter_count
+
+        logger.log(f"✅ {product_code} 열에서 {keyword_removed_count}개의 금지코드 상품 {filter_keywords} 이 삭제완료", level="INFO", also_to_report=True, separator="none")
 
         return dataframe, keyword_removed_count
     except Exception as e:
@@ -481,7 +503,7 @@ def remove_duplicate_rows(dataframe, column_name, keep_type="remove_all"):
             raise ValueError(f"Invalid keep_type: {keep_type}. Use 'keep_one' or 'remove_all'.")
 
         removed_count = initial_count - len(dataframe)  # 삭제된 행 수 계산
-        logger.log(f"<{column_name}> 열에서 중복된 {removed_count}개의 행이 삭제되었습니다. (처리 방식: {keep_type})", level="INFO", also_to_report=True, separator="none")
+        logger.log(f"✅ <{column_name}> 열에서 중복된 {removed_count}개의 행이 삭제완료 (처리 방식: {keep_type})", level="INFO", also_to_report=True, separator="none")
 
         return dataframe, removed_count
 

@@ -14,6 +14,11 @@ from rotationFile.rotation_excel_edit_util import remove_options_rows, clean_sea
 from utils.excel.excel_get_data import get_folder_name, get_market_name
 from utils.json.json_util import load_config
 from imageFilter.excel.excel_handler_xlsx import godo_imageFiltering_excel
+from productNaming.name_handler import godo_process_namingChange_excel_file
+from utils.excel.excel_split import godo_split_excel_by_rows
+from rotationFile.rotation_market_process import godo_market_process
+
+
 
 def make_rotation_godo(file_path, base_file_name):
     '''
@@ -47,31 +52,48 @@ def make_rotation_godo(file_path, base_file_name):
             raise ValueError(f"Unsupported file format: {file_extension}. Only '.xls' and '.xlsx' are supported.")
         
 
-        # ✅ 첫 번째 행을 보관하면서 첫 번째 시트 데이터 가져오기
+        # ✅ 1. 첫 번째 행을 보관하면서 첫 번째 시트 데이터 가져오기
         first_sheet_name, first_row_values, first_sheet_data = remove_rows_gododata(sheets)
 
 
         # [고도몰-파타르시스]_파라브러_GPT_가격대마진
-        logger.log(f"파일이름:  {base_file_name}")
-        market, domename = extract_market_and_supplier(file_name)
-        logger.log(f"마켓명: {market}, 도매이름: {domename}")
+        # ✅ 2. 마켓명 셋팅
+        logger.log(f"파일이름:  {base_file_name}", also_to_report=True, separator="none")
+        platform_name, market, domename = extract_market_and_supplier(base_file_name)
+        logger.log(f"플랫폼 : {platform_name}, 마켓명: {market}, 도매이름: {domename}", also_to_report=True, separator="none")
+        settings.CURRENT_MARKET_NAME = platform_name # 설정파일 값을 변경
 
-        # 배송관련 데이터 입력 : 초기셋팅 완료 
+
+        # ✅ 마켓별 초기설정
+        processed_sheet_data = godo_market_process(first_sheet_data, platform_name, market, domename)
+
+
+
+        # ✅ 3. 배송관련 데이터 입력 : 초기셋팅 완료 
         shiping_code = get_shiping_code(market, domename)  
-        modify_sheet = input_ship_column(first_sheet_data, "배송비 고유번호", int(shiping_code))
+        modify_sheet = input_ship_column(processed_sheet_data, "배송비 고유번호", int(shiping_code))
 
-
-        # 
-        # 이미지 필터링 : '이미지명' 칼럼 에서 값을 가져와 이미지내용을 필터해서 받아온값으로 이미지리스트를 만들어야함 
+        # ✅ 4.이미지 필터링 : '이미지명' 칼럼 에서 값을 가져와 이미지내용을 필터해서 받아온값으로 이미지리스트를 만들어야함 
         image_filtered_df = godo_imageFiltering_excel(file_path, base_file_name, modify_sheet)
         
+        # ✅ 5.상품명 가공 
+        naming_process_df = godo_process_namingChange_excel_file(file_path, base_file_name, 'GPT조합', task_type="auto", sheets=image_filtered_df)
+
+        # ✅ 6. 행분할 및 엑셀저장 
+        godo_split_excel_by_rows(
+            file_path, 
+            base_file_name, 
+            task_type="auto", 
+            sheets=sheets, 
+            modify_data=naming_process_df, 
+            first_sheet_name=first_sheet_name, 
+            first_row_values = first_row_values
+        )
 
 
 
-        # 상품명 가공 
-
-        # 엑셀저장 
-        save_excel_for_godo_as_xls_fixed(sheets, output_file_name, first_row_values, image_filtered_df, first_sheet_name)
+        # ✅ 7. 엑셀저장 
+        # save_excel_for_godo_as_xls_fixed(sheets, output_file_name, first_row_values, naming_process_df, first_sheet_name)
 
         
 
@@ -108,12 +130,14 @@ def get_shiping_code(market_name, supplier_name):
 import re
 import os
 
+
+
 def extract_market_and_supplier(file_name):
     """
-    파일명에서 마켓명과 도매이름을 추출하는 함수.
-    
+    파일명에서 플랫폼명, 마켓명, 도매이름을 추출하는 함수.
+
     :param file_name: 원본 파일명 (예: "[고도몰-파타르시스]_파라브러_GPT_가격대마진.xls")
-    :return: (마켓명, 도매이름) 튜플 (예: ("파타르시스", "파라브러"))
+    :return: (플랫폼명, 마켓명, 도매이름) 튜플 (예: ("고도몰", "파타르시스", "파라브러"))
     """
     # 1. 확장자 제거
     file_name_without_ext, _ = os.path.splitext(file_name)
@@ -124,22 +148,26 @@ def extract_market_and_supplier(file_name):
     if len(parts) < 2:
         raise ValueError(f"잘못된 파일명 형식: {file_name}")
 
-    # 3. 마켓명 추출 (대괄호 제거 및 '-' 기준으로 분리)
-    market_part = parts[0]  # "[고도몰-파타르시스]"
-    market_match = re.search(r"\[(.*?)\]", market_part)  # 대괄호 내용 추출
+    # 3. 마켓명과 플랫폼명 추출 (대괄호 제거 및 '-' 기준으로 분리)
+    market_part = parts[0]  # 예: "[고도몰-파타르시스]"
+    market_match = re.search(r"\[(.*?)\]", market_part)
 
     if not market_match:
         raise ValueError(f"마켓명을 찾을 수 없음: {file_name}")
 
-    market_full = market_match.group(1)  # "고도몰-파타르시스"
-    market_name = market_full.split('-')[-1]  # "파타르시스"
+    # "고도몰-파타르시스"에서 플랫폼과 마켓 분리
+    market_full = market_match.group(1)  # 예: "고도몰-파타르시스"
+    market_parts = market_full.split('-')
+
+    if len(market_parts) != 2:
+        raise ValueError(f"플랫폼과 마켓명을 분리할 수 없음: {market_full}")
+
+    platform_name = market_parts[0]  # 예: "고도몰"
+    market_name = market_parts[1]    # 예: "파타르시스"
 
     # 4. 도매이름 추출 (두 번째 '_' 이후 값)
-    supplier_name = parts[1]  # "파라브러"
+    supplier_name = parts[1]  # 예: "파라브러"
 
-    return market_name, supplier_name
+    return platform_name, market_name, supplier_name
 
-# 테스트 실행
-file_name = "[고도몰-파타르시스]_파라브러_GPT_가격대마진.xls"
-market, supplier = extract_market_and_supplier(file_name)
-print(f"마켓명: {market}, 도매이름: {supplier}")
+
