@@ -90,10 +90,10 @@ def make_rotation_godo(file_path, base_file_name):
             first_row_values = first_row_values
         )
 
-
-
         # ✅ 7. 엑셀저장 
-        # save_excel_for_godo_as_xls_fixed(sheets, output_file_name, first_row_values, naming_process_df, first_sheet_name)
+        # 고도몰-블루채널 관리자페이지의 마켓별 배송비 번호 셋팅, 배송,교환등 번호확인  -> 마켓설정파일 추가 
+        
+
 
         
 
@@ -119,8 +119,11 @@ def get_shiping_code(market_name, supplier_name):
             "셀프": "8"
         },
         "블루채널": {
-            "파라브러": "7",
-            "기본값": "10",  # 기본값
+            "파라브러": "1",
+            "더드림": "6",
+            "글로벌": "7",
+            "젠트": "8",
+            "비온": "9",  
         },
     }
 

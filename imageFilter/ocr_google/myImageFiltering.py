@@ -47,31 +47,43 @@ def is_text_in_image(image_url):
         try_https_first = True  # HTTPS 시도 여부 플래그
         current_url = image_url  # 현재 URL (HTTPS → HTTP 변경될 수 있음)
 
-        # HTTPS -> HTTP 재시도 처리 루프
+        # 🔄 **HTTPS → HTTP 재시도 처리 루프**
         while True:
             try:
-                # 이미지 다운로드
+                # 1️⃣ 이미지 다운로드
                 if current_url.startswith('http'):
                     # URL에서 이미지 요청 (SSL 검증 비활성화)
                     response = requests.get(current_url, timeout=10, verify=False)
                     response.raise_for_status()  # HTTP 에러가 발생하면 예외 처리
 
 
-                    # HTTP로 전환된 경우 성공 메시지 추가
+                    # HTTP로 전환된 경우 성공 메시지
                     if not try_https_first:
-                        print(f"HTTP로 전환 후 성공적으로 이미지 다운로드 완료: {current_url}")
+                        print(f"⚙️ HTTP로 전환 후 성공: {current_url}")
 
-                    img = Image.open(BytesIO(response.content))
+
+
+                    # 2️⃣ **이미지 열기 (🚨 실패 시 강제 종료 추가!)**
+                    try:
+                        img = Image.open(BytesIO(response.content))
+                    except Exception as e:
+                        error_message = f"❌ 이미지 열기 실패: {e}\nURL: {current_url}"
+                        print(error_message)
+                        raise RuntimeError(error_message)  # 🚫 프로그램 강제 종료
+
+                    
+
+                    # img = Image.open(BytesIO(response.content)) # 프로그램 강제 종료없이 속행 
 
                 else:
                     # 로컬 파일 경로로 이미지 열기
                     img = Image.open(current_url)
 
-                # 이미지 전처리: 흑백 변환 및 대비 강화
+                # 3️⃣ **이미지 전처리 (흑백 변환 및 대비 강화)**
                 img = img.convert("L")  # 이미지를 흑백으로 변환
                 img = ImageEnhance.Contrast(img).enhance(2)  # 대비 강화
 
-                # 이미지 크기 가져오기
+                 # 4️⃣ **이미지 크기 확인 및 영역 나누기**
                 width, height = img.size
 
                 # 상단 15% 영역 크롭
@@ -82,7 +94,7 @@ def is_text_in_image(image_url):
                 bottom_cropped_img = img.crop((0, int(height * 0.85), width, height))  # 하단 15% 영역
                 bottom_cropped_img.save("bottom_cropped_img.jpg")  # 임시 저장
 
-                # Google Cloud Vision API를 사용해 텍스트 감지
+                # 5️⃣ **Google Cloud Vision API로 텍스트 감지 함수*
                 def detect_text(image_path):
                     """
                     Google Cloud Vision API를 통해 이미지에서 텍스트 감지.
@@ -101,7 +113,7 @@ def is_text_in_image(image_url):
                     texts = response.text_annotations
                     return texts[0].description.strip() if texts else ''
 
-                # 상단 텍스트 감지
+                 # 6️⃣ **상단/하단 텍스트 감지**
                 top_text = detect_text("top_cropped_img.jpg")
                 print(f"상단 추출된 텍스트: '{top_text}'")
 
@@ -109,7 +121,7 @@ def is_text_in_image(image_url):
                 bottom_text = detect_text("bottom_cropped_img.jpg")
                 print(f"하단 추출된 텍스트: '{bottom_text}'")
 
-                # 텍스트 정리 및 필터링: 불필요한 문자 제거
+                # 7️⃣ **텍스트 필터링**
                 def clean_text(text):
                     """
                     텍스트에서 알파벳, 숫자, 한글만 남기고 의미 없는 문자를 제거.
@@ -127,7 +139,7 @@ def is_text_in_image(image_url):
                 filtered_top_text = clean_text(top_text)
                 filtered_bottom_text = clean_text(bottom_text)
 
-                # 상단 또는 하단 텍스트가 존재하는지 확인
+                # 8️⃣ **결과 반환 (텍스트 존재 여부)**
                 if filtered_top_text or filtered_bottom_text:
                     print(f"감지된 텍스트: 상단: {filtered_top_text}, 하단: {filtered_bottom_text}")
                     # 상단과 하단 텍스트를 결합하여 반환
@@ -148,9 +160,8 @@ def is_text_in_image(image_url):
                     raise
 
     except Exception as e:
-        # 예외 발생 시 로그 출력 및 False 반환
-        print(f"Error processing image {image_url}: {e}")
-        return False
+        print(f"❌ 이미지 처리 중 오류 발생: {e}")
+        raise RuntimeError(f"이미지 처리 중 예외 발생: {e}")
 
 
 

@@ -125,7 +125,6 @@ def godo_imageFiltering_excel(file_path, base_file_name,sheets):
     # ✅ 1. 이미지 컬럼 추가 : 기존 이미지명 앞에 필터링결과 및 썸네일이미지 컬럼 추가
     updated_sheets = insert_excel_columns_with_values(sheets, base_image_cloumn, filter_image_column_name, filtered_result_column_name)
 
-
     # ✅ 2. 이미지 필터링 
     filtered_sheets  = process_image_urls_xlsx(updated_sheets, filter_image_column_name, seller_code_column_index, task_type)
     
@@ -149,11 +148,11 @@ def godo_imageFiltering_excel(file_path, base_file_name,sheets):
     # 데이터프레임 복사
     filtered_sort_complete_sheets = filtered_sort_complete_sheets.copy()
 
-    # 컬럼 제거
+    # 필터링을 위해 추가한 컬럼 제거
     for col in columns_to_remove:
         if col in filtered_sort_complete_sheets.columns:
             filtered_sort_complete_sheets.drop(columns=[col], inplace=True)
-            logger.log(f"🗑️ '{col}' 컬럼 제거 완료.", level="INFO")
+            logger.log(f"🗑️ '{col}' 컬럼 제거 완료.", level="INFO", also_to_report=True, separator="none")
 
     # 자동화 작업: 작업 완료 메시지만 출력
     logger.log(f" 이미지 필터링  : {task_type} 작업이 성공적으로 완료되었습니다.", level="INFO", also_to_report=True, separator="2line")

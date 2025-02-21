@@ -153,19 +153,19 @@ godo_market_config = {
         "option_remove" : True
     }
     ,
-    ("고도몰", "파타르시스", "글로벌"): {
+    ("고도몰", "블루채널", "글로벌"): {
         "option_remove" : True
     }
     ,
-    ("고도몰", "파타르시스", "젠트"): {
+    ("고도몰", "블루채널", "젠트"): {
         "option_remove" : True
     }
     ,
-    ("고도몰", "파타르시스", "비온"): {
+    ("고도몰", "블루채널", "비온"): {
         "option_remove" : True
     }
     ,
-    ("고도몰", "파타르시스", "도매토피아"): {
+    ("고도몰", "블루채널", "도매토피아"): {
         "prefix": "GK",
         "quantity": 9999,
         "price_adjust": {"column": "판매가*", "percentage": 15, "mode": "인하"},
@@ -203,7 +203,7 @@ def godo_market_process(first_sheet_data, market_platform, market_name, dome_nam
     # 👉 **옵션 사용 여부가 Y인 행 제거**
     if config.get("option_remove", False):
         initial_count = len(processed_df)
-        processed_df = processed_df[processed_df["옵션 사용 여부"] != "Y"]
+        processed_df = processed_df[processed_df["옵션 사용 여부"] != "y"]
         removed_count = initial_count - len(processed_df)
         logger.log(f"🚫 옵션 사용 여부 'Y'인 행 {removed_count}개 제거 완료.", level="INFO", also_to_report=True, separator="none")
 
