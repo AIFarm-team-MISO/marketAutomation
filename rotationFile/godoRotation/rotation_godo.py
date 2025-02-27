@@ -123,7 +123,8 @@ def get_shiping_code(market_name, supplier_name):
             "더드림": "6",
             "글로벌": "7",
             "젠트": "8",
-            "비온": "9",  
+            "비온": "9",
+            "친구": "10"  
         },
     }
 

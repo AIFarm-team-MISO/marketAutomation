@@ -427,7 +427,7 @@ def combine_keywords(existing_data, basic_product_name, max_length=45):
     logger.log(f"💬 연관검색어(3개만출력): {display_related_keywords}", level="INFO", also_to_report=True, separator="none")
 
     # 추가 브랜드네임 필터링 작업 
-    filter_list = ["구름백", "구름디자인", "크록스", "멜킨"]
+    filter_list = ["구름백", "구름디자인", "크록스", "멜킨", "발렌티노", "머렐"]
     filtered_words = [word for word in optimized_name.split() if word not in filter_list + FILTER_KEYWORDS]
     optimized_name = " ".join(filtered_words)
 

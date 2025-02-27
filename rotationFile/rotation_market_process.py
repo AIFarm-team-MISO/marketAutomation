@@ -1,8 +1,8 @@
 from utils.global_logger import logger
 
-from rotationFile.rotation_excel_edit_util import clear_column_data, add_prefix_to_column, remove_adult_category_rows, convert_http_to_https, convert_column_str,filter_product_name, filter_product_code
+from rotationFile.rotation_excel_edit_util import clear_column_data, add_prefix_to_column, remove_adult_category_rows, convert_http_to_https, convert_column_str,filter_product_name, filter_product_code, filter_forbid_product
 from rotationFile.rotation_excel_edit_util import update_column_to_9999, adjust_column_by_percentage, swap_image_column, clear_image_columns, replace_base_url
-from config.settings import FILTER_KEYWORDS, FILTER_UNIT_KEYWORDS, FILTER_PRODUCT_CODE
+from config.settings import FILTER_KEYWORDS, FILTER_UNIT_KEYWORDS, FILTER_PRODUCT_CODE, FILTER_11_KEYWORDS, FILTER_11_PRODUCT_CODE
 from rotationFile.rotation_excel_edit_util import remove_empty_rows,remove_food_category_rows, remove_duplicate_rows
 from rotationFile.rotation_excel_edit_util import remove_options_rows, clean_search_keywords, update_column_value
 
@@ -39,10 +39,11 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
             processed_sheet_data = fitered_df  # 원본 데이터 그대로 사용
 
     elif market_platform == "11번가":
+        forbid_11_df, removed_counts  = filter_forbid_product(fitered_df, "상품명*", "판매자 관리코드", FILTER_11_KEYWORDS, FILTER_11_PRODUCT_CODE)
 
         if dome_name == "도매토피아":
             
-            change_url_df, modified_count = replace_base_url(fitered_df, columns_to_update, "https://callenge2000.shopon.biz/data/goods_img", "https://dmtusr.vipweb.kr")
+            change_url_df, modified_count = replace_base_url(forbid_11_df, columns_to_update, "https://callenge2000.shopon.biz/data/goods_img", "https://dmtusr.vipweb.kr")
 
 
             if market_name == "2002":
@@ -63,11 +64,11 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
         elif dome_name == "친구도매":
 
             # http 를 https 로 변경 
-            updated_df, modified_count = convert_http_to_https(fitered_df, columns_to_update)
+            updated_df, modified_count = convert_http_to_https(forbid_11_df, columns_to_update)
             processed_sheet_data = updated_df
 
         else:
-            processed_sheet_data = fitered_df
+            processed_sheet_data = forbid_11_df
 
     elif market_platform == "쿠팡":
         # 브랜드명을 모두지움
@@ -162,6 +163,9 @@ godo_market_config = {
     }
     ,
     ("고도몰", "블루채널", "비온"): {
+        "option_remove" : True
+    },
+    ("고도몰", "블루채널", "친구"): {
         "option_remove" : True
     }
     ,

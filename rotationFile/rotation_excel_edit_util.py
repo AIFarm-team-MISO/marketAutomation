@@ -368,6 +368,72 @@ def filter_product_name(dataframe, product_name_column, filter_keywords):
     except Exception as e:
         raise ValueError(f"데이터프레임 필터링 중 문제가 발생했습니다: {e}")
     
+import pandas as pd
+
+import pandas as pd
+
+import re
+
+def filter_forbid_product(dataframe, product_name_column, product_code_column, filter_keywords, filter_code_keywords):
+    """
+    상품명 및 상품코드 기준으로 행을 필터링하는 함수 (각각의 키워드 리스트 적용)
+    
+    :param dataframe: 데이터프레임
+    :param product_name_column: 상품명 열 이름
+    :param product_code_column: 상품코드 열 이름
+    :param filter_keywords: 상품명을 필터링할 키워드 리스트
+    :param filter_code_keywords: 상품코드를 필터링할 키워드 리스트
+    :return: 필터링된 데이터프레임, 삭제된 행 수
+    """
+    try:
+        initial_count = len(dataframe)
+
+        # 문자열 타입 변환 (필수)
+        dataframe[product_name_column] = dataframe[product_name_column].astype(str)
+        dataframe[product_code_column] = dataframe[product_code_column].astype(str)
+
+        # 예외처리할 단어 리스트 (오탐 방지)
+        exception_keywords = ["칼라", "칼리그래피", "칼슘", "오일 페이퍼"]  # 오탐 방지 단어들 추가 가능
+
+        # 필터링 키워드에서 오탐 방지 단어 제외
+        refined_filter_keywords = [kw for kw in filter_keywords if kw not in exception_keywords]
+
+        # 필터링 패턴 생성 (정확한 단어만 필터링하도록 개선)
+        name_pattern = r"\b(" + "|".join(map(re.escape, refined_filter_keywords)) + r")\b" if refined_filter_keywords else None
+        code_pattern = r"\b(" + "|".join(map(re.escape, filter_code_keywords)) + r")\b" if filter_code_keywords else None
+
+        # 상품명 필터링 적용
+        mask_name = dataframe[product_name_column].str.contains(name_pattern, case=False, na=False) if name_pattern else False
+        # 상품코드 필터링 적용
+        mask_code = dataframe[product_code_column].str.contains(code_pattern, case=False, na=False) if code_pattern else False
+
+        # 삭제할 행 저장
+        filtered_out_rows = dataframe[mask_name | mask_code]
+
+        # 상품명 또는 상품코드에서 하나라도 키워드가 포함되면 삭제
+        filtered_dataframe = dataframe[~(mask_name | mask_code)]
+
+        removed_count = initial_count - len(filtered_dataframe)
+
+        # 삭제된 상품명 및 상품코드 리스트 생성
+        removed_product_names = ', '.join(filtered_out_rows[product_name_column].astype(str).tolist())
+        removed_product_codes = ', '.join(filtered_out_rows[product_code_column].astype(str).tolist())
+
+        logger.log(f"✅ {product_name_column}({len(filter_keywords)}개 키워드), {product_code_column}({len(filter_code_keywords)}개 키워드)에서 {removed_count}개의 금지 행 삭제 완료.",
+                   level="INFO", also_to_report=True, separator="none")
+
+        if removed_count > 0:
+            logger.log(f"🗑 삭제된 상품명: {removed_product_names}", level="INFO", also_to_report=True, separator="none")
+            logger.log(f"🗑 삭제된 상품코드: {removed_product_codes}", level="INFO", also_to_report=True, separator="none")
+
+        return filtered_dataframe, removed_count
+    except Exception as e:
+        raise ValueError(f"데이터프레임 필터링 중 문제가 발생했습니다: {e}")
+
+
+
+
+    
 def filter_product_code(dataframe, product_code, filter_keywords):
     """
     상품명 기준으로 행을 필터링하는 함수

@@ -111,7 +111,7 @@ def godo_split_excel_by_rows(file_path, base_file_name, task_type="single", shee
     :param first_sheet_name: 첫 번째 시트 이름
     """
     # 한 파일당 행 수 설정
-    rows_per_file = 1500
+    rows_per_file = 1000
 
     try:
         # 시트가 제공된 경우 (자동화 실행 시)
