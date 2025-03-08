@@ -6,7 +6,8 @@ from typing import List, Set
 import random
 
 from keywordOptimization.randomize_keyword import randomize_pattern_length
-from config.settings import FILTER_KEYWORDS
+from config.settings import FILTER_KEYWORDS, FILTER_UNIT_KEYWORDS, COUPANG_FILTER_KEYWORDS
+from config.settings import CURRENT_MARKET_NAME
 
 from utils.global_logger import logger
 
@@ -245,16 +246,109 @@ def remove_duplicates_and_optimize(keywords: List[str]) -> str:
     
     return optimized_name
 
-
-def combine_keywords(existing_data, basic_product_name, max_length=45):
+def filter_brand_keywords(gpt_related_keywords, brand_keywords):
     """
-    네이밍 아이템을 기반으로 최적화된 상품명을 생성.
+    브랜드 키워드가 포함된 연관 검색어를 제거하는 함수.
+    :param gpt_related_keywords: GPT 기반 연관 검색어 리스트
+    :param brand_keywords: 필터링할 브랜드 키워드 리스트
+    :return: 브랜드 키워드가 제거된 연관 검색어 리스트
+    """
+    if not brand_keywords:
+        logger.log(f"💬 브랜드 키워드가 비어 있어 필터링 작업을 건너뜁니다.", level="INFO")
+        return gpt_related_keywords
+    filtered_keywords = [kw for kw in gpt_related_keywords if not any(brand in kw for brand in brand_keywords)]
+    display_filtered_out_keywords = [kw for kw in gpt_related_keywords if kw not in filtered_keywords][:3]
+    logger.log(f"💬 필터링된 키워드 (브랜드 키워드와 매칭됨): {display_filtered_out_keywords}", level="INFO", also_to_report=True, separator="none")
+    return filtered_keywords
+
+def clean_fixed_keywords(basic_product_name, main_keyword):
+    """
+    기본 상품명에서 메인 키워드를 제외하고 불필요한 요소를 정리하는 함수.
+    - 숫자 슬래시(`/`) 변환
+    - 괄호 및 공백을 기준으로 분리 후 불필요한 특수문자 제거
+    - 'x' 또는 'X'를 숫자 사이에 있는 경우 유지, 그 외 제거
+    - 4자리 이상의 숫자만 포함된 키워드는 삭제
     
-    Parameters:
-    - naming_item (dict): 상품 정보를 포함하는 딕셔너리.
+    :param basic_product_name: 기존 상품명
+    :param main_keyword: 메인 키워드 (제거 대상)
+    :return: 정리된 키워드 리스트
+    """
+    fixed_keywords = [kw for kw in basic_product_name.split() if kw != main_keyword]
+    processed_fixed_keywords = []
     
-    Returns:
-    - str: 최적화된 상품명.
+    for keyword in fixed_keywords:
+        keyword_with_or = re.sub(r'(\d+)/(\d+)', r'\1또는\2', keyword)  # 숫자 슬래시 변환
+        split_keywords = re.split(r'[()\s]+', keyword_with_or)
+        
+        processed_keywords = []
+        for kw in split_keywords:
+            if re.match(r'\d+x\d+', kw, re.IGNORECASE):  # 숫자x숫자 유지
+                processed_keywords.append(kw)
+            else:
+                kw = re.sub(r'[^\w\s-]', '', kw).strip()  # 특수문자 제거
+                if kw and not re.fullmatch(r'\d+', kw) and not re.fullmatch(r'[a-zA-Z]+', kw):  # 숫자/영어 단독 제외
+                    processed_keywords.append(kw)
+        
+        blink_keywords = [kw.strip() for kw in processed_keywords if kw.strip()]
+        number_keywords = [
+            kw for kw in blink_keywords
+            if not (re.search(r'\b\d{4,}\b', kw) or re.fullmatch(r'\d+', kw) and len(kw) >= 4)
+        ]
+        
+        filtered_keywords = [
+            kw for kw in number_keywords
+            if not re.search(r'\d{4,}', kw)  # 4자리 이상 숫자 포함된 경우 제거
+        ]
+        
+        filtered_keywords = ''.join(filtered_keywords)
+        processed_fixed_keywords.append(filtered_keywords)
+    
+    logger.log(f"💬 고정키워드 : {fixed_keywords}", also_to_report=True, separator="none")
+    logger.log(f"💬 고정키워드 필터링결과 : {processed_fixed_keywords}", also_to_report=True, separator="none")
+    return fixed_keywords, processed_fixed_keywords
+
+def truncate_keywords_to_limit(keywords, max_length):
+    """
+    키워드를 조합하여 최대 길이를 초과하지 않도록 조절하는 함수.
+    - 최대 길이 제한을 초과하지 않는 선에서 키워드를 추가
+    
+    :param keywords: 조합할 키워드 리스트
+    :param max_length: 최대 허용 길이
+    :return: 최종 상품명 문자열 (공백 포함 max_length 이내)
+    """
+    current_length = 0
+    optimized_keywords = []
+    for keyword in keywords:
+        if current_length + len(keyword) + 1 > max_length:
+            break
+        optimized_keywords.append(keyword)
+        current_length += len(keyword) + 1
+    result = " ".join(optimized_keywords).strip()
+    logger.log(f"💬 글자 수 제한 적용 후 최종 키워드: {result} (글자 수: {len(result)})", level="INFO")
+    return result
+
+def get_top_patterns(patterns, limit=10):
+    """
+    패턴에서 상위 N개를 선택하는 함수.
+    :param patterns: 전체 패턴 리스트
+    :param limit: 선택할 최대 개수 (기본값 10개)
+    :return: 상위 N개의 패턴 리스트
+    """
+    return patterns[:limit] if isinstance(patterns, list) else []
+
+
+def combine_keywords(existing_data, basic_product_name, max_length=49):
+    """
+    최적화된 상품명을 생성하는 메인 함수.
+    - 브랜드 키워드를 포함한 연관 검색어 필터링
+    - 기본 상품명에서 불필요한 요소 제거
+    - 메인 키워드와 연관 검색어 조합
+    - 네이버 마켓일 경우 중복 제거 및 50자 이내로 제한
+    
+    :param existing_data: 기존 데이터 (딕셔너리 형태)
+    :param basic_product_name: 기본 상품명
+    :param max_length: 최대 길이 (기본값 45자)
+    :return: 최적화된 상품명 문자열
     """
     # 필요한 데이터 추출
     main_keyword = existing_data.get("제품군", "")
@@ -263,152 +357,47 @@ def combine_keywords(existing_data, basic_product_name, max_length=45):
     patterns = existing_data.get("패턴", [])
     brand_keywords = existing_data.get("브랜드키워드", [])
 
-    # 1️⃣ 연관검색어 필터링: 연관검색어의 브랜드 키워드 제거(브랜드 키워드가 비어있지 않을 경우에만 필터링 수행)
-    if brand_keywords:
-        filtered_out_keywords = [
-            keyword for keyword in gpt_related_keywords
-            if any(brand in keyword for brand in brand_keywords)
-        ]
-        gpt_related_keywords = [
-            keyword for keyword in gpt_related_keywords
-            if not any(brand in keyword for brand in brand_keywords)
-        ]
-        # 최대 3개만 출력
-        display_filtered_out_keywords = filtered_out_keywords[:3]
-        logger.log(f"💬 필터링된 키워드 (브랜드 키워드와 매칭됨): {display_filtered_out_keywords}", level="INFO", also_to_report=True, separator="none")
-    else:
-        logger.log(f"💬 브랜드 키워드가 비어 있어 필터링 작업을 건너뜁니다.", level="INFO")
+    market_name = CURRENT_MARKET_NAME
+    logger.log(f" #키워드조합# market_name : {market_name}")
 
-    # 최대 3개만 출력
+    # 1️⃣ 연관검색어 브랜드 키워드 필터링 필터링: 연관검색어의 브랜드 키워드 제거(브랜드 키워드가 비어있지 않을 경우에만 필터링 수행)
+
+    gpt_related_keywords = filter_brand_keywords(gpt_related_keywords, brand_keywords)
+    # 브랜드 키워드 제거 후 출력 (최대 3개만)
     display_gpt_related_keywords = gpt_related_keywords[:3]
     logger.log(f"💬 최종 연관검색어 (브랜드 키워드 제거 후): {display_gpt_related_keywords}", level="INFO")
 
-    
-    
+    # 2️⃣ 기본 상품명 정리 : 필터링된 고정키워드
+    fixed_keywords, processed_fixed_keywords = clean_fixed_keywords(basic_product_name, main_keyword)
 
 
-    # 기본상품명에서 메인키워드를 제외한 나머지를 고정 키워드로 설정
-    fixed_keywords = [kw for kw in basic_product_name.split() if kw != main_keyword]
+    # 🔥 3️⃣ 기본 상품명 & 연관 키워드 필터링 (쿠팡 브랜드 네임 및 금지어 제거)
+    gpt_related_keywords = [word for word in gpt_related_keywords if word not in COUPANG_FILTER_KEYWORDS + FILTER_KEYWORDS + FILTER_UNIT_KEYWORDS]
+    processed_fixed_keywords = [word for word in processed_fixed_keywords if word not in COUPANG_FILTER_KEYWORDS + FILTER_KEYWORDS +FILTER_UNIT_KEYWORDS]
 
-    # 고정 키워드 중 "X" 또는 "x"를 제거하고 분리
-    processed_fixed_keywords = []
-    for keyword in fixed_keywords:
-
-
-
-
-        # 슬래시(`/`)를 '또는'으로 대체
-        keyword_with_or = re.sub(r'(\d+)/(\d+)', r'\1또는\2', keyword)
-
-       # 특수문자 및 괄호를 기준으로 키워드 분리
-        split_keywords = re.split(r'[()\s]+', keyword_with_or)
-
-        # 'x' 또는 'X'를 숫자 사이에 있는 경우만 유지하고, 그 외에는 제거
-        processed_keywords = []
-        for kw in split_keywords:
-            if re.match(r'\d+x\d+', kw, re.IGNORECASE):  # 숫자x숫자 유지
-                processed_keywords.append(kw)
-            else:
-                # 특수문자 제거 (괄호 및 언더스코어 포함)
-                kw = re.sub(r'[^\w\s-]', '', kw).strip()
-                if kw and not re.fullmatch(r'\d+', kw) and not re.fullmatch(r'[a-zA-Z]+', kw):  # 숫자 또는 영어 단독 키워드 제외
-                    processed_keywords.append(kw)
-
-        # 공백 제거 및 빈 문자열 필터링
-        blink_keywords = [kw.strip() for kw in processed_keywords if kw.strip()]
-
-        # 숫자가 4자리 이상 포함된 키워드 및 숫자만으로 된 키워드 삭제
-        number_keywords = [
-            kw for kw in blink_keywords
-            if not (re.search(r'\b\d{4,}\b', kw) or re.fullmatch(r'\d+', kw) and len(kw) >= 4)
-        ]
-
-        # 4자리 이상의 숫자가 문자와 함께 포함된 경우 포함된 경우 필터링
-        filtered_keywords = [
-            kw for kw in number_keywords
-            if not re.search(r'\d{4,}', kw)  # 키워드 내에 4자리 이상의 숫자가 포함된 경우 필터링
-        ]
-
-        # 공백 없이 키워드 합치기
-        filtered_keywords = ''.join(filtered_keywords)
-
-
-
-        # 디버깅용 출력
-        # print("원본 키워드:", keyword)
-        # print("키워드 분리후:", split_keywords)
-        # print("x 제거후 :", processed_keywords)
-        # print("특수문자 제거후 :", blink_keywords)
-        # print("숫자 제거후 :", number_keywords)
-        # print("최종 키워드:", filtered_keywords)
-
-    
-        # 나눠진 키워드 추가
-        # processed_fixed_keywords.extend(filtered_keywords)  # 나눠진 키워드 추가
-         # 나눠진 키워드를 결과 리스트에 추가
-        processed_fixed_keywords.append(filtered_keywords)
-
-        
-    logger.log(f"💬 고정키워드 : {fixed_keywords}", also_to_report=True, separator="none")
-    logger.log(f"💬 고정키워드 필터링결과 : {processed_fixed_keywords}", also_to_report=True, separator="none")
-
-
-    # 패턴에서 상위 10개만 선택
-    top_patterns = patterns[:10] if isinstance(patterns, list) else []
-
-    # 랜덤화를 gpt_related_keywords에 먼저 적용
-    random.shuffle(gpt_related_keywords)
-
-    # 조합할 키워드 리스트 생성
-    combined_keywords = [main_keyword]
-
-    # 패턴이 있으면 패턴추가 (현재는 일단 네이버연관검색어를 빼고 패턴만 추가 )
-    if top_patterns:
-        combined_keywords += top_patterns
-        combined_keywords += gpt_related_keywords
-    # 패턴이 없으면 + 연관검색어
-    else:
-        combined_keywords += gpt_related_keywords
-    
-    # if related_keywords:
-    #     combined_keywords += related_keywords
-
-    # # 패턴과 네이버 연관 키워드가 없는 경우 GPT 연관검색어만 추가
-    # if not top_patterns and not related_keywords:
-    #     combined_keywords += gpt_related_keywords
-
-
-    # combined_keywords와 fixed_keywords 간 중복 제거
-    combined_keywords = list(dict.fromkeys(combined_keywords))  # 중복 제거
-    # processed_fixed_keywords = [kw for kw in processed_fixed_keywords if kw not in combined_keywords]
-
-    # 랜덤성 추가: combined_keywords 섞기
-    random.shuffle(combined_keywords)
-    random.shuffle(processed_fixed_keywords)  # 고정 키워드 랜덤화는 processed_fixed_keywords를 사용
-    
-
-    # 글자 수 제한 계산
+    # 4️⃣ 글자 수 제한 계산 : 메인 키워드 + 고정 키워드가 차지하는 길이를 먼저 계산하고, 남은 길이(remaining_length)를 구함!
     protected_length = len(main_keyword) + len(" ".join(processed_fixed_keywords)) + 1  # 공백 1개만 고려
     remaining_length = max_length - protected_length
 
-    # 글자 수 제한 내에서 키워드 필터링
+    # 5️⃣ 연관 키워드 랜덤화 후 글자 수 제한 내에서 선택
+    random.shuffle(gpt_related_keywords)
+    random.shuffle(processed_fixed_keywords)
+
+    # 글자 수 제한 내에서 연관검색어의 키워드 필터링
     filtered_keywords = []
     current_length = 0
-    for keyword in combined_keywords:
+    for keyword in gpt_related_keywords:
         if current_length + len(keyword) + 1 > remaining_length:  # +1은 공백 고려
             break
         filtered_keywords.append(keyword)
         current_length += len(keyword) + 1
 
-
-
-    # 최종 조합
+    # 5️⃣ 최종 조합 (연관 키워드 + 고정 키워드 + 메인 키워드)
     filtered_part = " ".join(filtered_keywords)
     fixed_keywords_part = " ".join(processed_fixed_keywords)
-
-    # 완전히 동일한 키워드만 중복 제거
+    
     final_keywords = f"{filtered_part} {fixed_keywords_part} {main_keyword}".split()
-    final_keywords_unique = list(dict.fromkeys(final_keywords))
+    final_keywords_unique = list(dict.fromkeys(final_keywords)) # 완전히 동일한 키워드만 중복 제거
 
     # 최적화된 상품명 생성
     optimized_name = " ".join(final_keywords_unique).strip()
@@ -418,19 +407,11 @@ def combine_keywords(existing_data, basic_product_name, max_length=45):
     logger.log(f"💬 메인키워드 : {main_keyword}", level="INFO", also_to_report=True, separator="none")
     logger.log_list(f"💬 고정키워드 : ", fixed_keywords, level="INFO", also_to_report=True, separator="none")
     logger.log_list(f"💬 필터 및 랜덤화된 고정키워드 : ", processed_fixed_keywords, level="INFO", also_to_report=True, separator="none")
-    #logger.log_list(f"💬 네이버연관검색어 : ", related_keywords, level="INFO", also_to_report=True, separator="none")
-    # logger.log_list(f"💬 연관검색어 : ", gpt_related_keywords, level="INFO", also_to_report=True, separator="none")
 
     # 최대 3개만 출력
     display_related_keywords = gpt_related_keywords[:3]
     # 로그에 출력
     logger.log(f"💬 연관검색어(3개만출력): {display_related_keywords}", level="INFO", also_to_report=True, separator="none")
-
-    # 추가 브랜드네임 필터링 작업 
-    filter_list = ["구름백", "구름디자인", "크록스", "멜킨", "발렌티노", "머렐"]
-    filtered_words = [word for word in optimized_name.split() if word not in filter_list + FILTER_KEYWORDS]
-    optimized_name = " ".join(filtered_words)
-
     logger.log_list(f"💬 패턴 : ", patterns, level="INFO", also_to_report=True, separator="none")
     logger.log_list(f"💬 조합키워드 리스트", final_keywords_unique, level="INFO", also_to_report=True, separator="none")
     logger.log(f"🚀 최적화된 상품명: '{optimized_name}' (글자 수: {len(optimized_name)})", level="INFO", also_to_report=True, separator="dash-2line")

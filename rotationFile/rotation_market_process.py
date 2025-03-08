@@ -14,8 +14,11 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
     # 금지 상품 제거
     forbid_df, keyword_removed_count  = filter_product_name(first_sheet_data, "상품명*", FILTER_KEYWORDS + FILTER_UNIT_KEYWORDS)
 
+    # 금지 상품 코드 제거
+    forbid_df_code, product_removed_count = filter_product_code(forbid_df, "판매자 관리코드", FILTER_PRODUCT_CODE)
+
     # 19금 카테고리 제거
-    fitered_df, removed_count  = remove_adult_category_rows(forbid_df, "카테고리 번호*")
+    fitered_df, removed_count  = remove_adult_category_rows(forbid_df_code, "카테고리 번호*")
 
     if market_platform == "네이버":
         if dome_name == "도매토피아":
