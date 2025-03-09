@@ -1,6 +1,8 @@
 # keywordOptimization/keyword_combination.py
 
 from collections import Counter
+import json
+import os
 import re
 from typing import List, Set
 import random
@@ -336,6 +338,166 @@ def get_top_patterns(patterns, limit=10):
     """
     return patterns[:limit] if isinstance(patterns, list) else []
 
+def filter_gpt_keywords_by_category_all(gpt_related_keywords, category_keywords, max_count=1):
+    """
+    GPT 연관 키워드에서 카테고리 키워드 개수를 제한하는 함수 (부분 문자열 비교 적용).
+    :param gpt_related_keywords: GPT 연관 검색어 리스트
+    :param category_keywords: 네이버 전체 카테고리 키워드 리스트
+    :param max_count: 최대 허용 개수 (기본값 3개)
+    :return: 필터링된 GPT 연관 키워드 리스트
+    """
+    category_count = 0
+    filtered_keywords = []
+    used_category_terms = set()
+
+    print("🔍 [DEBUG] 필터링 시작 - 카테고리 키워드 제한:", max_count)
+    print("🔍 [DEBUG] 현재 카테고리 단어 목록:", list(category_keywords)[:10], "...")  # 처음 10개만 출력
+
+    for keyword in gpt_related_keywords:
+        keyword_tokens = keyword.split()  # 복합 키워드 분리
+        is_category_keyword = any(any(cat_keyword in token for cat_keyword in category_keywords) for token in keyword_tokens)
+
+        print(f"➡️ [DEBUG] 현재 키워드: {keyword} | 분리된 토큰: {keyword_tokens} | 카테고리 키워드 포함 여부: {is_category_keyword}")
+
+        if is_category_keyword:
+            # ✅ 이미 3개 이상 카테고리 키워드가 포함되면 추가하지 않음
+            if category_count >= max_count:
+                print(f"⛔ [DEBUG] {keyword} (제한 초과로 제외됨) | 현재 포함된 카테고리 키워드 개수: {category_count}")
+                continue  
+            category_count += 1
+            used_category_terms.update(keyword_tokens)
+            print(f"✅ [DEBUG] {keyword} (카테고리 키워드로 포함됨) | 현재 포함된 카테고리 키워드 개수: {category_count}")
+
+        filtered_keywords.append(keyword)
+
+    print("🔍 [DEBUG] 최종 필터링 결과:", filtered_keywords)
+    return filtered_keywords
+
+def filter_gpt_keywords_by_category(gpt_related_keywords, category_keywords):
+    """
+    연관 키워드에서 카테고리 키워드를 순차적으로 제거하고, 의미 있는 단어만 남기는 함수.
+    - 필터링 후 어색한 단어 조합을 자동 수정.
+
+    :param gpt_related_keywords: GPT 기반 연관 키워드 리스트
+    :param category_keywords: 모든 카테고리 키워드 리스트
+    :return: 필터링된 연관 키워드 리스트
+    """
+
+    print("🔍 [DEBUG] 카테고리 키워드 필터링 시작")
+    print(f"📌 [DEBUG] 전체 카테고리 키워드 목록: {category_keywords[:10]} ...")  # 일부만 출력
+
+    # 1️⃣ 연관검색어에서 포함된 카테고리 키워드 목록 추출
+    detected_category_keywords = set()
+
+    for keyword in gpt_related_keywords:
+        for cat_keyword in category_keywords:
+            if len(cat_keyword) > 1 and cat_keyword in keyword:  # 한 글자 키워드는 제외
+                detected_category_keywords.add(cat_keyword)
+
+    print(f"📌 [DEBUG] 감지된 카테고리 키워드 (1글자 제외): {detected_category_keywords}")
+
+    # 2️⃣ 포함된 카테고리 키워드를 순차적으로 제거하면서 나머지 단어를 유지
+    filtered_keywords = []
+    
+    for keyword in gpt_related_keywords:
+        original_keyword = keyword  # 원본 백업
+        modified_keyword = keyword  # 수정될 키워드
+        
+        for cat_keyword in detected_category_keywords:
+            if cat_keyword in modified_keyword:
+                modified_keyword = modified_keyword.replace(cat_keyword, "").strip()  # 카테고리 키워드 제거
+
+        # 🔹 어색한 단어를 대체하는 규칙 적용
+        replacement_rules = {
+            "함반투명": "반투명",
+            "리도구": "정리도구",
+            "함대용량": "대용량",
+            "리함": "정리함",
+            "소함": "소형함"
+        }
+        
+        # 규칙 적용 후 수정
+        for wrong_word, correct_word in replacement_rules.items():
+            if modified_keyword == wrong_word:
+                modified_keyword = correct_word
+
+        # 🔹 한 글자만 남는 경우 삭제
+        modified_keyword = modified_keyword.strip()
+        if len(modified_keyword) == 1 or modified_keyword == "":
+            print(f"⛔ [DEBUG] {original_keyword} → (너무 짧거나 빈 문자열로 삭제됨)")
+            continue
+
+        filtered_keywords.append(modified_keyword)
+        print(f"✅ [DEBUG] {original_keyword} → {modified_keyword} (남은 키워드 유지)")
+
+    # 3️⃣ 최종 필터링 결과에서 중복 제거 + 빈 문자열 제거
+    filtered_keywords = list(set(filtered_keywords))  
+    filtered_keywords = [kw for kw in filtered_keywords if kw]  # 빈 문자열 제거
+
+    print(f"🔍 [DEBUG] 최종 필터링 결과 (중복 및 빈 문자열 제거 완료): {filtered_keywords}")
+    return filtered_keywords
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def load_category_dict(json_file=None):
+    """
+    네이버 카테고리 사전 JSON 파일을 불러오는 함수.
+    :param json_file: JSON 파일 경로 (기본값: 'F:\\marketAutomation\\keywordDictionary\\naver_category_dic.json')
+    :return: 카테고리 데이터 (딕셔너리)
+    """
+    # ✅ JSON 파일의 기본 경로 설정 (변경된 위치 반영)
+    if json_file is None:
+        json_file = r"F:\marketAutomation\keywordDictionary\naver_category_dic.json"
+
+    if not os.path.exists(json_file):
+        print(f"❌ 오류: '{json_file}' 파일을 찾을 수 없습니다!")
+        return {}
+
+    with open(json_file, "r", encoding="utf-8") as f:
+        category_dict = json.load(f)
+
+    print(f"✅ 카테고리 사전 로드 완료! ({len(category_dict) - 1}개 카테고리)")  # '모든키워드' 제외
+    return category_dict
+
+def remove_redundant_keywords(keywords, prefer_compound=True):
+    """
+    중복된 단어를 포함하는 복합 키워드를 정리하는 함수.
+    
+    :param keywords: 필터링된 키워드 리스트
+    :param prefer_compound: True이면 복합 키워드를 남기고, False이면 단일 키워드를 남김
+    :return: 중복 제거된 키워드 리스트
+    """
+    unique_keywords = set(keywords)  # 중복 제거를 위한 집합
+    final_keywords = set()  # 최종 필터링된 키워드 저장
+    
+    for keyword in unique_keywords:
+        is_redundant = False
+        
+        for other_keyword in unique_keywords:
+            if keyword != other_keyword and keyword in other_keyword:
+                # prefer_compound=True이면 복합어(other_keyword) 유지, 단일어(keyword) 제거
+                if prefer_compound:
+                    is_redundant = True  # 단일어(keyword)를 제거
+                else:
+                    final_keywords.discard(other_keyword)  # 복합어(other_keyword)를 제거
+        
+        if not is_redundant:
+            final_keywords.add(keyword)
+    
+    return list(final_keywords)
+
 
 def combine_keywords(existing_data, basic_product_name, max_length=49):
     """
@@ -375,6 +537,38 @@ def combine_keywords(existing_data, basic_product_name, max_length=49):
     gpt_related_keywords = [word for word in gpt_related_keywords if word not in COUPANG_FILTER_KEYWORDS + FILTER_KEYWORDS + FILTER_UNIT_KEYWORDS]
     processed_fixed_keywords = [word for word in processed_fixed_keywords if word not in COUPANG_FILTER_KEYWORDS + FILTER_KEYWORDS +FILTER_UNIT_KEYWORDS]
 
+
+    # 카테고리 데이터 로드
+    category_dict = load_category_dict()
+    
+
+    # 🔥 카테고리 키워드 및 중복문자 필터링
+    # 1️⃣ 네이버 카테고리 전체 키워드 가져오기
+    category_keywords = category_dict.get("모든키워드", [])
+
+    # 2️⃣ 필터링 전 GPT 연관 키워드 출력
+    logger.log(f"💬 [Before] GPT 연관 키워드 (카테고리 필터 적용 전): {gpt_related_keywords}", level="INFO", also_to_report=True)
+
+    # 3️⃣ GPT 연관 키워드에서 카테고리 키워드 개수 제한 (최대 3개)
+    gpt_related_keywords = filter_gpt_keywords_by_category(gpt_related_keywords, category_keywords)
+
+    # ✅ 🔹 중복 포함 단어 제거 적용 (예: '클리어대형'이 있으면 '대형' 제거)
+    
+    if market_name in ["네이버", "11번가"]: # ✅ 네이버 & 11번가 -> 복합 키워드 유지 (prefer_compound=True)
+        gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=True)
+
+    # ✅ 쿠팡, G마켓, 옥션, 인터파크 -> 단순 키워드 우선 (prefer_compound=False)
+    elif market_name in ["쿠팡"]:
+        gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=False)
+
+    # ✅ 그 외의 마켓은 기본적으로 복합 키워드 유지 (prefer_compound=True)
+    else:
+        gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=True)
+
+    # 필터링 후 GPT 연관 키워드 출력
+    logger.log(f"💬 [After] GPT 연관 키워드 (카테고리 필터 적용 후): {gpt_related_keywords}", level="INFO", also_to_report=True)
+
+    
     # 4️⃣ 글자 수 제한 계산 : 메인 키워드 + 고정 키워드가 차지하는 길이를 먼저 계산하고, 남은 길이(remaining_length)를 구함!
     protected_length = len(main_keyword) + len(" ".join(processed_fixed_keywords)) + 1  # 공백 1개만 고려
     remaining_length = max_length - protected_length
