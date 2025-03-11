@@ -434,27 +434,54 @@ def filter_forbid_product(dataframe, product_name_column, product_code_column, f
 
 
     
+import pandas as pd
+
+import pandas as pd
+
 def filter_product_code(dataframe, product_code, filter_keywords):
     """
-    상품명 기준으로 행을 필터링하는 함수
+    상품 코드 기준으로 행을 필터링하는 함수 (제거된 키워드도 로그 출력)
     :param dataframe: 데이터프레임
-    :param product_name_column: 상품명 열 이름
-    :param filter_keywords: 필터링할 키워드 리스트
-    :return: 필터링된 데이터프레임, 삭제된 행 수
+    :param product_code: 필터링할 상품 코드 열 이름
+    :param filter_keywords: 필터링할 키워드 리스트 (숫자 포함 가능)
+    :return: 필터링된 데이터프레임, 삭제된 행 수, 삭제된 키워드 목록
     """
     try:
-        # 상품명 키워드 필터링 (단어 경계를 사용하여 독립적인 단어만 필터링)
-        initial_count = len(dataframe)
+        # 1️⃣ 🔹 필터링 키워드를 모두 문자열(str)로 변환
+        filter_keywords = [str(keyword) for keyword in filter_keywords]
+
+        # 2️⃣ 🔹 product_code 컬럼이 숫자(int/float 등)라면 문자열(str)로 변환
+        if not pd.api.types.is_string_dtype(dataframe[product_code]):
+            dataframe[product_code] = dataframe[product_code].astype(str)
+
+        # 3️⃣ 🔹 필터링할 키워드 패턴 생성 (단어 경계 사용)
         keyword_pattern = '|'.join(f"\\b{word}\\b" for word in filter_keywords)
+
+        # 4️⃣ 🔹 필터링 전에 원본 데이터 개수 저장
+        initial_count = len(dataframe)
+
+        # 5️⃣ 🔹 필터링된 행 추출 (제거될 상품 코드 리스트 생성)
+        removed_rows = dataframe[dataframe[product_code].str.contains(keyword_pattern, case=False, na=False)]
+        removed_keywords = removed_rows[product_code].tolist()
+
+        # 6️⃣ 🔹 필터링 수행 (제거)
         dataframe = dataframe[~dataframe[product_code].str.contains(keyword_pattern, case=False, na=False)]
         after_keyword_filter_count = len(dataframe)
         keyword_removed_count = initial_count - after_keyword_filter_count
 
-        logger.log(f"✅ {product_code} 열에서 {keyword_removed_count}개의 금지코드 상품 {filter_keywords} 이 삭제완료", level="INFO", also_to_report=True, separator="none")
+        # ✅ 로그 출력
+        logger.log(f"✅ {product_code} 열에서 {keyword_removed_count}개의 금지 코드 상품이 삭제됨", level="INFO", also_to_report=True, separator="none")
+
+        # 🔍 **필터링된 키워드 로그 출력**
+        if removed_keywords:
+            logger.log(f"🚫 필터링된 상품 코드 목록: {removed_keywords}", level="INFO", also_to_report=True, separator="none")
 
         return dataframe, keyword_removed_count
     except Exception as e:
         raise ValueError(f"데이터프레임 필터링 중 문제가 발생했습니다: {e}")
+
+
+
 
 
 

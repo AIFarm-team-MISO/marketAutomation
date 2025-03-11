@@ -10,6 +10,7 @@ import random
 from keywordOptimization.randomize_keyword import randomize_pattern_length
 from config.settings import FILTER_KEYWORDS, FILTER_UNIT_KEYWORDS, COUPANG_FILTER_KEYWORDS
 from config.settings import CURRENT_MARKET_NAME
+import config.settings as settings
 
 from utils.global_logger import logger
 
@@ -519,7 +520,7 @@ def combine_keywords(existing_data, basic_product_name, max_length=49):
     patterns = existing_data.get("패턴", [])
     brand_keywords = existing_data.get("브랜드키워드", [])
 
-    market_name = CURRENT_MARKET_NAME
+    market_name = settings.CURRENT_MARKET_NAME
     logger.log(f" #키워드조합# market_name : {market_name}")
 
     # 1️⃣ 연관검색어 브랜드 키워드 필터링 필터링: 연관검색어의 브랜드 키워드 제거(브랜드 키워드가 비어있지 않을 경우에만 필터링 수행)
@@ -549,21 +550,29 @@ def combine_keywords(existing_data, basic_product_name, max_length=49):
     # 2️⃣ 필터링 전 GPT 연관 키워드 출력
     logger.log(f"💬 [Before] GPT 연관 키워드 (카테고리 필터 적용 전): {gpt_related_keywords}", level="INFO", also_to_report=True)
 
-    # 3️⃣ GPT 연관 키워드에서 카테고리 키워드 개수 제한 (최대 3개)
-    gpt_related_keywords = filter_gpt_keywords_by_category(gpt_related_keywords, category_keywords)
-
     # ✅ 🔹 중복 포함 단어 제거 적용 (예: '클리어대형'이 있으면 '대형' 제거)
-    
     if market_name in ["네이버", "11번가"]: # ✅ 네이버 & 11번가 -> 복합 키워드 유지 (prefer_compound=True)
+        logger.log(f"✅ 카테고리제거, 중복 포함 안함  ")
+        # GPT 연관 키워드에서 카테고리 키워드 개수 제한
+        gpt_related_keywords = filter_gpt_keywords_by_category(gpt_related_keywords, category_keywords)
         gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=True)
 
-    # ✅ 쿠팡, G마켓, 옥션, 인터파크 -> 단순 키워드 우선 (prefer_compound=False)
-    elif market_name in ["쿠팡"]:
+    # ✅ 🔹 키워드내 중복단어 포함
+    elif market_name in ["쿠팡", "고도몰"]:
+        logger.log(f"✅ 카테고리제거,  중복 포함  ")
+        # GPT 연관 키워드에서 카테고리 키워드 개수 제한
+        gpt_related_keywords = filter_gpt_keywords_by_category(gpt_related_keywords, category_keywords)
         gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=False)
 
-    # ✅ 그 외의 마켓은 기본적으로 복합 키워드 유지 (prefer_compound=True)
+    
+    # ✅ 🔹 키워드내 중복단어 포함, 카테고리키워드  제거안함 
+    elif market_name in ["톡스토어"]:
+        logger.log(f"✅ 카테고리제거안함,  중복 포함  ")
+        gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=False)
+
+    # ✅ 그 외의 마켓은 연관검색어 기본으로 사용     
     else:
-        gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=True)
+        gpt_related_keywords = gpt_related_keywords
 
     # 필터링 후 GPT 연관 키워드 출력
     logger.log(f"💬 [After] GPT 연관 키워드 (카테고리 필터 적용 후): {gpt_related_keywords}", level="INFO", also_to_report=True)
