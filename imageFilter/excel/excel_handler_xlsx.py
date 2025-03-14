@@ -115,7 +115,7 @@ def godo_imageFiltering_excel(file_path, base_file_name,sheets):
     logger.log_separator()
     logger.log('🖼️  고도몰 이미지필터링 작업 시작 🖼️')
 
-    task_type = "single"
+    task_type = "auto"
 
     base_image_cloumn = "이미지명"
     filter_image_column_name = "썸네일이미지"

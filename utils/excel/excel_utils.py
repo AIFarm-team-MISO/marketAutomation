@@ -176,6 +176,63 @@ def save_excel_for_godo_as_xls_fixed(sheets, output_file_path, first_row_values,
         logger.log(f"❌ 엑셀 저장 중 오류 발생: {e}", level="ERROR")
         raise
 
+import pandas as pd
+from utils.global_logger import logger
+
+def save_excel_modified_naver_xlsx(sheets, output_file_path, first_row_values, modified_df=None, modified_sheet_name=None):
+    """
+    정리된 네이버 팔린 상품 데이터를 엑셀(.xlsx)로 저장하는 함수.
+
+    ✅ 주요 기능:
+    1. **modified_df의 기존 헤더를 첫 번째 행으로 추가.**
+    2. **first_row_values를 새로운 헤더로 설정.**
+    3. **변경된 데이터를 엑셀(.xlsx) 파일로 저장.**
+
+    ✅ 저장 형식 예시:
+    | 상품명 | 가격 | 재고 |
+    |--------|------|------|
+    | 원래헤더1 | 원래헤더2 | 원래헤더3 |
+    | 가방 | 10000 | 5 |
+    | 신발 | 20000 | 3 |
+
+    ✅ 반환값:
+    - 없음 (엑셀 파일 저장)
+
+    :param sheets: 원본 엑셀 시트 딕셔너리
+    :param output_file_path: 저장할 엑셀 파일 경로 (.xlsx 형식)
+    :param first_row_values: 새로운 헤더로 사용할 리스트
+    :param modified_df: 정리된 데이터프레임
+    :param modified_sheet_name: 저장할 시트 이름 (기본값: None, 첫 번째 시트 이름 유지)
+    """
+    try:
+        # ✅ 첫 번째 시트 이름 설정
+        first_sheet_name = list(sheets.keys())[0] if modified_sheet_name is None else modified_sheet_name
+
+        # ✅ 기존 modified_df의 컬럼명 저장
+        original_header = modified_df.columns.tolist()
+
+        # ✅ first_row_values를 새로운 헤더로 설정
+        modified_df.columns = first_row_values
+
+        # ✅ 기존 컬럼명을 첫 번째 행으로 삽입
+        original_header_df = pd.DataFrame([original_header], columns=modified_df.columns)
+
+        # ✅ 기존 데이터와 결합
+        final_df = pd.concat([original_header_df, modified_df], ignore_index=True)
+
+        # ✅ 엑셀 파일(.xlsx)로 저장
+        with pd.ExcelWriter(output_file_path, engine='openpyxl') as writer:
+            final_df.to_excel(writer, sheet_name=first_sheet_name, index=False)
+
+        # ✅ 로그 출력
+        logger.log(f"✅ 엑셀 저장 완료: {output_file_path} (시트: {first_sheet_name})", level="INFO", also_to_report=True)
+        # logger.log(f"🛠️ 최종 저장된 데이터 미리보기:\n{final_df.head().to_string(index=False)}", level="DEBUG")
+
+    except Exception as e:
+        logger.log(f"❌ 엑셀 저장 중 오류 발생: {e}", level="ERROR")
+        raise ValueError(f"엑셀 저장 중 오류 발생: {e}")
+
+
 
 
 
@@ -296,6 +353,66 @@ def remove_rows_gododata(sheets):
     except Exception as e:
         logger.log(f"첫 번째 시트를 읽고 정리하는 중 에러 발생: {e}", level="ERROR")
         raise ValueError(f"첫 번째 시트를 읽고 정리하는 중 문제가 발생했습니다: {e}")
+    
+
+from utils.global_logger import logger
+
+def get_naver_modified_excel(sheets):
+    """
+    네이버 팔린 상품 데이터를 정리하는 함수.
+
+    ✅ 주요 기능:
+    1. **첫 번째 시트에서 데이터를 불러옴.**
+    2. **기존 헤더(컬럼명)를 first_row_values에 저장.**
+    3. **데이터의 첫 번째 행을 새로운 헤더로 변경.**
+    4. **불필요한 1, 2, 3번째 행을 삭제하여 정리.**
+
+    ✅ 반환값:
+    - first_row_values (list): 원래의 컬럼명 (이후 새로운 행으로 추가됨)
+    - modified_df (DataFrame): 정리된 데이터프레임 (새로운 헤더 적용 및 특정 행 삭제됨)
+
+    :param sheets: 엑셀 시트 딕셔너리 (pandas의 `read_excel(sheet_name=None)` 형식)
+    :return: (first_row_values, modified_df)
+    """
+    try:
+        # 첫 번째 시트 가져오기
+        first_sheet_name = list(sheets.keys())[0]
+        first_sheet_data = sheets[first_sheet_name]
+
+        # ✅ 첫 번째 행 저장
+        first_row_values = first_sheet_data.columns.tolist()
+
+        # ✅ 2. 첫 번째 데이터를 새로운 헤더로 설정
+        new_header = first_sheet_data.iloc[0].tolist()  # 첫 번째 데이터 행을 새로운 헤더로 저장
+        df_without_first_row = first_sheet_data.iloc[1:].reset_index(drop=True)  # 첫 번째 행 삭제
+
+        # ✅ 3. 새로운 헤더 적용
+        df_without_first_row.columns = new_header
+
+        # ✅ 1, 2, 3 번째 행 삭제 (0-based index: 0, 1, 2)
+        df_cleaned = df_without_first_row.drop(index=[0, 1, 2], errors='ignore').reset_index(drop=True)
+
+
+        # logger.log(f"✅ 남겨둔 1번째행 : {first_row_values}", level="INFO")
+        # logger.log(f"✅ 나머지행들 : {df_cleaned}", level="INFO")
+
+        # # ✅ 새로운 헤더 출력 (정상적으로 변경되었는지 확인)
+        # logger.log(f"✅  새로운 컬럼: {df_cleaned.columns[:3]}", level="INFO")
+
+        # # ✅ 첫 5개 행 출력 (변경된 헤더 포함)
+        # logger.log(f"✅  수정된 컬럼포함 모든데이터  : {df_cleaned[:3]} ", level="DEBUG")
+
+
+        # 인덱스 초기화
+        df_cleaned.reset_index(drop=True, inplace=True)
+        logger.log(f"첫 번째 시트 데이터 인덱스 정렬 완료: {df_cleaned.index}", level="DEBUG")
+
+        return first_sheet_name, first_row_values, df_cleaned  # ✅ 첫 번째 행을 함께 반환
+
+    except Exception as e:
+        logger.log(f"첫 번째 시트를 읽고 정리하는 중 에러 발생: {e}", level="ERROR")
+        raise ValueError(f"첫 번째 시트를 읽고 정리하는 중 문제가 발생했습니다: {e}")
+
 
 
 

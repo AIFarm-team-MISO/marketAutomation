@@ -147,10 +147,11 @@ def make_rotation_excel(file_path, base_file_name):
             raise ValueError(f"JSON에 마켓 이름 '{split_folder_name}'이(가) 없습니다.")
         
         market_platform, market_name = get_market_name(split_folder_name)
-        logger.log(f"플랫폼 : {market_platform}, 마켓명 : {market_name} ", also_to_report=True, separator="none")
+        logger.log(f"플랫폼 : {market_platform}, 마켓명 : {market_name}, 도매처 : {dome_name} ", also_to_report=True, separator="none")
 
         # 설정파일 값을 변경 : 다른함수에서 마켓종류가 필요할때 쓰기위해
         settings.CURRENT_MARKET_NAME = market_platform
+        settings.CURRENT_DOME_NAME = dome_name
 
         # 마켓별 초기설정
         processed_sheet_data = market_process(first_sheet_data, market_platform, market_name, dome_name)
@@ -196,7 +197,8 @@ def make_rotation_excel(file_path, base_file_name):
 
             
         elif market_platform == "네이버":
-            if market_name == "툴몬스터" and dome_name == "3MRO-가구인테리어" :
+            if market_name == "툴몬미정" and dome_name == "3MRO-가구인테리어" :
+            # if market_name == "툴몬스터" and dome_name == "3MRO-가구인테리어" :
                 
                 logger.log(f"{market_name} 는 상품명가공 시작.", level="INFO", also_to_report=True, separator="none")
                 naming_process_df = process_namingChange_excel_file(file_path, base_file_name, 'GPT조합', task_type="auto", sheets=image_filtered_df)

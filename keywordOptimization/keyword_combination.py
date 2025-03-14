@@ -384,8 +384,8 @@ def filter_gpt_keywords_by_category(gpt_related_keywords, category_keywords):
     :return: 필터링된 연관 키워드 리스트
     """
 
-    print("🔍 [DEBUG] 카테고리 키워드 필터링 시작")
-    print(f"📌 [DEBUG] 전체 카테고리 키워드 목록: {category_keywords[:10]} ...")  # 일부만 출력
+    logger.log("🔍 카테고리 키워드 필터링 시작")
+    logger.log(f"📌 전체 카테고리 키워드 목록: {category_keywords[:10]} ...")  # 일부만 출력
 
     # 1️⃣ 연관검색어에서 포함된 카테고리 키워드 목록 추출
     detected_category_keywords = set()
@@ -395,7 +395,7 @@ def filter_gpt_keywords_by_category(gpt_related_keywords, category_keywords):
             if len(cat_keyword) > 1 and cat_keyword in keyword:  # 한 글자 키워드는 제외
                 detected_category_keywords.add(cat_keyword)
 
-    print(f"📌 [DEBUG] 감지된 카테고리 키워드 (1글자 제외): {detected_category_keywords}")
+    logger.log(f"🔥 감지된 카테고리 키워드 (1글자 제외) 🔥: {detected_category_keywords}")
 
     # 2️⃣ 포함된 카테고리 키워드를 순차적으로 제거하면서 나머지 단어를 유지
     filtered_keywords = []
@@ -425,30 +425,18 @@ def filter_gpt_keywords_by_category(gpt_related_keywords, category_keywords):
         # 🔹 한 글자만 남는 경우 삭제
         modified_keyword = modified_keyword.strip()
         if len(modified_keyword) == 1 or modified_keyword == "":
-            print(f"⛔ [DEBUG] {original_keyword} → (너무 짧거나 빈 문자열로 삭제됨)")
+            logger.log(f"⛔ {original_keyword} → (너무 짧거나 빈 문자열로 삭제됨)")
             continue
 
         filtered_keywords.append(modified_keyword)
-        print(f"✅ [DEBUG] {original_keyword} → {modified_keyword} (남은 키워드 유지)")
+        logger.log(f"✅ {original_keyword} → {modified_keyword} (남은 키워드 유지)")
 
     # 3️⃣ 최종 필터링 결과에서 중복 제거 + 빈 문자열 제거
     filtered_keywords = list(set(filtered_keywords))  
     filtered_keywords = [kw for kw in filtered_keywords if kw]  # 빈 문자열 제거
 
-    print(f"🔍 [DEBUG] 최종 필터링 결과 (중복 및 빈 문자열 제거 완료): {filtered_keywords}")
+    logger.log(f"🔍 최종 필터링 결과 (중복 및 빈 문자열 제거 완료): {filtered_keywords}")
     return filtered_keywords
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -469,7 +457,7 @@ def load_category_dict(json_file=None):
     with open(json_file, "r", encoding="utf-8") as f:
         category_dict = json.load(f)
 
-    print(f"✅ 카테고리 사전 로드 완료! ({len(category_dict) - 1}개 카테고리)")  # '모든키워드' 제외
+    logger.log(f"✅ 카테고리 사전 로드 완료! ({len(category_dict) - 1}개 카테고리)")  # '모든키워드' 제외한 갯수
     return category_dict
 
 def remove_redundant_keywords(keywords, prefer_compound=True):
@@ -521,7 +509,8 @@ def combine_keywords(existing_data, basic_product_name, max_length=49):
     brand_keywords = existing_data.get("브랜드키워드", [])
 
     market_name = settings.CURRENT_MARKET_NAME
-    logger.log(f" #키워드조합# market_name : {market_name}")
+    dome_name = settings.CURRENT_DOME_NAME
+    logger.log(f" #키워드조합# market_name : {market_name}, dome_name : {dome_name}")
 
     # 1️⃣ 연관검색어 브랜드 키워드 필터링 필터링: 연관검색어의 브랜드 키워드 제거(브랜드 키워드가 비어있지 않을 경우에만 필터링 수행)
 
@@ -551,15 +540,16 @@ def combine_keywords(existing_data, basic_product_name, max_length=49):
     logger.log(f"💬 [Before] GPT 연관 키워드 (카테고리 필터 적용 전): {gpt_related_keywords}", level="INFO", also_to_report=True)
 
     # ✅ 🔹 중복 포함 단어 제거 적용 (예: '클리어대형'이 있으면 '대형' 제거)
-    if market_name in ["네이버", "11번가"]: # ✅ 네이버 & 11번가 -> 복합 키워드 유지 (prefer_compound=True)
-        logger.log(f"✅ 카테고리제거, 중복 포함 안함  ")
+    if market_name in ["11번가"] and dome_name != "도매토피아": # ✅ 네이버 & 11번가 -> 복합 키워드 유지 (prefer_compound=True)
+        # if market_name in ["네이버", "11번가"]: # ✅ 네이버 & 11번가 -> 복합 키워드 유지 (prefer_compound=True) 네이버는 생각해보자. 
+        logger.log(f"✅ 카테고리제거, 중복제거" , level="INFO", also_to_report=True)
         # GPT 연관 키워드에서 카테고리 키워드 개수 제한
         gpt_related_keywords = filter_gpt_keywords_by_category(gpt_related_keywords, category_keywords)
         gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=True)
 
     # ✅ 🔹 키워드내 중복단어 포함
     elif market_name in ["쿠팡", "고도몰"]:
-        logger.log(f"✅ 카테고리제거,  중복 포함  ")
+        logger.log(f"✅ 카테고리제거,  중복포함" , level="INFO", also_to_report=True)
         # GPT 연관 키워드에서 카테고리 키워드 개수 제한
         gpt_related_keywords = filter_gpt_keywords_by_category(gpt_related_keywords, category_keywords)
         gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=False)
@@ -567,11 +557,12 @@ def combine_keywords(existing_data, basic_product_name, max_length=49):
     
     # ✅ 🔹 키워드내 중복단어 포함, 카테고리키워드  제거안함 
     elif market_name in ["톡스토어"]:
-        logger.log(f"✅ 카테고리제거안함,  중복 포함  ")
+        logger.log(f"✅ 카테고리제거안함, 중복포함" , level="INFO", also_to_report=True)
         gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=False)
 
     # ✅ 그 외의 마켓은 연관검색어 기본으로 사용     
     else:
+        logger.log(f"✅ 카테고리제거, 중복제거안함 ✅" , level="INFO", also_to_report=True)
         gpt_related_keywords = gpt_related_keywords
 
     # 필터링 후 GPT 연관 키워드 출력

@@ -1,6 +1,6 @@
 from utils.global_logger import logger
 
-from config.settings import EXCEL_IMAGE_FILTER_PATH, CATEGORY_CHECK_EXCEL_PATH, NAMING_EXCEL_PATH, CODE_EXCEL_PATH, EXCEL_FILTER_PATH, EXCEL_SPLIT_PATH
+from config.settings import EXCEL_IMAGE_FILTER_PATH, CATEGORY_CHECK_EXCEL_PATH, NAMING_EXCEL_PATH, CODE_EXCEL_PATH, EXCEL_FILTER_PATH, EXCEL_SPLIT_PATH,SELLED_PRODUCT_NAVER_PATH
 from config.settings import EXCEL_GODOMOLL_PATH
 # from imageFilter.excel.excel_handler import process_imageFiltering_excel_file #이전 이미지 필터링함수
 from imageFilter.excel.excel_handler_xlsx import process_imageFiltering_excel_file_xlsx
@@ -15,6 +15,7 @@ from utils.excel.excel_get_name import process_all_excel_files
 from rotationFile.rotation_zsm import make_rotation_excel
 from utils.excel.excel_split import split_excel_by_rows
 from rotationFile.godoRotation.rotation_godo import make_rotation_godo
+from selledProduct.optimize_product_naver import make_optimize_product_excel
 
 
 
@@ -90,6 +91,13 @@ if __name__ == "__main__":
     
 
     process_mapping = {
+        
+        "네이버 팔린거 최적화": {
+            "path": SELLED_PRODUCT_NAVER_PATH,  # 처리할 파일 경로
+            "function": make_optimize_product_excel,  # 실행할 함수
+            "args": [],  # 위치 인자
+            "kwargs": {}  # 키워드 인자
+        },
         "음식 카테고리 체크": {
             "path": CATEGORY_CHECK_EXCEL_PATH,  # 처리할 파일 경로
             "function": process_folder_for_category_check,  # 실행할 함수
@@ -138,6 +146,7 @@ if __name__ == "__main__":
     while True:
         # 선택지 정의
         choices = {
+            "00": "네이버 팔린거 최적화",
             "0": "음식 카테고리 체크",
             "1": "이미지 필터링",
             "2": "상품명 가공",

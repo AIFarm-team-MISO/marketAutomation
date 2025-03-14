@@ -71,6 +71,18 @@ def generate_params_and_headers(source_type, main_keyword, display=10):
     - url (str): 요청할 URL.
     - headers (dict): 요청 헤더.
     - params (dict): 요청 파라미터.
+
+    파라메터 예시: 
+    params = {
+    "query": "노트북",
+    "category": "전자기기",
+    "startDate": "2023-01-01",
+    "endDate": "2023-12-31",
+    "sort": "sim",
+    "start": 10,
+    "display": 20,
+    "fields": ["title", "image", "price"]
+}
     """
     if source_type == "상위판매자":
         url = "https://openapi.naver.com/v1/search/shop.json"
