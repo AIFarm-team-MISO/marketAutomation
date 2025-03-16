@@ -317,46 +317,133 @@ def update_delivery_code(df, delivery_column, new_delivery_code):
         raise
 
 
-def update_point_unit(df, new_point=50, point_value_column_letter="BK", point_unit_column_letter="BL", new_point_unit="원"):
+def update_mapping_colums(df):
     """
-    데이터프레임의 특정 열(상품구매시 포인트 지급 값 & 지급 단위, BK & BL 열)을 입력된 값으로 변경하는 함수.
-
+    데이터프레임의 포인트 관련 컬럼(BK, BL, BM, BN)을 설정하는 함수.
+    
     ✅ 주요 기능:
-    1. AZ 형식(A, B, C ...)의 엑셀 컬럼명을 실제 컬럼명으로 변환
-    2. 특정 컬럼을 찾아 모든 값을 사용자가 입력한 포인트 지급 값(BK)과 지급 단위(BL)로 변경
-    3. 포인트 지급 단위 컬럼(BL)은 기본적으로 '원'으로 설정
-    4. 변경된 값을 데이터프레임에 적용
-
+    1. 포인트 지급 값(BK) 및 지급 단위(BL)를 고정값으로 설정
+    2. 판매가(F열)를 기준으로 텍스트 포인트(BM), 동영상 포인트(BN)를 구간별로 자동 설정
+    3. AZ 컬럼명을 실제 컬럼명으로 변환하여 일괄 처리
+    4. 변경된 값을 데이터프레임에 반영하고 로그로 결과 확인
+    
+    구간별 포인트 지급 로직:
+    - 1 ~ 1,000원 : 텍스트포인트 50 / 동영상포인트 100
+    - 1,000 ~ 10,000원 : 텍스트포인트 100 / 동영상포인트 200
+    - 10,000원 이상 : 텍스트포인트 150 / 동영상포인트 300
+    
     :param df: DataFrame (엑셀 데이터)
-    :param new_point: 변경할 포인트 지급 값 (기본값: 0)
-    :param point_value_column_letter: 포인트 지급 값이 들어있는 AZ 형식의 컬럼명 (기본값: "BK")
-    :param point_unit_column_letter: 포인트 지급 단위가 들어있는 AZ 형식의 컬럼명 (기본값: "BL")
-    :param new_point_unit: 변경할 포인트 지급 단위 값 (기본값: "원")
-    :return: 포인트 지급 값 및 단위가 변경된 데이터프레임
+    :return: 포인트 관련 컬럼이 변경된 데이터프레임
     """
+
+    # ✅ 내부 변수 설정
+    new_point = 50                    # 구매시 포인트 지급 값
+
+    point_value_column_letter = "BK"  # 포인트 지급 값이 들어있는 열 (BK)
+    point_unit_column_letter = "BL"   # 포인트 지급 단위가 들어있는 열 (BL)
+
+    text_point_column_letter = "BM"   # 텍스트 포인트 지급 열
+    video_point_column_letter = "BN"   # 동영상 포인트 지급 열
+
+    price_column_letter = "F"         # 판매가가 들어있는 열 (F)
+    default_point_unit = "원"          # 기본 포인트 단위는 "원"
+
+    month_text_point_column_letter = "BO"   # 한달 텍스트리뷰
+    month_video_point_column_letter = "BP"  # 한달 동영상리뷰
+    member_point_column_letter = "BQ"       # 알림동의 회원 리뷰
+
+    muiza_column_letter = "BR"         # 무이자할부 열
+    freething_column_letter = "BS"     # 사은품 열
+
+    as_templet_column_letter = "AV"     # A/S 템플릿 열
+
     try:
         # ✅ AZ 컬럼 매핑 가져오기
         excel_mapping = get_excel_column_mapping(df)
 
-        # ✅ AZ 형식의 열을 실제 컬럼명으로 변환 (BK & BL 열을 실제 컬럼명으로 변경)
+        # ✅ 열을 실제 컬럼명으로 변환 (BK & BL 열을 실제 컬럼명으로 변경)
         point_value_column = get_column_by_excel_letter(df, point_value_column_letter, excel_mapping)
         point_unit_column = get_column_by_excel_letter(df, point_unit_column_letter, excel_mapping)
 
-        # ✅ 포인트 지급 값 컬럼(BK)이 존재하는지 확인 후 변경
+        text_point_column = get_column_by_excel_letter(df, text_point_column_letter, excel_mapping)
+        video_point_column = get_column_by_excel_letter(df, video_point_column_letter, excel_mapping)
+        price_column = get_column_by_excel_letter(df, price_column_letter, excel_mapping)
+
+        month_text_point_column = get_column_by_excel_letter(df, month_text_point_column_letter, excel_mapping)
+        month_video_point_column = get_column_by_excel_letter(df, month_video_point_column_letter, excel_mapping)
+        member_point_column = get_column_by_excel_letter(df, member_point_column_letter, excel_mapping)
+
+        muiza_column = get_column_by_excel_letter(df, muiza_column_letter, excel_mapping)
+        freething_column = get_column_by_excel_letter(df, freething_column_letter, excel_mapping)
+
+        as_templet_column = get_column_by_excel_letter(df, as_templet_column_letter, excel_mapping)
+        
+
+        # ✅ 구매시 포인트 값 설정
         if point_value_column in df.columns:
             df[point_value_column] = new_point  # 모든 행을 new_point 값으로 변경
             logger.log(f"✅ '{point_value_column}' 컬럼의 모든 값을 '{new_point}'으로 변경 완료.", level="INFO")
         else:
             logger.log(f"⚠️ 포인트 지급 값 컬럼('{point_value_column}')이 데이터프레임에 존재하지 않습니다.", level="WARNING")
 
-        # ✅ 포인트 지급 단위 컬럼(BL)이 존재하는지 확인 후 변경
+        # ✅ 포인트 지급 단위 설정
         if point_unit_column in df.columns:
-            df[point_unit_column] = new_point_unit  # 모든 행을 '원'으로 변경
-            logger.log(f"✅ '{point_unit_column}' 컬럼의 모든 값을 '{new_point_unit}'로 변경 완료.", level="INFO")
+            df[point_unit_column] = default_point_unit  # 모든 행을 '원'으로 변경
+            logger.log(f"✅ '{point_unit_column}' 컬럼의 모든 값을 '{default_point_unit}'로 변경 완료.", level="INFO")
         else:
             logger.log(f"⚠️ 포인트 지급 단위 컬럼('{point_unit_column}')이 데이터프레임에 존재하지 않습니다.", level="WARNING")
 
+
+        # ✅ 판매가 기준으로 BM & BN 값 설정
+        if price_column in df.columns:
+            numeric_price = pd.to_numeric(df[price_column], errors='coerce').fillna(0)
+            
+            # 가격 구간별 로직
+            df[text_point_column] = numeric_price.apply(
+                lambda x: 50 if x <= 1000 else (100 if x <= 10000 else 150)
+            )
+            df[video_point_column] = numeric_price.apply(
+                lambda x: 100 if x <= 1000 else (200 if x <= 10000 else 300)
+            )
+
+
+        # ✅ BO, BP, BQ 컬럼 각각 10, 20, 50으로 설정
+        df[month_text_point_column] = 10
+        df[month_video_point_column] = 20
+        df[member_point_column] = 50
+
+        logger.log(f"✅ '{month_video_point_column}', '{month_video_point_column}', '{member_point_column}' 컬럼에 각각 10, 20, 50 설정 완료.", level="INFO")
+
+        # ✅ a/s 템플릿번호 셋팅
+        df[as_templet_column] = 3146927
+
+        logger.log(f"✅ '{as_templet_column}' 컬럼에 3146927 설정(파타르시스)", level="INFO")
+
+        # ✅ as 템플릿 설정
+        df[muiza_column] = 3
+        df[freething_column] = "구매시 포인트 지급"
+
+        # ✅ 결과 로그 출력
+        debug_df = pd.DataFrame({
+            "판매가": numeric_price.head(),
+            f"{text_point_column}": df[text_point_column].head(),
+            f"{video_point_column}": df[video_point_column].head(),
+            f"{month_text_point_column}": df[month_text_point_column].head(),
+            f"{month_video_point_column}": df[month_video_point_column].head(),
+            f"{member_point_column}": df[member_point_column].head(),
+            f"{muiza_column}": df[muiza_column].head(),
+            f"{freething_column}": df[freething_column].head()
+        })
+
+        logger.log(f"🔍 판매가 기준 포인트 설정 검증 (최초 5개 샘플):\n{debug_df}", level="DEBUG")
+        logger.log(f"✅ 리뷰 포인트, 무이자할부, 사은품, a/s템플릿 셋팅 완료.", level="INFO")
+
+
+
+
+
         return df
+
 
     except Exception as e:
         logger.log(f"❌ 포인트 지급 값 및 단위 변경 중 오류 발생: {e}", level="ERROR")
@@ -396,9 +483,11 @@ def change_product_excel(first_sheet_data):
         # ✅ 택배사코드 변경
         first_sheet_data = update_delivery_code(first_sheet_data, "택배사코드", "CJGLS")
 
-        # ✅ 제품구입시 포인트 변경 
-        first_sheet_data = update_point_unit(first_sheet_data)
+        # ✅ 리뷰 포인트, 무이자할부, 사은품, a/s템플릿 셋팅 
+        first_sheet_data = update_mapping_colums(first_sheet_data)
 
+        # ✅ 주의사항 : 마켓별로 a/s 템플릿번호 변경할것
+        # ✅ 주의사항 : 파자마채널 모델템플릿 설정하자 
 
         return first_sheet_data
 
