@@ -8,8 +8,8 @@ from utils.excel.excel_utils import make_input_file_path, make_output_file_path
 import config.settings as settings
 
 from config.settings import FILE_EXTENSION_xlsx, CURRENT_MARKET_NAME
+from config.settings import AS_TEMPLETE_PHONE, AS_TEMPLETE_BASIC, AS_TEMPLETE_ETC
 
-from config.settings import FILE_EXTENSION_xlsx, CURRENT_MARKET_NAME
 from utils.excel.excel_utils import make_input_file_path, make_output_file_path, read_xls_all_sheets, save_excel_with_sheets,read_and_clean_first_sheet,read_xlsx_all_sheets
 from utils.json.json_util import load_config
 from imageFilter.excel.excel_handler_xlsx import process_imageFiltering_excel_file_xlsx
@@ -331,7 +331,7 @@ def update_mapping_colums(df):
     - 1 ~ 1,000원 : 텍스트포인트 50 / 동영상포인트 100
     - 1,000 ~ 10,000원 : 텍스트포인트 100 / 동영상포인트 200
     - 10,000원 이상 : 텍스트포인트 150 / 동영상포인트 300
-    
+
     :param df: DataFrame (엑셀 데이터)
     :return: 포인트 관련 컬럼이 변경된 데이터프레임
     """
@@ -355,7 +355,9 @@ def update_mapping_colums(df):
     muiza_column_letter = "BR"         # 무이자할부 열
     freething_column_letter = "BS"     # 사은품 열
 
-    as_templet_column_letter = "AV"     # A/S 템플릿 열
+    as_templet1_column_letter = "AW"     # A/S 템플릿 열
+    as_templet2_column_letter = "AX"     # A/S 템플릿 열
+    as_templet3_column_letter = "AY"     # A/S 템플릿 열
 
     try:
         # ✅ AZ 컬럼 매핑 가져오기
@@ -376,7 +378,9 @@ def update_mapping_colums(df):
         muiza_column = get_column_by_excel_letter(df, muiza_column_letter, excel_mapping)
         freething_column = get_column_by_excel_letter(df, freething_column_letter, excel_mapping)
 
-        as_templet_column = get_column_by_excel_letter(df, as_templet_column_letter, excel_mapping)
+        as_templet1_column = get_column_by_excel_letter(df, as_templet1_column_letter, excel_mapping)
+        as_templet2_column = get_column_by_excel_letter(df, as_templet2_column_letter, excel_mapping)
+        as_templet3_column = get_column_by_excel_letter(df, as_templet3_column_letter, excel_mapping)
         
 
         # ✅ 구매시 포인트 값 설정
@@ -415,9 +419,11 @@ def update_mapping_colums(df):
         logger.log(f"✅ '{month_video_point_column}', '{month_video_point_column}', '{member_point_column}' 컬럼에 각각 10, 20, 50 설정 완료.", level="INFO")
 
         # ✅ a/s 템플릿번호 셋팅
-        df[as_templet_column] = 3146927
+        df[as_templet1_column] = AS_TEMPLETE_PHONE
+        df[as_templet2_column] = AS_TEMPLETE_BASIC
+        df[as_templet3_column] = AS_TEMPLETE_ETC
 
-        logger.log(f"✅ '{as_templet_column}' 컬럼에 3146927 설정(파타르시스)", level="INFO")
+        logger.log(f"✅ a/s 템플릿번호 셋팅 완료", level="INFO")
 
         # ✅ as 템플릿 설정
         df[muiza_column] = 3

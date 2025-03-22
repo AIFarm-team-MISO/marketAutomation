@@ -2,6 +2,50 @@ from utils.global_logger import logger
 
 import pandas as pd
 
+import pandas as pd
+import random
+from utils.global_logger import logger
+
+def shuffle_keywords_in_column(dataframe: pd.DataFrame, column_name: str) -> pd.DataFrame:
+    """
+    특정 열의 문자열을 키워드로 나누어 무작위로 섞은 후 다시 결합하여 저장하는 함수.
+
+    :param dataframe: pandas DataFrame
+    :param column_name: 키워드를 셔플할 열 이름
+    :return: 값이 변경된 DataFrame
+    """
+    try:
+        if column_name not in dataframe.columns:
+            raise ValueError(f"'{column_name}' 열이 데이터프레임에 존재하지 않습니다.")
+
+        shuffled_names = []
+
+        for idx, value in enumerate(dataframe[column_name]):
+            # 문자열이 아닌 경우 예외 처리
+            if not isinstance(value, str):
+                logger.log(f"⚠️ {idx+1}번째 행의 값이 문자열이 아님: {value}", level="WARNING")
+                shuffled_names.append(value)
+                continue
+
+            # 키워드 나누기
+            keywords = value.strip().split()
+            random.shuffle(keywords)  # 키워드 섞기
+            shuffled_name = ' '.join(keywords)
+            shuffled_names.append(shuffled_name)
+
+            # logger.log(f"🔄 {idx+1}번째 행 - 원본: '{value}' -> 셔플: '{shuffled_name}'", level="DEBUG", also_to_report=True)
+
+        # 데이터프레임에 적용
+        dataframe[column_name] = shuffled_names
+
+        logger.log(f"✅ '{column_name}' 열의 모든 상품명이 키워드 단위로 셔플 완료.", level="INFO", also_to_report=True, separator="1line")
+
+        return dataframe
+
+    except Exception as e:
+        raise ValueError(f"'{column_name}' 열의 상품명을 셔플하는 중 문제가 발생했습니다: {e}")
+
+
 def swap_image_column(dataframe: pd.DataFrame, column1: str, column2: str) -> pd.DataFrame:
     """
     두 열의 값을 교환하고, column1이 비어 있는 경우 해당 행을 삭제하며,

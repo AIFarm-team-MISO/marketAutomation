@@ -139,18 +139,68 @@ def search_naver_shopping(keyword: str) -> list:
         driver.quit()
 
 
-'''
-    네이버의 '네이버쇼핑', '네이버연관검색' 의 결과를 가져오는 함수
 
-'''
-def get_naver_tags(main_keyword: str, max_tags: int = 10) -> list:
-    # 3. 기존 데이터가 없는 경우 네이버 API 호출 및 데이터 처리
-    logger.log(f"기존데이터가 없으므로 네이버 연관검색 수행: 메인키워드 '{main_keyword}'", level="INFO")
+def clean_html(text):
+    """HTML 태그 제거"""
+    return re.sub(r'<.*?>', '', text)
+
+from g2pk import G2p
+g2p = G2p()
+
+def remove_brand_from_title_only(title, brand):
+    """타이틀에서 브랜드 제거"""
+    if brand and brand in title:
+        cleaned_title = title.replace(brand, '').strip()
+        return cleaned_title, brand
+    return title, None
+
+BRAND_MAPPING = {
+    "3M": "쓰리엠",
+    "TESA": "테사",
+    "SCOTCH": "스카치",
+    "MONSTER": "몬스터",
+    "UHU": "유후"
+}
+
+def remove_brand_from_title(title: str, brand: str) -> tuple[str, list]:
+    removed = []
+
+    if brand:
+        brand_upper = brand.upper()
+
+        # 1. 영문 브랜드 직접 제거
+        if brand in title:
+            title = title.replace(brand, "")
+            removed.append(brand)
+
+        # 2. 맵핑된 한글 브랜드 제거
+        if brand_upper in BRAND_MAPPING:
+            brand_kor = BRAND_MAPPING[brand_upper]
+            if brand_kor in title:
+                title = title.replace(brand_kor, "")
+                removed.append(brand_kor)
+
+        # 3. g2pk 한글 변환 후 제거 (맵핑 후에도 남은 경우)
+        brand_kor_auto = g2p(brand)
+        if brand_kor_auto in title:
+            title = title.replace(brand_kor_auto, "")
+            removed.append(brand_kor_auto)
+
+    return title.strip(), removed
+
+
+
+def get_naver_nobrand_names(main_keyword: str, max_tags: int = 10) -> list:
+    '''
+    네이버의 '네이버쇼핑' 의 결과를 가져오는 함수
+
+    '''
+    logger.log(f"네이버 연관검색 수행: 메인키워드 '{main_keyword}'", level="INFO")
 
     source_type = "상위판매자"
-    # source_type = "연관검색어"
 
     display = 10
+    brands = set()  # 브랜드명을 중복 없이 저장하기 위한 집합
     url, headers, params = generate_params_and_headers(source_type, main_keyword, display)
     
     # 각 검색 타입에 따른 API 요청 및 결과 수신
@@ -158,39 +208,207 @@ def get_naver_tags(main_keyword: str, max_tags: int = 10) -> list:
     
     if response.status_code == 200:
         full_response = response.json()
+        items = full_response.get("items", [])
+        cleaned_titles = []
 
-        logger.log_separator()
-        logger.log("🔍 전체 검색 응답 데이터:")
-        logger.log(json.dumps(full_response, indent=4, ensure_ascii=False))
-        logger.log_separator()
+        logger.log_separator(title=f"{main_keyword} - 상위 {display}개 상품명 처리 시작", char="=", also_to_report=True)
 
-        response = requests.get(url, headers=headers, params=params)
-        data = response.json() # logger.log(f"반환전체 : {data} ")  
+        for idx, item in enumerate(items):
+            title_raw = item.get("title", "")
+            brand = item.get("brand", "")
+
             
-        
-        product_links = [product.get("link") for product in data.get('items', []) if product.get("link")]
-        
-        logger.log(f"✅ 네이버 쇼핑에서 수집한 상품 링크: {product_links}", level="INFO")
+            # 1. HTML 태그 제거 → 원본상품명으로 간주
+            base_title = clean_html(title_raw)
 
-        all_tags = []
-        # for product_url in product_links:
-        #     tags = get_naver_product_tags(product_url)
-        #     all_tags.extend(tags)
-        
-        
-        # tags = get_naver_product_tags(product_links[0])
-        tags = get_naver_product_tags("https://smartstore.naver.com/main/products/4252911571")
-        all_tags.extend(tags)
-        
-        final_tags = sorted(set(all_tags))
-        logger.log(f"🔍 '{main_keyword}' 최종 태그 리스트: {final_tags}", level="INFO")
-        
-        return final_tags
+            # 2. 브랜드 제거
+            final_title, removed_brand = remove_brand_from_title(base_title, brand)
+
+            # 3. 로깅
+            logger.log(f"{idx+1}. 원본상품명: '{base_title}'", level="INFO", also_to_report=True)
+            if removed_brand:
+                logger.log(f"   └ ❌ 제거된 브랜드명: '{removed_brand}'", level="INFO", also_to_report=True)
+            else:
+                logger.log(f"   └ 제거된 브랜드명: 없음", level="INFO", also_to_report=True)
+            logger.log(f"   └ 최종 상품명: '{final_title}'", level="INFO", also_to_report=True)
+
+            cleaned_titles.append(final_title)
+
+
+
+
+        logger.log_separator(char="=", also_to_report=True)
+        return cleaned_titles
     else:
-        logger.log(f"🚨 네이버 쇼핑 API 요청 실패: {response.status_code}", level="ERROR")
+        logger.log(f"❌ API 호출 실패 - status code: {response.status_code}", level="ERROR")
         return []
+    
+def safe_int(value, default=0):
+    try:
+        # '< 10' 형태를 처리
+        if isinstance(value, str) and '<' in value:
+            return default
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+def safe_float(value, default=0.0):
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+    
+def filter_related_keywords_by_score(related_keywords_data: list, min_total_search: int = 1000, min_ctr: float = 1.0, max_depth: int = 5) -> list:
+    """
+    조회수 + CTR + 검색깊이를 기준으로 연관 검색어를 필터링하는 함수.
+
+    Parameters:
+    ----------
+    related_keywords_data : list
+        네이버 API에서 반환된 'keywordList' 원본 데이터 리스트
+
+    min_total_search : int, optional (default=1000)
+        PC + 모바일 합산 조회수가 이 값 이상인 키워드만 필터링
+
+    min_ctr : float, optional (default=1.0)
+        PC 또는 모바일 CTR이 이 값 이상인 키워드만 필터링
+
+    max_depth : int, optional (default=5)
+        평균 검색 깊이가 이 값 이하인 키워드만 필터링
+
+    Returns:
+    -------
+    list
+        필터링된 relKeyword 리스트 (연관도가 높은 키워드)
+    """
+    filtered_keywords = []
+
+    for item in related_keywords_data:
+        pc_qc = safe_int(item.get("monthlyPcQcCnt", 0))
+        mobile_qc = safe_int(item.get("monthlyMobileQcCnt", 0))
+        pc_ctr = safe_float(item.get("monthlyAvePcCtr", 0.0))
+        mobile_ctr = safe_float(item.get("monthlyAveMobileCtr", 0.0))
+        depth = safe_int(item.get("plAvgDepth", 10))
+
+        total_search = pc_qc + mobile_qc
+
+        if (
+            total_search >= min_total_search and
+            (pc_ctr >= min_ctr or mobile_ctr >= min_ctr) and
+            depth <= max_depth
+        ):
+            filtered_keywords.append(item)  # relKeyword만이 아닌 전체 dict 반환
+
+    return filtered_keywords
+
+def split_and_log_keywords(related_keywords_data: list, max_tags: int = 10):
+    """
+    연관검색어 데이터를 CTR 기준 & 조회수 기준으로 각각 정렬하여
+    5개씩 줄바꿈하여 출력하는 함수.
+
+    Parameters:
+    ----------
+    related_keywords_data : list
+        네이버 API에서 반환된 연관검색어 'keywordList' 데이터 (dict 리스트)
+    
+    max_tags : int, optional (default=10)
+        CTR / 조회수 각각 최대 몇 개의 키워드를 출력할지 설정
+    """
+    # CTR 기준 정렬
+    ctr_sorted = sorted(related_keywords_data, key=lambda x: max(
+        float(x.get("monthlyAvePcCtr", 0) or 0),
+        float(x.get("monthlyAveMobileCtr", 0) or 0)
+    ), reverse=True)
+
+    # 조회수 기준 정렬
+    view_sorted = sorted(related_keywords_data, key=lambda x: (
+        int(x.get("monthlyPcQcCnt", 0) or 0) + int(x.get("monthlyMobileQcCnt", 0) or 0)
+    ), reverse=True)
+
+    # CTR 높은 순
+    logger.log("🔵 CTR 높은 순 추천 키워드:", level="INFO")
+    for i in range(0, min(max_tags, len(ctr_sorted)), 3):
+        chunk = ctr_sorted[i:i+3]
+        formatted = ', '.join([f"{x['relKeyword']} (CTR: {x.get('monthlyAveMobileCtr', '-')})" for x in chunk])
+        logger.log(f"    {formatted}", level="INFO")
+
+    # 조회수 높은 순
+    logger.log("🟣 조회수 높은 순 추천 키워드:", level="INFO")
+    for i in range(0, min(max_tags, len(view_sorted)), 3):
+        chunk = view_sorted[i:i+3]
+        formatted = ', '.join([
+            f"{x['relKeyword']} (조회수: {int(x.get('monthlyPcQcCnt', 0) or 0) + int(x.get('monthlyMobileQcCnt', 0) or 0)})"
+            for x in chunk
+        ])
+        logger.log(f"    {formatted}", level="INFO")
 
 
+
+def get_naver_relate_keywords(main_keyword: str, max_tags: int = 15) -> list:
+    '''
+    네이버의 '네이버쇼핑' API를 통해 연관검색어를 가져오고,
+    조회수 + CTR + 검색깊이를 기준으로 필터링하는 함수.
+
+    Parameters:
+    ----------
+    main_keyword : str
+        연관검색어를 가져올 메인 키워드
+
+    max_tags : int, optional (default=10)
+        최대 가져올 연관검색어 개수
+
+    Returns:
+    -------
+    list
+        필터링된 연관검색어 리스트
+    '''
+    logger.log(f"🟢 네이버 연관검색 수행: 메인키워드 '{main_keyword}'", level="INFO")
+
+    source_type = "연관검색어"
+    display = 20  # API 최대 요청 수
+
+    url, headers, params = generate_params_and_headers(source_type, main_keyword, display)
+    response = requests.get(url, headers=headers, params=params)
+    
+    if response.status_code == 200:
+        full_response = response.json()
+
+        # API 원본 로그 출력
+        # import json
+        # logger.log("🔍 API 응답 전체 데이터:", level="DEBUG", also_to_report=True)
+        # logger.log(json.dumps(full_response, indent=4, ensure_ascii=False), level="DEBUG", also_to_report=True)
+
+        raw_related_keywords = full_response.get("keywordList", [])
+
+        # 필터링 실행 기준값
+        # filtered_keywords = filter_related_keywords_by_score(
+        #     raw_related_keywords,
+        #     min_total_search=1000,
+        #     min_ctr=1.0,
+        #     max_depth=5
+        # )
+        filtered_keywords = filter_related_keywords_by_score(
+            raw_related_keywords,
+            min_total_search=1000,
+            min_ctr=1.0,
+            max_depth=7
+        )
+
+
+        # 최대 max_tags 제한
+        selected_keywords = filtered_keywords[:max_tags]
+
+        logger.log(f"🟢 최종 필터링된 연관검색어({len(selected_keywords)}개):", level="INFO")
+        # ✨ CTR / 조회수 기준으로 나누어 출력
+        split_and_log_keywords(filtered_keywords, max_tags=max_tags)
+
+        # 실제 반환용으로는 키워드만 리스트 반환
+        selected_keywords = [kw['relKeyword'] for kw in filtered_keywords[:max_tags]]
+        return selected_keywords
+
+    else:
+        logger.log(f"❌ 네이버 API 호출 실패 - status code: {response.status_code}", level="ERROR")
+        return []
 
 
 
@@ -219,7 +437,7 @@ def make_keyword(basic_product_name, main_keywords, fixed_keywords, gpt_related_
     category_keywords = category_dict.get("모든키워드", [])
 
     # 필터링 전 GPT 연관 키워드 출력
-    logger.log(f"💬 [Before] GPT 연관 키워드 (카테고리 필터 적용 전): {gpt_related_keywords}", level="INFO", also_to_report=True)
+    # logger.log(f"💬 [Before] GPT 연관 키워드 (카테고리 필터 적용 전): {gpt_related_keywords}", level="INFO", also_to_report=True)
 
     logger.log(f"✅ 카테고리제거, 중복제거" , level="INFO", also_to_report=True)
     # GPT 연관 키워드에서 카테고리 키워드 개수 제한
@@ -227,7 +445,7 @@ def make_keyword(basic_product_name, main_keywords, fixed_keywords, gpt_related_
     # gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=False) #하나씩 가공이므로 중복단어필터링은 제외 
 
     # 필터링 후 GPT 연관 키워드 출력
-    logger.log(f"💬 [After] GPT 연관 키워드 (카테고리 필터 적용 후): {gpt_related_keywords}", level="INFO", also_to_report=True)
+    # logger.log(f"💬 [After] GPT 연관 키워드 (카테고리 필터 적용 후): {gpt_related_keywords}", level="INFO", also_to_report=True)
 
     
     # 4️⃣ 글자 수 제한 계산 : 메인 키워드 + 고정 키워드가 차지하는 길이를 먼저 계산하고, 남은 길이(remaining_length)를 구함!
@@ -259,31 +477,325 @@ def make_keyword(basic_product_name, main_keywords, fixed_keywords, gpt_related_
 
     # 디버깅 정보 출력
     logger.log(f"💬 기본상품명 : {basic_product_name}", level="INFO", also_to_report=True, separator="none")
-    logger.log(f"💬 메인키워드 : {main_keywords}", level="INFO", also_to_report=True, separator="none")
+    logger.log(f"✅ 메인키워드 : {main_keywords}", level="INFO", also_to_report=True, separator="none")
     logger.log_list(f"💬 고정키워드 : ", fixed_keywords, level="INFO", also_to_report=True, separator="none")
-    logger.log_list(f"💬 필터 및 랜덤화된 고정키워드 : ", processed_fixed_keywords, level="INFO", also_to_report=True, separator="none")
+    logger.log_list(f"💬 필터 및 랜덤화된 고정키워드 : ", processed_fixed_keywords, level="INFO", also_to_report=True, separator="dash-1line")
 
     # 최대 3개만 출력
-    display_related_keywords = gpt_related_keywords[:3]
+    display_related_keywords = gpt_related_keywords[:5]
     # 로그에 출력
-    logger.log(f"💬 연관검색어(3개만출력): {display_related_keywords}", level="INFO", also_to_report=True, separator="none")
+    logger.log(f"💬 연관검색어(5개만): {display_related_keywords}", level="INFO", also_to_report=True, separator="none")
     logger.log_list(f"💬 조합키워드 리스트", final_keywords_unique, level="INFO", also_to_report=True, separator="none")
-    logger.log(f"🚀 최적화된 상품명: '{optimized_name}' (글자 수: {len(optimized_name)})", level="INFO", also_to_report=True, separator="dash-2line")
+    logger.log(f"✅ 최적화된 상품명: '{optimized_name}' (글자수: {len(optimized_name)})", level="INFO", also_to_report=True, separator="dash-2line")
     
 
     return optimized_name
 
-
-def process_naming_tag(basic_product_name: str) -> tuple[str, list[str]]:
+def remove_numbers_english_special(titles):
     """
-    상품명을 입력받아 가공된 상품명과 태그 리스트를 반환하는 함수.
+    숫자, 영문, 특수문자 제거 및 공백 정리 함수
+
+    :param titles: 상품명 리스트
+    :return: 정제된 상품명 리스트
+    """
+    cleaned_list = []
+    for title in titles:
+        # 1. 숫자 + 영문 + 특수문자 제거 (한글 + 공백만 남김)
+        cleaned_title = re.sub(r'[^가-힣\s]', '', title)
+        
+        # 2. 여러 공백을 하나로 축소
+        cleaned_title = re.sub(r'\s+', ' ', cleaned_title)
+        
+        # 3. 양쪽 공백 제거
+        cleaned_title = cleaned_title.strip()
+
+        logger.log(f"🔵정리된 상품명: '{cleaned_title}'", level="INFO", also_to_report=True)
+        cleaned_list.append(cleaned_title)
+    return cleaned_list
+
+from collections import Counter
+import random
+
+def generate_keyword_combinations(keyword_list, main_keyword, top_n=3, num_combinations=3, mix_count=5, longtail_count=5):
+    """
+    상품명 키워드를 분석하여 혼합형/롱테일형 조합을 생성하는 함수
+
+    1. 빈도 분석:
+        - 입력된 keyword_list(상품명 리스트)에서 키워드를 모두 추출한 뒤,
+          메인 키워드를 제외하고 빈도수를 분석합니다.
+        - 분석된 키워드를 '빈도우위 키워드'와 '빈도하위 키워드'로 나눕니다.
+    
+    2. 혼합형 조합:
+        - 빈도우위 키워드(top_n 개)를 고정으로 넣고,
+          빈도하위 키워드에서 mix_count - top_n 개를 랜덤으로 추가해 조합합니다.
+        - num_combinations 값에 따라 N개의 혼합형 조합을 생성합니다.
+
+    3. 롱테일형 조합:
+        - 빈도우위 키워드를 사용하지 않고,
+          빈도하위 키워드에서 longtail_count 개를 랜덤으로 선택해 조합합니다.
+        - num_combinations 값에 따라 N개의 롱테일형 조합을 생성합니다.
+    
+    Parameters:
+    ----------
+    keyword_list : list
+        정제된 상품명 리스트 (각 항목은 띄어쓰기로 구분된 문자열)
+        예: ["초강력 실리콘 테이프 양면테이프 투명 나노 젤"]
+
+    main_keyword : str
+        빈도 분석에서 제외할 메인 키워드
+        예: "양면테이프"
+
+    top_n : int, optional (default=3)
+        혼합형 조합 시 고정으로 사용할 '빈도우위 키워드'의 개수
+
+    num_combinations : int, optional (default=3)
+        혼합형 및 롱테일형 각각 몇 개의 조합을 생성할지 결정
+
+    mix_count : int, optional (default=5)
+        혼합형 조합에서 최종적으로 사용될 키워드 개수 (ex. 빈도우위 3개 + 하위 2개)
+
+    longtail_count : int, optional (default=5)
+        롱테일형 조합에서 사용할 하위 키워드 개수
+    
+    Returns:
+    -------
+    dict
+        {
+            "혼합형": [...],           # 혼합형 조합 리스트
+            "롱테일형": [...],         # 롱테일형 조합 리스트
+            "빈도우위": [...],         # 빈도우위 키워드 리스트
+            "빈도하위": [...]          # 빈도하위 키워드 리스트
+        }
+
+    Notes:
+    ------
+    - 혼합형은 SEO 노출에 유리한 **핵심 키워드**를 활용한 조합입니다.
+    - 롱테일형은 틈새 타겟팅을 위한 **비교적 사용빈도가 낮은 키워드**를 활용한 조합입니다.
+    - mix_count와 longtail_count 값을 조절하여 짧거나 긴 상품명 전략을 유동적으로 설정할 수 있습니다.
+    """
+    
+    all_keywords = []
+    for title in keyword_list:
+        all_keywords.extend(title.split())
+
+    filtered_keywords = [kw for kw in all_keywords if kw != main_keyword]
+    counter = Counter(filtered_keywords)
+    sorted_keywords = counter.most_common()
+
+    frequent_keywords = [kw for kw, _ in sorted_keywords[:top_n]]
+    less_frequent_keywords = [kw for kw, _ in sorted_keywords[top_n:]]
+
+    logger.log_list("빈도우위 키워드", frequent_keywords, level="INFO", also_to_report=True)
+    logger.log_list("빈도하위 키워드", less_frequent_keywords, level="INFO", also_to_report=True)
+
+    # 혼합형 조합 생성
+    mixed_combinations = []
+    for _ in range(num_combinations):
+        remaining_count = max(0, mix_count - len(frequent_keywords))
+        random_sample = random.sample(less_frequent_keywords, min(remaining_count, len(less_frequent_keywords)))
+        combination = frequent_keywords + random_sample
+        mixed_combinations.append(' '.join(combination))
+
+    # 롱테일형 조합 생성
+    longtail_combinations = []
+    for _ in range(num_combinations):
+        random_sample = random.sample(less_frequent_keywords, min(longtail_count, len(less_frequent_keywords)))
+        longtail_combinations.append(' '.join(random_sample))
+
+    return {
+        "혼합형": mixed_combinations,
+        "롱테일형": longtail_combinations,
+        "빈도우위": frequent_keywords,
+        "빈도하위": less_frequent_keywords
+    }
+
+
+def log_combinations(result, main_keywords):
+    logger.log(f"🔵메인키워드 : '{main_keywords}'", level="INFO", also_to_report=True, separator="2line")
+
+    # 혼합형 조합
+    logger.log_separator(title="✅ 네이버 상위 10개 혼합형 조합✅", char="=", also_to_report=True)
+    for idx, combo in enumerate(result["혼합형"], start=1):
+        logger.log(f"🔥혼합형 {idx}: {combo}", level="INFO", also_to_report=True)
+
+    # 혼합형과 연관된 빈도우위 키워드 출력(최대 10개)
+    frequent_keywords = ', '.join(result["빈도우위"][:10])
+    logger.log(f"🔥빈도우위 키워드: {frequent_keywords}", level="INFO", also_to_report=True)
+    logger.log_separator(char="-", also_to_report=True)
+
+    # 롱테일형 조합
+    logger.log_separator(title="🛑 네이버 상위 10개 롱테일형 조합🛑", char="=", also_to_report=True)
+    for idx, combo in enumerate(result["롱테일형"], start=1):
+        logger.log(f"🌀롱테일형 {idx}: {combo}", level="INFO", also_to_report=True)
+
+    # 롱테일형과 연관된 빈도하위 키워드 출력(최대 10개)
+    less_frequent_keywords = ', '.join(result["빈도하위"][:10])
+    logger.log(f"🌀빈도하위 키워드: {less_frequent_keywords}", level="INFO", also_to_report=True)
+    logger.log_separator(char="=", also_to_report=True)
+
+def log_combinations_final(final_names, main_keywords):
+    logger.log(f"🔵메인키워드 : '{main_keywords}'", level="INFO", also_to_report=True, separator="2line")
+
+    # 💥 최종 상품명 출력 (final_names)
+    logger.log_separator(title="🎯 최종 혼합형 상품명 🎯", char="=", also_to_report=True)
+    for idx, name in enumerate(final_names["혼합형_상품명"], start=1):
+        logger.log(f"✅혼합형 최종 {idx}: {name} ({len(name)})", level="INFO", also_to_report=True)
+    logger.log_separator(char="-", also_to_report=True)
+
+    logger.log_separator(title="🎯 최종 롱테일형 상품명 🎯", char="=", also_to_report=True)
+    for idx, name in enumerate(final_names["롱테일형_상품명"], start=1):
+        logger.log(f"🛑롱테일형 최종 {idx}: {name}({len(name)})", level="INFO", also_to_report=True)
+    logger.log_separator(char="-", also_to_report=True)
+
+def finalize_product_names(
+    main_keyword: str,
+    fixed_keywords: list,
+    max_length: int,
+    naver_product_combi: dict,
+    include_fixed: bool = True
+):
+    """
+    메인키워드 + 혼합형/롱테일형 + (선택적으로) 고정키워드를 조합하여
+    최종 상품명을 생성하는 함수. 고정키워드는 항상 마지막에 위치.
+
+    Parameters:
+    ----------
+    main_keyword : str
+        필수로 포함할 메인 키워드 (ex: "양면테이프")
+
+    fixed_keywords : list
+        고정 키워드 리스트 (ex: ['무지', '크라프트', '종이'])
+        - 고정키워드는 항상 상품명의 마지막에 위치함.
+
+    max_length : int
+        최종 상품명의 최대 글자 수 제한 (ex: 50)
+
+    naver_product_combi : dict
+        generate_keyword_combinations() 함수의 반환값
+
+    include_fixed : bool, optional (default=True)
+        고정 키워드 사용 여부
+
+    Returns:
+    -------
+    dict
+        {
+            "혼합형_상품명": [...],     # 최종 혼합형 상품명 리스트
+            "롱테일형_상품명": [...]    # 최종 롱테일형 상품명 리스트
+        }
+    """
+    results = {"혼합형_상품명": [], "롱테일형_상품명": []}
+
+    # 1) 혼합형 조합 생성
+    for combo in naver_product_combi["혼합형"]:
+        words = [main_keyword] + combo.split()
+        if include_fixed:
+            words.extend(fixed_keywords) # 고정키워드는 맨 뒤에 위치
+
+        # 문자수 체크 및 자동 컷팅
+        final_name = ""
+        for word in words:
+            if len(final_name + " " + word) <= max_length:
+                final_name = (final_name + " " + word).strip()
+            else:
+                break
+
+        results["혼합형_상품명"].append(final_name)
+
+    # 2) 롱테일형 조합 생성
+    for combo in naver_product_combi["롱테일형"]:
+        words = [main_keyword] + combo.split()
+        if include_fixed:
+            words.extend(fixed_keywords)  # 수정!  # 고정키워드는 맨 뒤에 위치
+
+        # 문자수 체크 및 자동 컷팅
+        final_name = ""
+        for word in words:
+            if len(final_name + " " + word) <= max_length:
+                final_name = (final_name + " " + word).strip()
+            else:
+                break
+
+        results["롱테일형_상품명"].append(final_name)
+
+    return results
+
+
+def update_dictionary_with_naver_keywords(dictionary, processed_string, main_keywords, fixed_keywords, naver_product_combi):
+    """
+    기존 사전에서 '기본상품명' 위치를 찾고, 없으면 신규로 등록하며 네이버검색 키워드도 저장.
+
+    Parameters:
+    ----------
+    dictionary : dict
+        기존 키워드 사전
+
+    processed_string : str
+        입력된 기본상품명 (예: "풍선막대 풍선캡 6세트 1봉")
+
+    main_keywords : str
+        사용자가 입력한 메인 키워드 (예: "풍선막대")
+
+    fixed_keywords : list
+        고정키워드 리스트 (예: ['풍선캡', '6세트', '1봉'])
+
+    naver_product_combi : dict
+        generate_keyword_combinations() 함수의 반환값
+    """
+    found = False
+
+    for category, data in dictionary.items():
+        if "기본상품명" in data:
+            if processed_string in data["기본상품명"]:
+                # 기존 카테고리에 네이버 키워드만 업데이트
+                dictionary[category]["네이버검색상위"] = naver_product_combi.get("빈도우위", [])
+                dictionary[category]["네이버검색하위"] = naver_product_combi.get("빈도하위", [])
+                
+                logger.log(f"📚 사전에 네이버검색상위 키워드 저장: {dictionary[category]['네이버검색상위']}", level="INFO")
+                logger.log(f"📚 사전에 네이버검색하위 키워드 저장: {dictionary[category]['네이버검색하위']}", level="INFO")
+                
+                found = True
+                break
+
+    if not found:
+        # 신규 카테고리 생성 및 저장
+        dictionary[main_keywords] = {
+            "기본상품명": [processed_string],
+            "제품군": main_keywords,
+            "고정키워드": [fixed_keywords],
+            "GPT연관검색어": [],
+            "네이버검색상위": naver_product_combi.get("빈도우위", []),
+            "네이버검색하위": naver_product_combi.get("빈도하위", []),
+            "브랜드키워드": [],
+            "용도": [],
+            "사양": [],
+            "스타일": [],
+            "기타 카테고리": []
+        }
+
+        logger.log(f"✅ 신규 카테고리 '{main_keywords}'를 생성하고 기본상품명을 '{processed_string}'으로 등록했습니다.", level="INFO")
+
+    save_dictionary(dictionary)
+    logger.log("💾 사전이 성공적으로 업데이트 및 저장되었습니다.", level="INFO")
+
+
+
+
+def get_process_naming(basic_product_name: str) -> tuple[str, list[str]]:
+    """
+    상품명을 입력받아 
+    - 연관검색어 상품명 출력
+    - 네이버 상위검색 키워드 상품명 출력
     
     Parameters:
     input_string (str): 원본 상품명
     
     Returns:
     tuple[str, list[str]]: (가공된 상품명, 태그 리스트)
+
     """
+
+    optimized_name = ""
     processed_string = basic_product_name  # 예제에서는 원본 그대로 반환
 
     # 상품명 키워드사전 로드
@@ -306,21 +818,70 @@ def process_naming_tag(basic_product_name: str) -> tuple[str, list[str]]:
                     logger.log(f" ✅ 고정키워드: {fixed_keywords}", level="INFO")
                     logger.log(f" ✅ 연관키워드: {related_keywords}", level="INFO")
                     found = True
+                # 연관검색어 조합 상품명 
+                    optimized_name = make_keyword(processed_string, main_keywords, fixed_keywords, related_keywords)
     
     if not found:
         logger.log(f"입력된 상품명 '{processed_string}'이(가) 사전에 존재하지 않습니다.", level="WARNING")
 
-    optimized_name = make_keyword(processed_string, main_keywords, fixed_keywords, related_keywords)
+        # 사용자로부터 메인키워드 수동 입력 받기
+        user_input = input("📝 사전에 없는 상품입니다. 메인 키워드를 입력해주세요 (예: '풍선막대') 또는 Enter 입력 시 종료됩니다: ").strip()
+        
+        if not user_input:
+            logger.log("⛔ 메인 키워드가 입력되지 않아 프로그램을 종료합니다.", level="ERROR")
+            exit(0)
+        
+        # 입력된 메인 키워드를 할당
+        main_keywords = user_input
+        logger.log(f"✅ 사용자 입력 메인키워드: {main_keywords}", level="INFO")
 
-    # 네이버 API를 통해 태그 가져오기
+   
 
-    # related_tags = get_related_tags(" ".join(main_keywords))
 
-    related_tags = get_related_tags(" ".join("파일"))
-    logger.log(f"🔍 네이버 API로 가져온 태그: {related_tags}", level="INFO")
+
+    # 네이버 API를 통해 상위판매자 상품명 가져오기 
+    nobrand_names = get_naver_nobrand_names(main_keywords)
+
+    # 숫자와 영문 제거
+    clean_names = remove_numbers_english_special(nobrand_names)
+
+    # 혼합, 롱테일 조합
+    naver_product_combi = generate_keyword_combinations(
+        keyword_list=clean_names,
+        main_keyword="양면테이프",
+        top_n=3,                # 상위 3개의 키워드를 빈도우위 키워드로 사용
+        num_combinations=5,     # 혼합형, 롱테일형 각각 5개의 조합을 생성
+        mix_count=6,            # 혼합형 조합 키워드 6개로 맞춤
+        longtail_count=7        # 롱테일형 조합 키워드 7개로 맞춤
+    )
+    log_combinations(naver_product_combi, main_keywords)
+
+    # 고정키워드 불필요 문자 필터링
+    fixed_keywords, processed_fixed_keywords = clean_fixed_keywords(basic_product_name, main_keywords)
+
+    # 메인키워드 + 네이버검색 + 고정키워드
+    # 이후 자동화에 사용시에는 메인키워드 + 네이버검색, 고정키워드 각각에 랜덤성 필요 
+    final_names = finalize_product_names(
+    main_keyword=main_keywords,
+    fixed_keywords=processed_fixed_keywords,
+    max_length=50,
+    naver_product_combi=naver_product_combi,
+    include_fixed=True
+    )
+    log_combinations_final(final_names, main_keywords)
+    logger.log(f"💬 GPT상품명 : {optimized_name}", level="INFO")
+    logger.log_separator(char="-", also_to_report=True)
+
+
+    # 네이버 API를 통해 네이버 연관검색어 출력
+    naver_related_keywords = get_naver_relate_keywords(main_keywords)
+
+
+    # 👉 사전에 네이버 키워드 저장
+    update_dictionary_with_naver_keywords(dictionary, processed_string, main_keywords, fixed_keywords, naver_product_combi)
     
 
-
+    
     return processed_string, fixed_keywords, related_keywords, optimized_name
 
 def main():
@@ -332,18 +893,29 @@ def main():
             logger.log("빈 문자열이 입력되어 프로그램을 종료합니다.", level="ERROR")
             sys.exit(1)
         
-        processed_name, fixed_keywords, related_keywords, optimized_name = process_naming_tag(input_name)
+        processed_name, fixed_keywords, related_keywords, optimized_name = get_process_naming(input_name)
         
-        # logger.log(f"가공된 상품명: {processed_name}", also_to_report=True)
-        # logger.log(f"고정키워드 리스트: {fixed_keywords}", also_to_report=True)
-        # logger.log(f"연관키워드 리스트: {related_keywords}", also_to_report=True)
-        # logger.log(f"최종상품명: {optimized_name}", also_to_report=True)
+
 
 
 if __name__ == "__main__":
+    '''
+        1. 상품명를 입력하면 사전를 조회하여 기존 상품명이 존재한다면 
+        해당 사전내용의 메인키워드, 보조키워드, 연관검색어 를 가져온다. 
+        그리고 조회된 메인키워드로 네이버검색 실행 
+
+        2. 만약 상품명이 없다면 키워드를 다시 묻고 키워드를 입력하면 네이버조회
+
+        
+
+    
+    '''
+    
+    
+
 
     # get_naver_tags("파일")
-    search_naver_shopping("핸드폰")
+    # search_naver_shopping("핸드폰")
 
-    # main()
+    main()
 

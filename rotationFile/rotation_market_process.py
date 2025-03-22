@@ -1,8 +1,8 @@
 from utils.global_logger import logger
 
 from rotationFile.rotation_excel_edit_util import clear_column_data, add_prefix_to_column, remove_adult_category_rows, convert_http_to_https, convert_column_str,filter_product_name, filter_product_code, filter_forbid_product
-from rotationFile.rotation_excel_edit_util import update_column_to_9999, adjust_column_by_percentage, swap_image_column, clear_image_columns, replace_base_url
-from config.settings import FILTER_KEYWORDS, FILTER_UNIT_KEYWORDS, FILTER_PRODUCT_CODE, FILTER_11_KEYWORDS, FILTER_11_PRODUCT_CODE
+from rotationFile.rotation_excel_edit_util import update_column_to_9999, adjust_column_by_percentage, swap_image_column, clear_image_columns, replace_base_url, shuffle_keywords_in_column
+from config.settings import FILTER_KEYWORDS, FILTER_UNIT_KEYWORDS, FILTER_PRODUCT_CODE, FILTER_11_KEYWORDS, FILTER_11_PRODUCT_CODE, FILTER_BLAND_KEYWORDS
 from rotationFile.rotation_excel_edit_util import remove_empty_rows,remove_food_category_rows, remove_duplicate_rows
 from rotationFile.rotation_excel_edit_util import remove_options_rows, clean_search_keywords, update_column_value
 
@@ -12,7 +12,7 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
     logger.log(f"- '{market_platform}, {dome_name}' 초기 셋팅시작 -", level="INFO", also_to_report=True, separator="none")
 
     # 금지 상품 제거
-    forbid_df, keyword_removed_count  = filter_product_name(first_sheet_data, "상품명*", FILTER_KEYWORDS + FILTER_UNIT_KEYWORDS)
+    forbid_df, keyword_removed_count  = filter_product_name(first_sheet_data, "상품명*", FILTER_KEYWORDS + FILTER_UNIT_KEYWORDS + FILTER_BLAND_KEYWORDS)
 
     # 금지 상품 코드 제거
     forbid_df_code, product_removed_count = filter_product_code(forbid_df, "판매자 관리코드", FILTER_PRODUCT_CODE)
@@ -25,15 +25,22 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
 
             change_url_df, modified_count = replace_base_url(fitered_df, columns_to_update, "https://callenge2000.shopon.biz/data/goods_img", "https://dmtusr.vipweb.kr")
 
+            
             if market_name == "메인":
-
                 modify_sellercode = add_prefix_to_column(change_url_df, "판매자 관리코드", "GT") # 판매자관리코드 접두사만듬
+            elif market_name == "메인XT":
+                modify_sellercode = add_prefix_to_column(change_url_df, "판매자 관리코드", "XT") # 판매자관리코드 접두사만듬
             elif market_name == "파타르시스":
                 modify_sellercode = add_prefix_to_column(change_url_df, "판매자 관리코드", "GK") # 판매자관리코드 접두사만듬
 
             modify_count = update_column_to_9999(modify_sellercode, "수량*")                   # 수량변경
             modify_price = adjust_column_by_percentage(modify_count, "판매가*", 15, "인하")      # 판매가변경
             processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지2')
+            processed_sheet_data = shuffle_keywords_in_column(processed_sheet_data, '상품명*')
+            
+
+
+
 
         else:
 
