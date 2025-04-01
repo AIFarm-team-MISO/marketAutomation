@@ -519,46 +519,46 @@ def combine_keywords(existing_data, basic_product_name, max_length=49):
     gpt_related_keywords = [word for word in gpt_related_keywords if word not in COUPANG_FILTER_KEYWORDS + FILTER_KEYWORDS + FILTER_UNIT_KEYWORDS + FILTER_BLAND_KEYWORDS]
     processed_fixed_keywords = [word for word in processed_fixed_keywords if word not in COUPANG_FILTER_KEYWORDS + FILTER_KEYWORDS +FILTER_UNIT_KEYWORDS]
 
-
+    # 카테고리 필터링 보류
     # 카테고리 데이터 로드
-    category_dict = load_category_dict()
+    # category_dict = load_category_dict()
     
-
-    # 🔥 카테고리 키워드 및 중복문자 필터링
-    # 1️⃣ 네이버 카테고리 전체 키워드 가져오기
-    category_keywords = category_dict.get("모든키워드", [])
-
-    # 2️⃣ 필터링 전 GPT 연관 키워드 출력
-    logger.log(f"💬 [Before] GPT 연관 키워드 (카테고리 필터 적용 전): {gpt_related_keywords}", level="INFO", also_to_report=True)
-
-    # ✅ 🔹 중복 포함 단어 제거 적용 (예: '클리어대형'이 있으면 '대형' 제거)
-    if market_name in ["11번가"] and dome_name != "도매토피아": # ✅ 네이버 & 11번가 -> 복합 키워드 유지 (prefer_compound=True)
-        # if market_name in ["네이버", "11번가"]: # ✅ 네이버 & 11번가 -> 복합 키워드 유지 (prefer_compound=True) 네이버는 생각해보자. 
-        logger.log(f"✅ 카테고리제거, 중복제거" , level="INFO", also_to_report=True)
-        # GPT 연관 키워드에서 카테고리 키워드 개수 제한
-        gpt_related_keywords = filter_gpt_keywords_by_category(gpt_related_keywords, category_keywords)
-        gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=True)
-
-    # ✅ 🔹 키워드내 중복단어 포함
-    elif market_name in ["쿠팡", "고도몰"]:
-        logger.log(f"✅ 카테고리제거,  중복포함" , level="INFO", also_to_report=True)
-        # GPT 연관 키워드에서 카테고리 키워드 개수 제한
-        gpt_related_keywords = filter_gpt_keywords_by_category(gpt_related_keywords, category_keywords)
-        gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=False)
+    # # 🔥 카테고리 키워드 및 중복문자 필터링
+    # # 1️⃣ 네이버 카테고리 전체 키워드 가져오기
+    # category_keywords = category_dict.get("모든키워드", [])
 
     
-    # ✅ 🔹 키워드내 중복단어 포함, 카테고리키워드  제거안함 
-    elif market_name in ["톡스토어"]:
-        logger.log(f"✅ 카테고리제거안함, 중복포함" , level="INFO", also_to_report=True)
-        gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=False)
+    # # 2️⃣ 필터링 전 GPT 연관 키워드 출력
+    # logger.log(f"💬 [Before] GPT 연관 키워드 (카테고리 필터 적용 전): {gpt_related_keywords}", level="INFO", also_to_report=True)
 
-    # ✅ 그 외의 마켓은 연관검색어 기본으로 사용     
-    else:
-        logger.log(f"✅ 카테고리제거, 중복제거안함 ✅" , level="INFO", also_to_report=True)
-        gpt_related_keywords = gpt_related_keywords
+    # # ✅ 🔹 중복 포함 단어 제거 적용 (예: '클리어대형'이 있으면 '대형' 제거)
+    # if market_name in ["11번가"] and dome_name != "도매토피아": # ✅ 네이버 & 11번가 -> 복합 키워드 유지 (prefer_compound=True)
+    #     # if market_name in ["네이버", "11번가"]: # ✅ 네이버 & 11번가 -> 복합 키워드 유지 (prefer_compound=True) 네이버는 생각해보자. 
+    #     logger.log(f"✅ 카테고리제거, 중복제거" , level="INFO", also_to_report=True)
+    #     # GPT 연관 키워드에서 카테고리 키워드 개수 제한
+    #     gpt_related_keywords = filter_gpt_keywords_by_category(gpt_related_keywords, category_keywords)
+    #     gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=True)
 
-    # 필터링 후 GPT 연관 키워드 출력
-    logger.log(f"💬 [After] GPT 연관 키워드 (카테고리 필터 적용 후): {gpt_related_keywords}", level="INFO", also_to_report=True)
+    # # ✅ 🔹 키워드내 중복단어 포함
+    # elif market_name in ["쿠팡", "고도몰"]:
+    #     logger.log(f"✅ 카테고리제거,  중복포함" , level="INFO", also_to_report=True)
+    #     # GPT 연관 키워드에서 카테고리 키워드 개수 제한
+    #     gpt_related_keywords = filter_gpt_keywords_by_category(gpt_related_keywords, category_keywords)
+    #     gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=False)
+
+    
+    # # ✅ 🔹 키워드내 중복단어 포함, 카테고리키워드  제거안함 
+    # elif market_name in ["톡스토어"]:
+    #     logger.log(f"✅ 카테고리제거안함, 중복포함" , level="INFO", also_to_report=True)
+    #     gpt_related_keywords = remove_redundant_keywords(gpt_related_keywords, prefer_compound=False)
+
+    # # ✅ 그 외의 마켓은 연관검색어 기본으로 사용     
+    # else:
+    #     logger.log(f"✅ 카테고리제거, 중복제거안함 ✅" , level="INFO", also_to_report=True)
+    #     gpt_related_keywords = gpt_related_keywords
+
+    # # 필터링 후 GPT 연관 키워드 출력
+    # logger.log(f"💬 [After] GPT 연관 키워드 (카테고리 필터 적용 후): {gpt_related_keywords}", level="INFO", also_to_report=True)
 
     
     # 4️⃣ 글자 수 제한 계산 : 메인 키워드 + 고정 키워드가 차지하는 길이를 먼저 계산하고, 남은 길이(remaining_length)를 구함!
