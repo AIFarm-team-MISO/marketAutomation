@@ -69,12 +69,11 @@ def filter_words_in_product_name(df, column_name="상품명", remove_words=None)
 
 def add_prefix_to_seller_code(df, column_name, prefix):
     """
-    특정 열의 값 앞에 접두사를 추가하고, 기존 문자열에 '-'가 포함된 경우 '-' 앞쪽 문자열을 제거하는 함수.
-
+    특정 열의 값 앞에 접두사를 추가하는 함수.
+    
     ✅ 주요 기능:
-    1. 문자열에 '-'가 포함된 경우, '-' 앞의 내용을 제거한 후 접두사 추가 (예: "ABC-123" → "SP-123")
-    2. 해당 열의 모든 값 앞에 접두사 추가 (예: "SP-" + 기존 값)
-
+    1. 문자열 그대로 접두사 추가 (예: "ABC-123" → "SP-ABC-123")
+    
     :param df: 데이터프레임 (DataFrame)
     :param column_name: 변경할 열 이름 (기본값: "판매자 상품코드")
     :param prefix: 추가할 접두사 (기본값: "SP-")
@@ -85,20 +84,16 @@ def add_prefix_to_seller_code(df, column_name, prefix):
         if column_name not in df.columns:
             raise ValueError(f"❌ '{column_name}' 열이 데이터프레임에 존재하지 않습니다.")
 
-        # ✅ '-'가 포함된 경우 '-' 앞의 문자열 제거 후 접두사 추가
-        def process_code(value):
-            value = str(value)  # 문자열 변환
-            if '-' in value:
-                value = value.split('-', 1)[1]  # 첫 번째 '-' 이후의 문자열만 남김
-            return prefix + value  # 접두사 추가
+        # ✅ 접두사 단순 추가
+        df[column_name] = df[column_name].apply(lambda x: prefix + str(x))
 
-        # ✅ 변경된 값 적용
-        df[column_name] = df[column_name].apply(process_code)
-
-        # ✅ 변경 완료 로그 출력
-        logger.log(f"✅ '{column_name}' 열 값 변경 완료. ", level="INFO")
-
+        logger.log(f"✅ '{column_name}' 열에 접두사 '{prefix}' 추가 완료.", level="INFO")
         return df
+
+    except Exception as e:
+        logger.log(f"❌ '{column_name}' 접두사 추가 중 오류 발생: {e}", level="ERROR")
+        raise
+
 
     except Exception as e:
         logger.log(f"❌ '{column_name}' 접두사 추가 중 오류 발생: {e}", level="ERROR")
