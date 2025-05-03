@@ -459,25 +459,37 @@ import requests
 from urllib.parse import urlparse
 from utils.global_logger import logger
 
+import os
+import pandas as pd
+import requests
+from urllib.parse import urlparse
+from utils.global_logger import logger
+
+import os
+import pandas as pd
+import requests
+from urllib.parse import urlparse
+from utils.global_logger import logger
+
+import os
+import pandas as pd
+import requests
+from urllib.parse import urlparse
+from utils.global_logger import logger
+
 def download_images_per_product(df, output_file_path, subfolder_name,
                                  seller_code_column="판매자 상품코드",
                                  thumbnail_column="대표이미지", additional_column="추가이미지"):
     """
-    각 상품별로 폴더를 생성하고 대표이미지('썸네일'), 추가이미지('추가이미지1~') 저장
-
-    :param df: 상품 데이터프레임
-    :param output_file_path: 기준 엑셀 경로
-    :param subfolder_name: 상위 이미지 저장 폴더 (예: '오늘담음/파라브러')
-    :param seller_code_column: 폴더 이름에 사용할 상품 코드 열
-    :param thumbnail_column: 대표이미지 열
-    :param additional_column: 추가이미지 열
+    각 상품별 폴더를 생성하고 대표이미지('썸네일') 저장.
+    추가이미지는 초기 엑셀에 존재한 것만 추가이미지1~N으로 저장.
+    엑셀에는 대표이미지를 포함해 총 9개로 반복 구성된 추가이미지 URL 문자열을 작성.
     """
     try:
-        from urllib.parse import urlparse
         base_dir = os.path.dirname(output_file_path)
         main_image_dir = os.path.join(base_dir, subfolder_name)
         os.makedirs(main_image_dir, exist_ok=True)
-        logger.log(f"📂 상위 이미지 폴더 확인 또는 생성: {main_image_dir}", level="INFO")
+        logger.log(f"📂 이미지 저장 폴더 확인 또는 생성 완료: {main_image_dir}", level="INFO")
 
         for idx, row in df.iterrows():
             seller_code = str(row.get(seller_code_column, f"no_code_{idx}")).strip()
@@ -487,27 +499,38 @@ def download_images_per_product(df, output_file_path, subfolder_name,
             product_dir = os.path.join(main_image_dir, seller_code)
             os.makedirs(product_dir, exist_ok=True)
 
-            saved_files = []
-
-            # 대표이미지 저장 (썸네일.jpg)
+            # ✅ 대표이미지
             thumb_url = str(row.get(thumbnail_column, "")).strip()
-            if thumb_url:
-                saved_path = download_single_image(thumb_url, product_dir, "썸네일")
+            if not thumb_url or pd.isna(thumb_url) or thumb_url.lower() == "nan":
+                logger.log(f"⚠️ '{seller_code}' 대표이미지 없음 → 스킵", level="WARNING")
+                continue
+
+            # 썸네일 저장
+            thumb_path = download_single_image(thumb_url, product_dir, "썸네일")
+            if thumb_path:
+                logger.log(f"🖼 '{seller_code}' 썸네일 저장 완료", level="DEBUG")
+
+            # ✅ 추가이미지 원본 URL 필터링
+            raw_additional_value = row.get(additional_column, "")
+            if pd.isna(raw_additional_value):
+                original_add_urls = []
+            else:
+                original_add_urls = [url.strip() for url in str(raw_additional_value).splitlines()
+                                     if isinstance(url, str) and url.strip() and url.strip().lower() != "nan"]
+
+            # ✅ 실제 다운로드는 원래의 추가이미지 URL만
+            for i, url in enumerate(original_add_urls):
+                saved_path = download_single_image(url, product_dir, f"추가이미지{i+1}")
                 if saved_path:
-                    saved_files.append(saved_path)
+                    logger.log(f"📎 '{seller_code}' 추가이미지{i+1} 저장 완료", level="DEBUG")
 
-            # 추가이미지 저장 (추가이미지1.jpg ~)
-            add_urls = str(row.get(additional_column, "")).splitlines()
-            for i, url in enumerate(add_urls):
-                url = url.strip()
-                if url:
-                    saved_path = download_single_image(url, product_dir, f"추가이미지{i+1}")
-                    if saved_path:
-                        saved_files.append(saved_path)
+            # ✅ 엑셀용 추가이미지 열 구성 (대표이미지 포함 → 9개)
+            full_add_urls = original_add_urls + [thumb_url]
+            full_add_urls = (full_add_urls * ((9 + len(full_add_urls) - 1) // len(full_add_urls)))[:9]
+            df.at[idx, additional_column] = '\n'.join(full_add_urls)
 
-            logger.log(f"📦 '{seller_code}' 상품 이미지 저장 완료 ({len(saved_files)}개)", level="DEBUG")
-
-        logger.log("✅ 전체 상품 이미지 다운로드 완료", level="INFO")
+        logger.log("✅ 전체 이미지 저장 및 추가이미지 열 업데이트 완료", level="INFO")
+        return df
 
     except Exception as e:
         logger.log(f"❌ 상품 이미지 다운로드 중 오류 발생: {e}", level="ERROR")
@@ -516,16 +539,14 @@ def download_images_per_product(df, output_file_path, subfolder_name,
 
 def download_single_image(url, save_dir, base_filename):
     """
-    단일 이미지 다운로드 (확장자 보존)
+    단일 이미지 다운로드 함수 (확장자 포함 저장)
 
     :param url: 이미지 URL
-    :param save_dir: 저장 폴더
-    :param base_filename: 저장 파일명 접두어 (확장자 없음)
-    :return: 저장된 전체 경로 또는 None
+    :param save_dir: 저장할 디렉토리
+    :param base_filename: 저장 파일명 (예: 썸네일)
+    :return: 저장된 파일 경로 or None
     """
     try:
-        import requests
-        from urllib.parse import urlparse
         ext = os.path.splitext(urlparse(url).path)[1]
         if ext.lower() not in [".jpg", ".jpeg", ".png", ".gif", ".bmp"]:
             ext = ".jpg"
@@ -543,6 +564,8 @@ def download_single_image(url, save_dir, base_filename):
     except Exception as e:
         logger.log(f"⚠️ 이미지 다운로드 실패 ({url}): {e}", level="WARNING")
         return None
+
+
 
 def update_additional_images_column(df, thumbnail_column="대표이미지", additional_column="추가이미지", max_count=9):
     """
@@ -622,7 +645,7 @@ def change_product_excel(first_sheet_data, output_file_path):
         download_images_per_product(
             df=first_sheet_data,
             output_file_path=output_file_path,
-            subfolder_name="원스톱리빙/젠트"
+            subfolder_name="오늘담음/파라브러"
         )
 
         # ✅ 추가이미지 9개로 추가저장
