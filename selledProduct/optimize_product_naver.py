@@ -6,6 +6,7 @@ import pandas as pd
 import os
 from utils.excel.excel_utils import make_input_file_path, make_output_file_path
 import config.settings as settings
+from datetime import datetime
 
 from config.settings import FILE_EXTENSION_xlsx, CURRENT_MARKET_NAME
 from config.settings import AS_TEMPLETE_PHONE, AS_TEMPLETE_BASIC, AS_TEMPLETE_ETC
@@ -67,27 +68,33 @@ def filter_words_in_product_name(df, column_name="상품명", remove_words=None)
         logger.log(f"❌ '{column_name}' 필터링 중 오류 발생: {e}", level="ERROR")
         raise
 
-def add_prefix_to_seller_code(df, column_name, prefix):
+def add_prefix_to_seller_code(df, column_name, prefix, skip_prefixes=None):
     """
-    특정 열의 값 앞에 접두사를 추가하는 함수.
+    접두사를 붙이되, 특정 접두사들(SP-, SPG-, SR- 등)이 이미 있는 경우는 제외.
     
-    ✅ 주요 기능:
-    1. 문자열 그대로 접두사 추가 (예: "ABC-123" → "SP-ABC-123")
-    
-    :param df: 데이터프레임 (DataFrame)
-    :param column_name: 변경할 열 이름 (기본값: "판매자 상품코드")
-    :param prefix: 추가할 접두사 (기본값: "SP-")
-    :return: 변경된 데이터프레임
+    :param df: pandas.DataFrame
+    :param column_name: 접두사를 붙일 열 이름
+    :param prefix: 새로 붙일 접두사 (예: 'SP-')
+    :param skip_prefixes: 제외할 접두사 리스트 (예: ['SP-', 'SPG-', 'SR-'])
+    :return: 접두사가 적용된 데이터프레임
     """
     try:
-        # ✅ 특정 열이 존재하는지 확인
+        if skip_prefixes is None:
+            skip_prefixes = ['SP-', 'SPG-', 'SR-', 'SPSP-']
+
         if column_name not in df.columns:
-            raise ValueError(f"❌ '{column_name}' 열이 데이터프레임에 존재하지 않습니다.")
+            raise ValueError(f"❌ '{column_name}' 열이 존재하지 않습니다.")
 
-        # ✅ 접두사 단순 추가
-        df[column_name] = df[column_name].apply(lambda x: prefix + str(x))
+        def add_if_not_prefixed(value):
+            value_str = str(value).strip()
+            for skip in skip_prefixes:
+                if value_str.startswith(skip):
+                    return value_str
+            return prefix + value_str
 
-        logger.log(f"✅ '{column_name}' 열에 접두사 '{prefix}' 추가 완료.", level="INFO")
+        df[column_name] = df[column_name].apply(add_if_not_prefixed)
+
+        logger.log(f"✅ '{column_name}' 열에 접두사 '{prefix}' 조건부 추가 완료 (기존 접두사는 제외됨)", level="INFO")
         return df
 
     except Exception as e:
@@ -95,9 +102,6 @@ def add_prefix_to_seller_code(df, column_name, prefix):
         raise
 
 
-    except Exception as e:
-        logger.log(f"❌ '{column_name}' 접두사 추가 중 오류 발생: {e}", level="ERROR")
-        raise
 
 
 from openpyxl.utils import get_column_letter
@@ -248,7 +252,7 @@ def apply_discount(df):
         raise
 
 
-def update_validity_date(df, validity_column="유효일자", new_date="2034-04-01"):
+def update_validity_date(df, validity_column, new_date):
     """
     데이터프레임의 특정 열(유효일자)을 '2034-04-01'로 변경하는 함수.
 
@@ -450,10 +454,130 @@ def update_mapping_colums(df):
         logger.log(f"❌ 포인트 지급 값 및 단위 변경 중 오류 발생: {e}", level="ERROR")
         raise
 
+import os
+import requests
+from urllib.parse import urlparse
+from utils.global_logger import logger
+
+def download_images_per_product(df, output_file_path, subfolder_name,
+                                 seller_code_column="판매자 상품코드",
+                                 thumbnail_column="대표이미지", additional_column="추가이미지"):
+    """
+    각 상품별로 폴더를 생성하고 대표이미지('썸네일'), 추가이미지('추가이미지1~') 저장
+
+    :param df: 상품 데이터프레임
+    :param output_file_path: 기준 엑셀 경로
+    :param subfolder_name: 상위 이미지 저장 폴더 (예: '오늘담음/파라브러')
+    :param seller_code_column: 폴더 이름에 사용할 상품 코드 열
+    :param thumbnail_column: 대표이미지 열
+    :param additional_column: 추가이미지 열
+    """
+    try:
+        from urllib.parse import urlparse
+        base_dir = os.path.dirname(output_file_path)
+        main_image_dir = os.path.join(base_dir, subfolder_name)
+        os.makedirs(main_image_dir, exist_ok=True)
+        logger.log(f"📂 상위 이미지 폴더 확인 또는 생성: {main_image_dir}", level="INFO")
+
+        for idx, row in df.iterrows():
+            seller_code = str(row.get(seller_code_column, f"no_code_{idx}")).strip()
+            if not seller_code:
+                continue
+
+            product_dir = os.path.join(main_image_dir, seller_code)
+            os.makedirs(product_dir, exist_ok=True)
+
+            saved_files = []
+
+            # 대표이미지 저장 (썸네일.jpg)
+            thumb_url = str(row.get(thumbnail_column, "")).strip()
+            if thumb_url:
+                saved_path = download_single_image(thumb_url, product_dir, "썸네일")
+                if saved_path:
+                    saved_files.append(saved_path)
+
+            # 추가이미지 저장 (추가이미지1.jpg ~)
+            add_urls = str(row.get(additional_column, "")).splitlines()
+            for i, url in enumerate(add_urls):
+                url = url.strip()
+                if url:
+                    saved_path = download_single_image(url, product_dir, f"추가이미지{i+1}")
+                    if saved_path:
+                        saved_files.append(saved_path)
+
+            logger.log(f"📦 '{seller_code}' 상품 이미지 저장 완료 ({len(saved_files)}개)", level="DEBUG")
+
+        logger.log("✅ 전체 상품 이미지 다운로드 완료", level="INFO")
+
+    except Exception as e:
+        logger.log(f"❌ 상품 이미지 다운로드 중 오류 발생: {e}", level="ERROR")
+        raise
+
+
+def download_single_image(url, save_dir, base_filename):
+    """
+    단일 이미지 다운로드 (확장자 보존)
+
+    :param url: 이미지 URL
+    :param save_dir: 저장 폴더
+    :param base_filename: 저장 파일명 접두어 (확장자 없음)
+    :return: 저장된 전체 경로 또는 None
+    """
+    try:
+        import requests
+        from urllib.parse import urlparse
+        ext = os.path.splitext(urlparse(url).path)[1]
+        if ext.lower() not in [".jpg", ".jpeg", ".png", ".gif", ".bmp"]:
+            ext = ".jpg"
+
+        save_path = os.path.join(save_dir, base_filename + ext)
+
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+
+        with open(save_path, "wb") as f:
+            f.write(response.content)
+
+        return save_path
+
+    except Exception as e:
+        logger.log(f"⚠️ 이미지 다운로드 실패 ({url}): {e}", level="WARNING")
+        return None
+
+def update_additional_images_column(df, thumbnail_column="대표이미지", additional_column="추가이미지", max_count=9):
+    """
+    대표이미지를 마지막에 추가하고, 총 9개의 추가이미지가 되도록 채움.
+    
+    :param df: 상품 DataFrame
+    :param thumbnail_column: 대표이미지 열 이름
+    :param additional_column: 추가이미지 열 이름
+    :param max_count: 최대 이미지 개수 (기본 9개)
+    :return: 수정된 df 반환
+    """
+    try:
+        for idx, row in df.iterrows():
+            # 1. 추가이미지 분리
+            add_urls = [url.strip() for url in str(row.get(additional_column, "")).splitlines() if url.strip()]
+            thumb_url = str(row.get(thumbnail_column, "")).strip()
+
+            # 2. 추가이미지 + 대표이미지(마지막) 조합
+            combined_urls = add_urls + ([thumb_url] if thumb_url else [])
+
+            # 3. 반복해서 9개까지 채우기
+            if combined_urls:
+                repeated_urls = (combined_urls * ((max_count + len(combined_urls) - 1) // len(combined_urls)))[:max_count]
+                df.at[idx, additional_column] = '\n'.join(repeated_urls)
+
+        logger.log(f"✅ '추가이미지' 열에 대표이미지 포함하여 9개로 채우기 완료 (대표는 마지막에)", level="INFO")
+        return df
+
+    except Exception as e:
+        logger.log(f"❌ 추가이미지 채우기 중 오류 발생: {e}", level="ERROR")
+        raise
 
 
 
-def change_product_excel(first_sheet_data):
+def change_product_excel(first_sheet_data, output_file_path):
     """
     상품 데이터에 여러 가지 필터를 적용하는 함수.
 
@@ -476,10 +600,14 @@ def change_product_excel(first_sheet_data):
         first_sheet_data = filter_words_in_product_name(first_sheet_data, "상품명", remove_words)
 
         # ✅ 할인가격 적용
-        first_sheet_data = apply_discount(first_sheet_data)
+        # first_sheet_data = apply_discount(first_sheet_data)
+
+        # ✅ 제조일자 변경 
+        today_str = datetime.today().strftime("%Y-%m-%d")
+        first_sheet_data = update_validity_date(first_sheet_data, '제조일자', today_str)
 
         # ✅ 유효일자 변경 
-        first_sheet_data = update_validity_date(first_sheet_data)
+        first_sheet_data = update_validity_date(first_sheet_data, "유효일자", "2034-04-01")
 
         # ✅ 택배사코드 변경
         first_sheet_data = update_delivery_code(first_sheet_data, "택배사코드", "CJGLS")
@@ -487,8 +615,20 @@ def change_product_excel(first_sheet_data):
         # ✅ 리뷰 포인트, 무이자할부, 사은품, a/s템플릿 셋팅 
         first_sheet_data = update_mapping_colums(first_sheet_data)
 
-        # ✅ 주의사항 : 마켓별로 a/s 템플릿번호 변경할것
-        # ✅ 주의사항 : 파자마채널 모델템플릿 설정하자 
+        # ✅ 구현예정 : 파자마채널 모델템플릿 설정하자 
+
+        # ✅ 대표이미지, 추가이미지 저장
+        # subfolder_name="오늘담음/파라브러"
+        download_images_per_product(
+            df=first_sheet_data,
+            output_file_path=output_file_path,
+            subfolder_name="원스톱리빙/젠트"
+        )
+
+        # ✅ 추가이미지 9개로 추가저장
+        first_sheet_data = update_additional_images_column(first_sheet_data, thumbnail_column="대표이미지", additional_column="추가이미지")
+
+        
 
         return first_sheet_data
 
@@ -522,7 +662,7 @@ def make_optimize_product_excel(file_path, base_file_name):
     first_sheet_name, first_row_values, first_sheet_data = get_naver_modified_excel(sheets)
 
     # 마켓별 초기설정
-    processed_sheet_data = change_product_excel(first_sheet_data)
+    processed_sheet_data = change_product_excel(first_sheet_data, output_file_path)
 
 
     # 📄 **엑셀 파일 저장 (모든 시트 포함)**
