@@ -483,7 +483,7 @@ def download_images_per_product(df, output_file_path, subfolder_name,
     """
     각 상품별 폴더를 생성하고 대표이미지('썸네일') 저장.
     추가이미지는 초기 엑셀에 존재한 것만 추가이미지1~N으로 저장.
-    엑셀에는 대표이미지를 포함해 총 9개로 반복 구성된 추가이미지 URL 문자열을 작성.
+    엑셀에는 [추가이미지 + 썸네일] 블록을 반복하여 총 9개로 구성된 추가이미지 URL 문자열을 작성.
     """
     try:
         base_dir = os.path.dirname(output_file_path)
@@ -524,9 +524,16 @@ def download_images_per_product(df, output_file_path, subfolder_name,
                 if saved_path:
                     logger.log(f"📎 '{seller_code}' 추가이미지{i+1} 저장 완료", level="DEBUG")
 
-            # ✅ 엑셀용 추가이미지 열 구성 (대표이미지 포함 → 9개)
-            full_add_urls = original_add_urls + [thumb_url]
-            full_add_urls = (full_add_urls * ((9 + len(full_add_urls) - 1) // len(full_add_urls)))[:9]
+            # ✅ 엑셀용 추가이미지 열 구성: [추가이미지 + 썸네일] 블록 반복 → 9개
+            if original_add_urls:
+                unit = original_add_urls + [thumb_url]
+                repeated_urls = []
+                while len(repeated_urls) < 9:
+                    repeated_urls.extend(unit)
+                full_add_urls = repeated_urls[:9]
+            else:
+                full_add_urls = [thumb_url] * 9  # 추가이미지 없을 경우 대표이미지 9개
+
             df.at[idx, additional_column] = '\n'.join(full_add_urls)
 
         logger.log("✅ 전체 이미지 저장 및 추가이미지 열 업데이트 완료", level="INFO")
@@ -535,6 +542,7 @@ def download_images_per_product(df, output_file_path, subfolder_name,
     except Exception as e:
         logger.log(f"❌ 상품 이미지 다운로드 중 오류 발생: {e}", level="ERROR")
         raise
+
 
 
 def download_single_image(url, save_dir, base_filename):
@@ -641,11 +649,11 @@ def change_product_excel(first_sheet_data, output_file_path):
         # ✅ 구현예정 : 파자마채널 모델템플릿 설정하자 
 
         # ✅ 대표이미지, 추가이미지 저장
-        # subfolder_name="오늘담음/파라브러"
+        # subfolder_name="원스톱리빙/젠트" , 오늘담음/파라브러, 파자마채널/기본, 파타르시스/젠트
         download_images_per_product(
             df=first_sheet_data,
             output_file_path=output_file_path,
-            subfolder_name="오늘담음/파라브러"
+            subfolder_name="파타르시스/젠트"
         )
 
         # ✅ 추가이미지 9개로 추가저장
