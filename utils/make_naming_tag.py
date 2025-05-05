@@ -896,39 +896,119 @@ def main():
     optimized_name = None
 
     while True:
-        # logger.log("🔵 검색 모드 선택: Enter = 상품명 검색 | 0 입력 = 메인 키워드 검색", level="INFO")
-        mode = input("🔵 검색 모드 선택: 상품명 검색(Enter) | 메인 키워드 검색 (0) > ").strip()
+    
+        # 👉 키워드 기반 검색 모드
+        main_keyword = input("🔍 메인 키워드를 입력해 주세요 :  ").strip()
+        if not main_keyword:
+            logger.log("빈 키워드가 입력되어 프로그램을 종료합니다.", level="ERROR")
+            sys.exit(1)
 
-        if mode == "0":
-            # 👉 키워드 기반 검색 모드
-            main_keyword = input("🔍 메인 키워드를 입력해 주세요 :  ").strip()
-            if not main_keyword:
-                logger.log("빈 키워드가 입력되어 프로그램을 종료합니다.", level="ERROR")
-                sys.exit(1)
+        # 네이버 상품명 & 카테고리만 조회
+        naver_product_combi, full_categories = get_naver_result(main_keyword)
+        log_enriched_keyword_result(naver_product_combi)
 
-            # 네이버 상품명 & 카테고리만 조회
-            naver_product_combi, full_categories = get_naver_result(main_keyword)
-            log_enriched_keyword_result(naver_product_combi)
+        if optimized_name is not None:
+            logger.log(f"💬 GPT상품명 : {optimized_name}", level="INFO")
+        log_top_categories(full_categories)
+        logger.log(f"✅ 네이버 메인키워드 : ' {main_keyword} '", level="INFO")
+        logger.log_separator(char="-", also_to_report=True)
 
-            if optimized_name is not None:
-                logger.log(f"💬 GPT상품명 : {optimized_name}", level="INFO")
-            log_top_categories(full_categories)
-            logger.log(f"✅ 네이버 메인키워드 : ' {main_keyword} '", level="INFO")
-            logger.log_separator(char="-", also_to_report=True)
+
+        # 상품명과 검색을 나누어 실행 
+
+        # mode = input("🔵 검색 모드 선택: 상품명 검색(Enter) | 메인 키워드 검색 (0) > ").strip()
+
+        # if mode == "0":
+        #     # 👉 키워드 기반 검색 모드
+        #     main_keyword = input("🔍 메인 키워드를 입력해 주세요 :  ").strip()
+        #     if not main_keyword:
+        #         logger.log("빈 키워드가 입력되어 프로그램을 종료합니다.", level="ERROR")
+        #         sys.exit(1)
+
+        #     # 네이버 상품명 & 카테고리만 조회
+        #     naver_product_combi, full_categories = get_naver_result(main_keyword)
+        #     log_enriched_keyword_result(naver_product_combi)
+
+        #     if optimized_name is not None:
+        #         logger.log(f"💬 GPT상품명 : {optimized_name}", level="INFO")
+        #     log_top_categories(full_categories)
+        #     logger.log(f"✅ 네이버 메인키워드 : ' {main_keyword} '", level="INFO")
+        #     logger.log_separator(char="-", also_to_report=True)
     
 
-        else:
-            # 👉 기본 상품명 검색 모드
-            input_name = input("🔍 기본상품명을 입력해 주세요 :  ").strip()
-            if not input_name:
-                logger.log("빈 문자열이 입력되어 프로그램을 종료합니다.", level="ERROR")
-                sys.exit(1)
+        # else:
+        #     # 👉 기본 상품명 검색 모드
+        #     input_name = input("🔍 기본상품명을 입력해 주세요 :  ").strip()
+        #     if not input_name:
+        #         logger.log("빈 문자열이 입력되어 프로그램을 종료합니다.", level="ERROR")
+        #         sys.exit(1)
 
-            processed_name, fixed_keywords, related_keywords, optimized_name = get_process_naming(input_name)
+        #     processed_name, fixed_keywords, related_keywords, optimized_name = get_process_naming(input_name)
 
-        
+import random      
+from playwright.sync_api import sync_playwright
+
+def get_product_tags(keyword="귀고무"):
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False)
+        context = browser.new_context()
+        page = context.new_page()
 
 
+        # 1. 검색 페이지 접속
+        search_url = f"https://search.shopping.naver.com/ns/search?query={keyword}"
+        page.goto(search_url)
+        page.wait_for_timeout(3000)
+
+        # 2. 첫 번째 상품 추출
+        items = page.query_selector_all("ul[class*='compositeCardList_product_list'] > li")
+        if not items:
+            print("⚠️ 상품 리스트를 찾을 수 없습니다.")
+            browser.close()
+            return
+
+        first_item = items[0]
+        link_el = first_item.query_selector("a[class*='basicProductCard_link']")
+        link = link_el.get_attribute("href") if link_el else None
+
+        if not link:
+            print("⚠️ 링크를 찾을 수 없습니다.")
+            browser.close()
+            return
+
+        print(f"🔗 첫 번째 상품 링크: {link}")
+
+        # 3. 상세 페이지 열기
+        detail_page = context.new_page()
+        detail_page.goto(link)
+        detail_page.wait_for_load_state("networkidle")  # 로딩 완료까지 대기
+        detail_page.wait_for_timeout(1000)
+
+        # 스크롤로 태그를 로딩 시도
+        print("🔽 스크롤 다운 중...")
+        for i in range(5):
+            print(f"🔽 스크롤 {i+1}회차")
+            detail_page.evaluate("window.scrollBy(0, 1000)")
+            detail_page.wait_for_timeout(1000)
+
+        try:
+            tag_elements = detail_page.query_selector_all("ul._3Vox1DKZiA > li > a")
+            tags = [tag.inner_text().strip() for tag in tag_elements if tag.inner_text().strip()]
+            if tags:
+                print(f"\n🔖 추출된 태그 ({len(tags)}개): {tags}")
+            else:
+                print("⚠️ 태그 요소가 비어있습니다.")
+        except Exception as e:
+            print("⚠️ 태그 영역을 찾을 수 없습니다.", str(e))
+
+
+
+
+
+
+        browser.close()
+        return tags
 
 if __name__ == "__main__":
     '''
@@ -941,7 +1021,13 @@ if __name__ == "__main__":
     '''
 
     # get_naver_tags("파일")
+
+    # 네이버연결 - 테스트중
     # search_naver_shopping("핸드폰")
+
+    # 네이버검색에서 태그가져오기
+    # get_product_tags()
+
 
     main()
 
