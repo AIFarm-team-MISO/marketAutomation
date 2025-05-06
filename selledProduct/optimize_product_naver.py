@@ -524,6 +524,11 @@ def download_images_per_product(df, output_file_path, subfolder_name,
                 if saved_path:
                     logger.log(f"📎 '{seller_code}' 추가이미지{i+1} 저장 완료", level="DEBUG")
 
+
+            # ✅ 숏클립 생성 
+            
+            
+
             # ✅ 엑셀용 추가이미지 열 구성: [추가이미지 + 썸네일] 블록 반복 → 9개
             if original_add_urls:
                 unit = original_add_urls + [thumb_url]
@@ -655,6 +660,8 @@ def change_product_excel(first_sheet_data, output_file_path):
             output_file_path=output_file_path,
             subfolder_name="파타르시스/젠트"
         )
+
+        
 
         # ✅ 추가이미지 9개로 추가저장
         first_sheet_data = update_additional_images_column(first_sheet_data, thumbnail_column="대표이미지", additional_column="추가이미지")
