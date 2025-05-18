@@ -197,7 +197,8 @@ def make_shorts(image_folder,
                 output_filename="shortclip.mp4",
                 duration=None, total_duration=None,
                 width=1080, height=1920,
-                bgm_path=None, bgm_volume=1.0):
+                bgm_path=None, 
+                bgm_volume=1.0):
     """
     숏클립 제작 전체 프로세스 (이미지 → 영상 → 엔딩 → BGM 추가)
     :param image_folder: 이미지가 저장된 폴더
@@ -209,7 +210,13 @@ def make_shorts(image_folder,
     :param bgm_path: 배경음악 파일 경로
     :param bgm_volume: BGM 볼륨
     """
+    if bgm_path is None:
+        bgm_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "music", "Rave Spark.mp3"))
+
+
     original_clips = load_image_clips(image_folder, duration=1.0)
+
+
     if not original_clips:
         return
 
@@ -263,7 +270,7 @@ def make_shorts(image_folder,
 if __name__ == "__main__":
     # 테스트용 경로 설정
     bgm_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "music", "Rave Spark.mp3"))
-    test_folder = r"F:\work\#쇼핑몰\#대량등록\#상품순환 엑셀파일\#팔린거최적화-네이버\오늘담음\파라브러\SPG-PRB_1000000867"
+    test_folder = r"F:\work\#쇼핑몰\#대량등록\#상품순환 엑셀파일\#팔린거최적화-네이버\오늘담음\파라브러\SP-PRB_1000000018"
 
     # 숏클립 생성 실행
     make_shorts(

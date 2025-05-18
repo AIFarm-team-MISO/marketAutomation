@@ -22,6 +22,8 @@ from rotationFile.rotation_excel_edit_util import update_column_to_9999, adjust_
 from utils.excel.excel_get_data import get_folder_name, get_market_name
 from rotationFile.rotation_market_process import market_process
 from utils.excel.excel_utils import get_naver_modified_excel, save_excel_for_godo, set_dual_column_headers, save_excel_modified_naver_xlsx
+from utils.shortclip.make_to_shotclip import make_shorts
+
 
 
 def filter_words_in_product_name(df, column_name="상품명", remove_words=None):
@@ -525,7 +527,19 @@ def download_images_per_product(df, output_file_path, subfolder_name,
                     logger.log(f"📎 '{seller_code}' 추가이미지{i+1} 저장 완료", level="DEBUG")
 
 
+            # logger.log(f"저장폴더 : {product_dir} ", level="DEBUG")
+    
+
             # ✅ 숏클립 생성 
+            make_shorts(
+                image_folder=product_dir,
+                output_filename=f"{seller_code}.mp4",
+                duration=0.8,
+                total_duration=6,
+                width=1080,
+                height=1920,
+                bgm_volume=0.8
+            )
             
             
 
@@ -658,7 +672,7 @@ def change_product_excel(first_sheet_data, output_file_path):
         download_images_per_product(
             df=first_sheet_data,
             output_file_path=output_file_path,
-            subfolder_name="파타르시스/젠트"
+            subfolder_name="원스톱리빙/더드림"
         )
 
         
