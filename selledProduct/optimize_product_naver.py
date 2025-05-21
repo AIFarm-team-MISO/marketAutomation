@@ -524,11 +524,7 @@ def download_images_per_product(df, output_file_path, subfolder_name,
             for i, url in enumerate(original_add_urls):
                 saved_path = download_single_image(url, product_dir, f"추가이미지{i+1}")
                 if saved_path:
-                    logger.log(f"📎 '{seller_code}' 추가이미지{i+1} 저장 완료", level="DEBUG")
-
-
-            # logger.log(f"저장폴더 : {product_dir} ", level="DEBUG")
-    
+                    logger.log(f"📎 '{seller_code}' 추가이미지{i+1} 저장 완료", level="DEBUG")    
 
             # ✅ 숏클립 생성 
             make_shorts(
@@ -540,7 +536,6 @@ def download_images_per_product(df, output_file_path, subfolder_name,
                 height=1920,
                 bgm_volume=0.8
             )
-            
             
 
             # ✅ 엑셀용 추가이미지 열 구성: [추가이미지 + 썸네일] 블록 반복 → 9개

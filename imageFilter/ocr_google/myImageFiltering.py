@@ -5,12 +5,6 @@ from PIL import Image, ImageEnhance, ImageFilter
 from io import BytesIO
 import re
 
-# Google Cloud Vision API 클라이언트 설정 (환경 변수로 경로 설정)
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r"F:\marketAutomation\imageFilter\ocr_google\myimagefiltering-cbe09de0dab6.json"
-
-# Google Cloud Vision API 클라이언트 생성
-client = vision.ImageAnnotatorClient()
-
 # 이미지에 텍스트가 있는지 판별하는 함수
 import os
 from google.cloud import vision
@@ -20,11 +14,15 @@ from io import BytesIO
 import re
 import urllib3
 
-# Google Cloud Vision API 클라이언트 설정 (환경 변수로 경로 설정)
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = r"F:\marketAutomation\imageFilter\ocr_google\myimagefiltering-cbe09de0dab6.json"
+# Google Cloud Vision API를 사용하기 전 반드시 settings를 불러온다
+from config import settings  # 이 줄이 환경 설정을 자동으로 적용시킴
+
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.GOOGLE_CREDENTIAL_PATH
+from google.cloud import vision
 
 # Google Cloud Vision API 클라이언트 생성
 client = vision.ImageAnnotatorClient()
+
 
 # SSL 경고 비활성화
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
