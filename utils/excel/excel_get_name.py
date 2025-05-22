@@ -19,6 +19,14 @@ def process_all_excel_files(folder_path):
     file_list = []
 
     for file_name in os.listdir(folder_path):
+        
+        file_path = os.path.join(folder_path, file_name)
+
+        # ✅ 1. 폴더는 무시
+        if os.path.isdir(file_path):
+            logger.log(f"📁 폴더 스킵됨: {file_path}", level="DEBUG")
+            continue
+
         # _output 파일 처리
         if file_name.endswith("_output.xlsx") or file_name.endswith("_output.xls"):
             output_file_path = os.path.join(folder_path, file_name)
@@ -40,6 +48,8 @@ def process_all_excel_files(folder_path):
         file_list.append((folder_path, file_name))
 
     return file_list
+
+
 
 def safely_delete_file(file_path):
     """

@@ -811,6 +811,7 @@ def log_enriched_keyword_result(result: dict):
 
 
     # 🔝 혼합형 키워드
+    
     if "빈도우위" in result:
         top_keywords_preview = ', '.join(result["빈도우위"][:13])
         logger.log(f"📚2️⃣ 빈도우위 : {top_keywords_preview}", level="INFO", also_to_report=True)

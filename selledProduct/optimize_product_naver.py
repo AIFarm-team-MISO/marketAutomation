@@ -664,11 +664,11 @@ def change_product_excel(first_sheet_data, output_file_path):
 
         # ✅ 대표이미지, 추가이미지 저장
         # subfolder_name="원스톱리빙/젠트" , 오늘담음/파라브러, 파자마채널/기본, 파타르시스/젠트
-        download_images_per_product(
-            df=first_sheet_data,
-            output_file_path=output_file_path,
-            subfolder_name="원스톱리빙/더드림"
-        )
+        # download_images_per_product(
+        #     df=first_sheet_data,
+        #     output_file_path=output_file_path,
+        #     subfolder_name="원스톱리빙/더드림"
+        # )
 
         
 

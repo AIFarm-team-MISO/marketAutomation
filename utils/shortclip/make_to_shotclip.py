@@ -53,18 +53,32 @@ def fit_to_resolution(clip, width=1080, height=1920):
     return CompositeVideoClip([background, clip.set_position("center")])
 
 # 📐 영상 해상도 비율 맞춤 + 줌인효과
-def fit_to_resolution_zoomin(clip, width=1080, height=1920):
+def fit_to_resolution_zoomin(clip, width=1080, height=1920, zoom_ratio=0.2, letterbox=True):
     """
-    이미지 클립을 지정된 해상도에 맞추고, 재생 시간 동안 점점 확대되는 효과를 부여
+    
+    이미지 클립을 확대하면서 영상 프레임에 맞춤.
+    - letterbox=True: 비율 유지하며 중앙 배치 (좌우 여백 가능)
+    - letterbox=False: 화면 꽉 채우기 (이미지 잘릴 수 있음)
+    - zoom_ratio: 확대 강도 조절 (0.2 = 20%)
+
+
     """
-    # 시작 크기: 원본 높이에 맞춤
-    clip = clip.resize(height=height)
+    # 1️⃣ 비율 유지한 리사이즈 방식 결정
+    if letterbox:
+        if clip.w / clip.h < width / height:
+            clip = clip.resize(height=height)
+        else:
+            clip = clip.resize(width=width)
+    else:
+        clip = clip.resize(height=height)  # 꽉 채움 (좌우 잘림 가능)
 
-    # 확대 효과 (예: 1배 → 1.2배 확대)
-    zoomed = clip.fx(resize, lambda t: 1 + 0.2 * (t / clip.duration))  # t: 현재 시점, 0.2는 확대 비율
+    # 2️⃣ 확대 효과 적용 (시간에 따라 점진 확대)
+    zoomed = clip.fx(resize, lambda t: 1 + zoom_ratio * (t / clip.duration))
 
-    # 흰색 배경 위 중앙 정렬
-    background = ColorClip(size=(width, height), color=(255, 255, 255), duration=clip.duration)
+    # 3️⃣ 배경 위에 중앙 정렬
+
+    # 흰색 배경 위 중앙 정렬 ( 검은배경 : color=(0, 0, 0))
+    background = ColorClip(size=(width, height), color=(0, 0, 0), duration=clip.duration)
     return CompositeVideoClip([background, zoomed.set_position("center")])
 
 
@@ -269,7 +283,7 @@ def make_shorts(image_folder,
 # ✅ 테스트 실행
 if __name__ == "__main__":
     # 테스트용 경로 설정
-    bgm_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "music", "Rave Spark.mp3"))
+    bgm_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "music", "Rave Spark.mp3"))
     test_folder = r"F:\work\#쇼핑몰\#대량등록\#상품순환 엑셀파일\#팔린거최적화-네이버\오늘담음\파라브러\SP-PRB_1000000018"
 
     # 숏클립 생성 실행
