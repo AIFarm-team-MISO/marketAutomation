@@ -499,6 +499,19 @@ def download_images_per_product(df, output_file_path, subfolder_name,
                 continue
 
             product_dir = os.path.join(main_image_dir, seller_code)
+            video_path = os.path.join(product_dir, f"{seller_code}.mp4")
+
+            # ✅ 폴더와 영상이 모두 있으면 전체 스킵
+            if os.path.exists(video_path):
+                logger.log(f"⏭ 이미 숏클립 있음 → 스킵: {seller_code}", level="INFO")
+                continue
+
+            # ✅ 폴더만 있을 경우도 건너뛰고 싶다면 (선택)
+            if os.path.exists(product_dir):
+                logger.log(f"⏭ 폴더 있음 → 스킵: {seller_code}", level="INFO")
+                continue
+
+            # 폴더가 없으면 생성
             os.makedirs(product_dir, exist_ok=True)
 
             # ✅ 대표이미지
