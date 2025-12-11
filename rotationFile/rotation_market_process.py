@@ -1,7 +1,7 @@
 from utils.global_logger import logger
 
 from rotationFile.rotation_excel_edit_util import clear_column_data, add_prefix_to_column, remove_adult_category_rows, convert_http_to_https, convert_column_str,filter_product_name, filter_product_code, filter_forbid_product
-from rotationFile.rotation_excel_edit_util import update_column_to_9999, adjust_column_by_percentage, swap_image_column, clear_image_columns, replace_base_url, shuffle_keywords_in_column
+from rotationFile.rotation_excel_edit_util import update_column_to_9999, adjust_column_by_percentage, swap_image_column, clear_image_columns, replace_base_url, shuffle_keywords_in_column, fill_column_with_value,sort_and_limit_rows_by_column, fill_columns_allwaysonly
 from config.settings import FILTER_KEYWORDS, FILTER_UNIT_KEYWORDS, FILTER_PRODUCT_CODE, FILTER_11_KEYWORDS, FILTER_11_PRODUCT_CODE, FILTER_BLAND_KEYWORDS
 from rotationFile.rotation_excel_edit_util import remove_empty_rows,remove_food_category_rows, remove_duplicate_rows
 from rotationFile.rotation_excel_edit_util import remove_options_rows, clean_search_keywords, update_column_value
@@ -9,7 +9,7 @@ from rotationFile.rotation_excel_edit_util import remove_options_rows, clean_sea
 columns_to_update = ["목록 이미지*", "이미지1(대표/기본이미지)*", "이미지2", "이미지3", "이미지4", "이미지5"]
 
 def market_process(first_sheet_data, market_platform, market_name, dome_name):
-    logger.log(f"- '{market_platform}, {dome_name}' 초기 셋팅시작 -", level="INFO", also_to_report=True, separator="none")
+    logger.log(f"- '{market_platform},  {market_name}, {dome_name}' 초기 셋팅시작 -", level="INFO", also_to_report=True, separator="none")
 
     # 금지 상품 제거
     forbid_df, keyword_removed_count  = filter_product_name(first_sheet_data, "상품명*", FILTER_KEYWORDS + FILTER_UNIT_KEYWORDS + FILTER_BLAND_KEYWORDS)
@@ -21,6 +21,11 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
     fitered_df, removed_count  = remove_adult_category_rows(forbid_df_code, "카테고리 번호*")
 
     if market_platform == "네이버":
+        if market_name == "파타르시스" and dome_name == "3MRO":
+            # 3엠 우선판매의 경우 인증정보을 모두지움
+            forbid_df_code = clear_column_data(fitered_df, "인증정보")
+
+
         if dome_name == "도매토피아":
 
             change_url_df, modified_count = replace_base_url(fitered_df, columns_to_update, "https://callenge2000.shopon.biz/data/goods_img", "https://dmtusr.vipweb.kr")
@@ -32,12 +37,19 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
                 modify_sellercode = add_prefix_to_column(change_url_df, "판매자 관리코드", "XT") # 판매자관리코드 접두사만듬
             elif market_name == "파타르시스":
                 modify_sellercode = add_prefix_to_column(change_url_df, "판매자 관리코드", "GK") # 판매자관리코드 접두사만듬
+            elif market_name == "네스쳐":
+                modify_sellercode = add_prefix_to_column(change_url_df, "판매자 관리코드", "GT") # 판매자관리코드 접두사만듬
 
-            modify_count = update_column_to_9999(modify_sellercode, "수량*")                   # 수량변경
-            modify_price = adjust_column_by_percentage(modify_count, "판매가*", 15, "인하")      # 판매가변경
-            processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지2')
-            processed_sheet_data = shuffle_keywords_in_column(processed_sheet_data, '상품명*')
-            
+            if market_name == "네스쳐":
+                modify_count = update_column_to_9999(modify_sellercode, "수량*")                   # 수량변경
+                modify_price = adjust_column_by_percentage(modify_count, "판매가*", 20, "인하")      # 판매가변경
+                processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지3')
+                processed_sheet_data = shuffle_keywords_in_column(processed_sheet_data, '상품명*')
+            else:
+                modify_count = update_column_to_9999(modify_sellercode, "수량*")                   # 수량변경
+                modify_price = adjust_column_by_percentage(modify_count, "판매가*", 15, "인하")      # 판매가변경
+                processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지2')
+                processed_sheet_data = shuffle_keywords_in_column(processed_sheet_data, '상품명*')
 
 
 
@@ -84,7 +96,11 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
         # 브랜드명을 모두지움
         processed_sheet_data = clear_column_data(fitered_df, "브랜드")
 
-    elif market_platform == "옥지옥션":
+    elif market_platform == "옥지옥션" or market_platform == "옥지G마켓" :
+        # 옥지옥션 : 제품수 1500개로 설정 
+        fitered_df = sort_and_limit_rows_by_column(fitered_df)
+
+
         # [옥지옥션-23]_비투비온_GPT_20+20%
         if dome_name == "비투비온":
             columns_to_clear = ["이미지2", "이미지3", "이미지4", "이미지5"]
@@ -123,6 +139,8 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
     elif market_platform == "롯데온":
         # 브랜드명을 모두지움
         processed_sheet_data = clear_column_data(fitered_df, "브랜드")
+        # 원산지를 '기타' 로 통일
+        processed_sheet_data = fill_column_with_value(processed_sheet_data, "원산지*")
 
      
     elif market_platform == "고도몰": # [고도몰-블루채널]_도매토피아_GT_GPT
@@ -137,7 +155,14 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
 
         else:
             processed_sheet_data = fitered_df  # 원본 데이터 그대로 사용
-        
+
+    
+    # 올웨이즈 설정 변경시 
+    elif market_platform == "올웨이즈":
+        # 수량변경
+        processed_sheet_data = fill_columns_allwaysonly(fitered_df, "선택사항 타입")     
+
+
 
     else:
         processed_sheet_data = fitered_df  # 원본 데이터 그대로 사용
@@ -146,6 +171,7 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
 
 
 # 🟢 market_config: 플랫폼, 마켓, 도매사별 설정 매핑
+
 godo_market_config = {
     ("고도몰", "파타르시스", "파라브러"): {
         "option_remove" : True
@@ -158,8 +184,25 @@ godo_market_config = {
         "option_remove" : True
     }
     ,
+    ("고도몰", "파타르시스", "비온"): {
+        "option_remove" : True
+    }
+    ,
+    ("고도몰", "파타르시스", "젠트"): {
+        "option_remove" : True
+    }
+    ,
+    ("고도몰", "파타르시스", "3MR-생건"): {
+        "option_remove" : True
+    }
+   
 
-
+    
+    ,
+    ("고도몰", "블루채널", "파라브러"): {
+        "option_remove" : True
+    }
+    ,
     ("고도몰", "블루채널", "더드림"): {
         "option_remove" : True
     }
@@ -179,8 +222,8 @@ godo_market_config = {
         "option_remove" : True
     }
     ,
-    ("고도몰", "블루채널", "도매토피아"): {
-        "prefix": "GK",
+    ("고도몰", "블루채널", "도매토피아-GT"): {
+        "prefix": "GT",
         "quantity": 9999,
         "price_adjust": {"column": "판매가*", "percentage": 15, "mode": "인하"},
         "swap_images": ("목록 이미지*", "이미지2")

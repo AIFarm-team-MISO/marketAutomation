@@ -189,6 +189,7 @@ def generate_tasks_from_config(market_config, details_config):
                 for column, new_value in default_columns:
                     description = details_config["update_column_value"]["description"].replace("{column}", column).replace("{value}", str(new_value))
                     add_task(function_mapping["update_column_value"], "modification", description, column, new_value)
+                    logger.log(f"description : " + description + "column : " + column + "new_value: "+ str(new_value))
             else:
                 logger.log(f"⏩ 태스크 건너뜀: update_column_value 설정이 False로 지정됨", level="INFO", also_to_report=True, separator="dash-1line")
 

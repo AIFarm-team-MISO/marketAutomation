@@ -117,22 +117,44 @@ def get_excel_column_mapping(df):
     """
     return {get_column_letter(i+1): col for i, col in enumerate(df.columns)}
 
-def get_column_by_excel_letter(df, letter, excel_mapping=None):
+# def get_column_by_excel_letter(df, letter, excel_mapping=None):
+#     """
+#     AZ 형식(A, B, C ...)으로 DataFrame 컬럼명을 가져오는 함수.
+    
+#     :param df: DataFrame
+#     :param letter: 엑셀 컬럼 (예: "C")
+#     :param excel_mapping: AZ 형식의 컬럼 매핑 (기본값: None → 내부에서 생성)
+#     :return: DataFrame 컬럼명 (예: "즉시할인 값(기본할인)")
+#     """
+#     if excel_mapping is None:
+#         excel_mapping = get_excel_column_mapping(df)  # 매핑이 없으면 생성
+    
+#     if letter.upper() not in excel_mapping:
+#         raise ValueError(f"❌ '{letter}'는 데이터프레임에 없는 컬럼입니다.")
+    
+#     return excel_mapping[letter.upper()]
+
+def get_column_by_excel_letter(df, key, excel_mapping=None):
     """
-    AZ 형식(A, B, C ...)으로 DataFrame 컬럼명을 가져오는 함수.
+    AZ 형식(A, B, C ...) 또는 실제 컬럼명으로 DataFrame 컬럼명을 가져오는 함수.
     
     :param df: DataFrame
-    :param letter: 엑셀 컬럼 (예: "C")
-    :param excel_mapping: AZ 형식의 컬럼 매핑 (기본값: None → 내부에서 생성)
-    :return: DataFrame 컬럼명 (예: "즉시할인 값(기본할인)")
+    :param key: 엑셀 컬럼(AZ 형식) 또는 실제 컬럼명
+    :param excel_mapping: AZ 형식 매핑 딕셔너리 (기본값: None → 내부에서 생성)
+    :return: DataFrame 컬럼명
     """
+    if key in df.columns:
+        # 이미 실제 컬럼명이면 그대로 반환
+        return key
+    
+    # AZ 형식인 경우
     if excel_mapping is None:
-        excel_mapping = get_excel_column_mapping(df)  # 매핑이 없으면 생성
+        excel_mapping = get_excel_column_mapping(df)
     
-    if letter.upper() not in excel_mapping:
-        raise ValueError(f"❌ '{letter}'는 데이터프레임에 없는 컬럼입니다.")
+    if key.upper() not in excel_mapping:
+        raise ValueError(f"❌ '{key}'는 데이터프레임에 없는 컬럼(AZ 또는 실제명)입니다.")
     
-    return excel_mapping[letter.upper()]
+    return excel_mapping[key.upper()]
 
 def calculate_margin_price(original_price):
     """
@@ -190,9 +212,9 @@ def apply_discount(df):
         excel_mapping = get_excel_column_mapping(df)
 
         # ✅ AZ 형식의 열을 실제 컬럼명으로 변환 (매핑을 재사용)
-        price_column = get_column_by_excel_letter(df, "F", excel_mapping)
-        discount_value_column = get_column_by_excel_letter(df, "AZ", excel_mapping)
-        discount_unit_column = get_column_by_excel_letter(df, "BA", excel_mapping)
+        price_column = get_column_by_excel_letter(df, "판매가", excel_mapping)
+        discount_value_column = get_column_by_excel_letter(df, "BA", excel_mapping)
+        discount_unit_column = get_column_by_excel_letter(df, "BB", excel_mapping)
 
         # ✅ "판매가" 열을 숫자로 변환 후 원래 값 저장
         df["_original_price"] = df[price_column].astype(str)  
@@ -340,25 +362,25 @@ def update_mapping_colums(df):
     # ✅ 내부 변수 설정
     new_point = 50                    # 구매시 포인트 지급 값
 
-    point_value_column_letter = "BK"  # 포인트 지급 값이 들어있는 열 (BK)
-    point_unit_column_letter = "BL"   # 포인트 지급 단위가 들어있는 열 (BL)
+    point_value_column_letter = "BL"  # 포인트 지급 값이 들어있는 열 (BK)
+    point_unit_column_letter = "BM"   # 포인트 지급 단위가 들어있는 열 (BL)
 
-    text_point_column_letter = "BM"   # 텍스트 포인트 지급 열
-    video_point_column_letter = "BN"   # 동영상 포인트 지급 열
+    text_point_column_letter = "BN"   # 텍스트 포인트 지급 열
+    video_point_column_letter = "BO"   # 동영상 포인트 지급 열
 
-    price_column_letter = "F"         # 판매가가 들어있는 열 (F)
+    price_column_letter = "판매가"         # 판매가가 들어있는 열 (F)
     default_point_unit = "원"          # 기본 포인트 단위는 "원"
 
-    month_text_point_column_letter = "BO"   # 한달 텍스트리뷰
-    month_video_point_column_letter = "BP"  # 한달 동영상리뷰
-    member_point_column_letter = "BQ"       # 알림동의 회원 리뷰
+    month_text_point_column_letter = "BP"   # 한달 텍스트리뷰
+    month_video_point_column_letter = "BQ"  # 한달 동영상리뷰
+    member_point_column_letter = "BR"       # 알림동의 회원 리뷰
 
-    muiza_column_letter = "BR"         # 무이자할부 열
-    freething_column_letter = "BS"     # 사은품 열
+    muiza_column_letter = "BS"         # 무이자할부 열
+    freething_column_letter = "BT"     # 사은품 열
 
-    as_templet1_column_letter = "AW"     # A/S 템플릿 열
-    as_templet2_column_letter = "AX"     # A/S 템플릿 열
-    as_templet3_column_letter = "AY"     # A/S 템플릿 열
+    as_templet1_column_letter = "A/S 전화번호"     # A/S 템플릿 열 
+    as_templet2_column_letter = "A/S 안내"         # A/S 안내
+    as_templet3_column_letter = "판매자특이사항"    # 판매자특이사항
 
     try:
         # ✅ AZ 컬럼 매핑 가져오기
@@ -540,15 +562,15 @@ def download_images_per_product(df, output_file_path, subfolder_name,
                     logger.log(f"📎 '{seller_code}' 추가이미지{i+1} 저장 완료", level="DEBUG")    
 
             # ✅ 숏클립 생성 
-            make_shorts(
-                image_folder=product_dir,
-                output_filename=f"{seller_code}.mp4",
-                duration=0.8,
-                total_duration=6,
-                width=1080,
-                height=1920,
-                bgm_volume=0.8
-            )
+            # make_shorts(
+            #     image_folder=product_dir,
+            #     output_filename=f"{seller_code}.mp4",
+            #     duration=0.8,
+            #     total_duration=6,
+            #     width=1080,
+            #     height=1920,
+            #     bgm_volume=0.8
+            # )
             
 
             # ✅ 엑셀용 추가이미지 열 구성: [추가이미지 + 썸네일] 블록 반복 → 9개
@@ -658,7 +680,7 @@ def change_product_excel(first_sheet_data, output_file_path):
         first_sheet_data = filter_words_in_product_name(first_sheet_data, "상품명", remove_words)
 
         # ✅ 할인가격 적용
-        # first_sheet_data = apply_discount(first_sheet_data)
+        first_sheet_data = apply_discount(first_sheet_data)
 
         # ✅ 제조일자 변경 
         today_str = datetime.today().strftime("%Y-%m-%d")
@@ -679,7 +701,7 @@ def change_product_excel(first_sheet_data, output_file_path):
         download_images_per_product(
             df=first_sheet_data,
             output_file_path=output_file_path,
-            subfolder_name="원스톱리빙/더드림"
+            subfolder_name="파자마채널/가공"
         )
 
         

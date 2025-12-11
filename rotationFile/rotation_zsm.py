@@ -212,7 +212,7 @@ def make_rotation_excel(file_path, base_file_name):
             
 
         # modify_df의 행 개수를 확인하여 분할 저장 여부 결정
-        if naming_process_df.shape[0] > 5000:  # and dome_name != '도매토피아'
+        if naming_process_df.shape[0] > 5000 and dome_name != '도매토피아' :  # and dome_name != '도매토피아'
             logger.log(f"{folder_name} 의 행갯수가 5000개를 넘어 {naming_process_df.shape[0]}행 이므로 행분할 실시.", level="INFO", also_to_report=True, separator="2line")
 
             split_excel_by_rows(file_path, base_file_name, task_type="auto", sheets=sheets, modify_data=naming_process_df, first_sheet_name=first_sheet_name)

@@ -30,4 +30,4 @@ secrets/
 *.jpg
 
 # logs_reports 폴더를 제외하고 다른 모든 로그 파일을 무시
-logs_reports/*
+logs_reports/

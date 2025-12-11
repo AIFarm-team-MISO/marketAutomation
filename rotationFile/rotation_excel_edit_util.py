@@ -223,6 +223,32 @@ def clear_column_data(dataframe, column_name):
     except Exception as e:
         raise ValueError(f"'{column_name}' 열의 데이터를 삭제하는 중 문제가 발생했습니다: {e}")
     
+def fill_column_with_value(dataframe, column_name, fill_value="기타"):
+    """
+    특정 열의 모든 값을 지정한 문자열로 설정하는 함수.
+
+    :param dataframe: 데이터프레임
+    :param column_name: 값을 설정할 열 이름
+    :param fill_value: 입력할 값 (기본값: "기타")
+    :return: 수정된 데이터프레임
+    """
+    try:
+        if column_name not in dataframe.columns:
+            raise ValueError(f"'{column_name}' 열이 데이터프레임에 존재하지 않습니다.")
+
+        row_count = len(dataframe)
+        logger.log(f"✅ '{column_name}' 열의 데이터 '{fill_value}'로 변경 작업 시작 (총 {row_count}행).", level="INFO")
+
+        # 열 값을 모두 지정된 값으로 설정
+        dataframe[column_name] = fill_value
+
+        logger.log(f"✅ '{column_name}' 열의 모든 값을 '{fill_value}'로 변경 완료.", level="INFO", also_to_report=True, separator="dash-1line")
+        return dataframe
+
+    except Exception as e:
+        raise ValueError(f"'{column_name}' 열의 값을 '{fill_value}'로 설정하는 중 문제가 발생했습니다: {e}")
+
+    
 def clear_image_columns(dataframe, columns):
     """
     지정된 이미지 열의 모든 내용을 지우는 함수.
@@ -247,6 +273,36 @@ def clear_image_columns(dataframe, columns):
     
     except Exception as e:
         raise ValueError(f"🚨 '{columns}' 열의 내용을 지우는 중 오류 발생: {e}")
+    
+def sort_and_limit_rows_by_column(dataframe, column_name="판매자 관리코드", keep_top_n=1500):
+    """
+    특정 열 기준으로 내림차순 정렬한 후, 상위 N개 행만 유지하고 나머지는 삭제하는 함수.
+
+    :param dataframe: 데이터프레임
+    :param column_name: 정렬할 열 이름 (기본값: "판매자 관리코드")
+    :param keep_top_n: 유지할 행 수 (기본값: 1500)
+    :return: 수정된 데이터프레임
+    """
+    try:
+        if column_name not in dataframe.columns:
+            raise ValueError(f"'{column_name}' 열이 데이터프레임에 존재하지 않습니다.")
+
+        original_count = len(dataframe)
+        logger.log(f"🔽 '{column_name}' 기준 내림차순 정렬 및 {keep_top_n}개 행 유지 작업 시작 (총 {original_count}행).", level="INFO")
+
+        # 내림차순 정렬
+        dataframe_sorted = dataframe.sort_values(by=column_name, ascending=False)
+
+        # 상위 N개만 남기기
+        trimmed_df = dataframe_sorted.head(keep_top_n)
+        removed_count = original_count - len(trimmed_df)
+
+        logger.log(f"✅ '{column_name}' 기준으로 정렬 후 {keep_top_n}개 행 유지, {removed_count}개 행 삭제 완료.", level="INFO", also_to_report=True, separator="dash-1line")
+
+        return trimmed_df
+
+    except Exception as e:
+        raise ValueError(f"'{column_name}' 열 기준 정렬 또는 행 제거 중 오류 발생: {e}")
 
 
 def remove_empty_rows(dataframe, column_name):
@@ -734,3 +790,81 @@ def update_column_value(dataframe, column_name, value):
         return dataframe, changed_count
     except Exception as e:
         raise ValueError(f"{column_name} 열의 값을 변경하는 중 문제가 발생했습니다: {e}")
+    
+
+def fill_columns_allwaysonly(
+    dataframe: pd.DataFrame,
+    base_column: str,
+) -> pd.DataFrame:
+    """
+    올웨이즈 마켓 전용함수 
+    : 단일제품도 무조건 옵션이 있어야 되어 임의로 컬럼을 채움, 요약정보도 변경하여야 하는데 이부분은 로테이션정보에 기록하였음 
+
+    기준 컬럼이 비어 있는 행에 대해,
+    '선택사항 타입', '선택사항 옵션명', '선택사항 상세정보' 3개 컬럼을
+    하드코딩된 문자열로 채우는 함수.
+
+    - base_column 이 NaN 이거나 빈 문자열/공백일 경우에만 대상.
+    - 채워지는 값은 함수 내부에서 고정 정의.
+
+    하드코딩된 값:
+        - 선택사항 타입       → "텍스트"
+        - 선택사항 옵션명     → "기본옵션"
+        - 선택사항 상세정보   → "옵션 없음"
+
+    :param dataframe: pandas DataFrame
+    :param base_column: 기준이 되는 컬럼 이름 (예: '선택사항 타입')
+    :return: 값이 채워진 DataFrame
+    """
+    try:
+        # 1) 기준 컬럼 존재 여부 확인
+        if base_column not in dataframe.columns:
+            raise ValueError(f"데이터프레임에 '{base_column}' 열이 존재하지 않습니다.")
+
+        # 2) 하드코딩된 채울 컬럼 & 값 설정
+        fill_map = {
+            "선택사항 타입": "조합형",
+            "선택사항 옵션명": "필수선택",
+            "선택사항 상세정보": "단일상품**0*9999*Y",
+        }
+
+        # 3) fill_map에 있는 컬럼들이 실제로 존재하는지 체크
+        missing_cols = [col for col in fill_map.keys() if col not in dataframe.columns]
+        if missing_cols:
+            raise ValueError(f"다음 열이 데이터프레임에 존재하지 않습니다: {missing_cols}")
+
+        # 4) 기준 컬럼이 '비어 있다'고 판단하는 조건 정의
+        base_series = dataframe[base_column]
+
+        # NaN 이거나, 빈 문자열이거나, 공백만 있는 경우
+        empty_mask = base_series.isna() | (base_series.astype(str).str.strip() == "")
+
+        empty_count = int(empty_mask.sum())
+
+        if empty_count == 0:
+            logger.log(
+                f"ℹ️ '{base_column}' 기준으로 비어 있는 행이 없어, "
+                f"fill_columns_allwaysonly 작업은 수행하지 않습니다.",
+                level="INFO",
+                also_to_report=False,
+                separator="none",
+            )
+            return dataframe
+
+        # 5) 비어 있는 행에 대해 3개 컬럼 채우기
+        for col, value in fill_map.items():
+            dataframe.loc[empty_mask, col] = value
+
+        logger.log(
+            f"✅ '{base_column}' 열 기준으로 비어 있던 {empty_count}개 행에 대해 "
+            f"['선택사항 타입', '선택사항 옵션명', '선택사항 상세정보'] 컬럼을 고정값으로 채움.",
+            level="INFO",
+            also_to_report=True,
+            separator="none",
+        )
+
+        return dataframe
+
+    except Exception as e:
+        raise ValueError(f"'{base_column}' 기준으로 선택사항 관련 컬럼을 채우는 중 문제가 발생했습니다: {e}")
+
