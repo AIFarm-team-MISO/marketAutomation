@@ -13,6 +13,7 @@ from PIL import Image, ImageEnhance
 from io import BytesIO
 import re
 import urllib3
+import time
 
 # Google Cloud Vision API를 사용하기 전 반드시 settings를 불러온다
 from config import settings  # 이 줄이 환경 설정을 자동으로 적용시킴
@@ -51,8 +52,28 @@ def is_text_in_image(image_url):
                 # 1️⃣ 이미지 다운로드
                 if current_url.startswith('http'):
                     # URL에서 이미지 요청 (SSL 검증 비활성화)
-                    response = requests.get(current_url, timeout=10, verify=False)
-                    response.raise_for_status()  # HTTP 에러가 발생하면 예외 처리
+
+
+                    # response = requests.get(current_url, timeout=10, verify=False)
+                    # response.raise_for_status()  # HTTP 에러가 발생하면 예외 처리
+                    # 위코드를 연결재시도로 아래처럼 변경함 
+
+
+                    MAX_RETRIES = 3      # 총 시도 횟수(예: 3이면 최대 3번 시도)
+                    SLEEP_SEC = 1.5      # 실패 시 재시도 전 대기
+
+                    for attempt in range(1, MAX_RETRIES + 1):
+                        try:
+                            response = requests.get(current_url, timeout=10, verify=False)
+                            response.raise_for_status()
+                            break  # ✅ 성공하면 루프 탈출
+                        except (requests.exceptions.ConnectTimeout,
+                                requests.exceptions.ReadTimeout,
+                                requests.exceptions.ConnectionError) as e:
+                            if attempt == MAX_RETRIES:
+                                raise  # ✅ 마지막까지 실패하면 원래대로 예외 발생(현재 구조 유지)
+                            print(f"⚠️ 연결 실패({attempt}/{MAX_RETRIES}) 재시도: {current_url} / {e}")
+                            time.sleep(SLEEP_SEC)
 
 
                     # HTTP로 전환된 경우 성공 메시지

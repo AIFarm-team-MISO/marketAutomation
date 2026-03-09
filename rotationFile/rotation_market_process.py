@@ -37,13 +37,15 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
                 modify_sellercode = add_prefix_to_column(change_url_df, "판매자 관리코드", "XT") # 판매자관리코드 접두사만듬
             elif market_name == "파타르시스":
                 modify_sellercode = add_prefix_to_column(change_url_df, "판매자 관리코드", "GK") # 판매자관리코드 접두사만듬
-            elif market_name == "네스쳐":
+            elif market_name == "네스쳐GT":
                 modify_sellercode = add_prefix_to_column(change_url_df, "판매자 관리코드", "GT") # 판매자관리코드 접두사만듬
+            elif market_name == "네스쳐GK":
+                modify_sellercode = add_prefix_to_column(change_url_df, "판매자 관리코드", "GK") # 판매자관리코드 접두사만듬
 
-            if market_name == "네스쳐":
+            if market_name == "네스쳐GT" or market_name == "네스쳐GK" :
                 modify_count = update_column_to_9999(modify_sellercode, "수량*")                   # 수량변경
                 modify_price = adjust_column_by_percentage(modify_count, "판매가*", 20, "인하")      # 판매가변경
-                processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지3')
+                processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지5')
                 processed_sheet_data = shuffle_keywords_in_column(processed_sheet_data, '상품명*')
             else:
                 modify_count = update_column_to_9999(modify_sellercode, "수량*")                   # 수량변경
@@ -159,6 +161,20 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
     
     # 올웨이즈 설정 변경시 
     elif market_platform == "올웨이즈":
+
+        if dome_name == "도매토피아":
+
+            change_url_df, modified_count = replace_base_url(fitered_df, columns_to_update, "https://callenge2000.shopon.biz/data/goods_img", "https://dmtusr.vipweb.kr")
+
+            modify_sellercode = add_prefix_to_column(change_url_df, "판매자 관리코드", "GT") # 판매자관리코드 접두사만듬
+            modify_count = update_column_to_9999(modify_sellercode, "수량*")                   # 수량변경
+            modify_price = adjust_column_by_percentage(modify_count, "판매가*", 5, "인하")      # 판매가변경
+            processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지2')
+
+        else:
+            processed_sheet_data = fitered_df  # 원본 데이터 그대로 사용
+
+    
         # 수량변경
         processed_sheet_data = fill_columns_allwaysonly(fitered_df, "선택사항 타입")     
 

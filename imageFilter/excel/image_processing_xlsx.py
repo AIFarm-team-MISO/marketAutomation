@@ -301,9 +301,9 @@ def filter_and_classify_urls(filtered_result, sheet, seller_code_column_name):
             data.append((status, image_url))  # 처리 결과에 추가
             no_text_urls.append((seller_code, image_url))  # 문자 없음 목록에 추가
         else:
-            detected_text = is_text_in_image(image_url)
 
-            print('detected_text : '+ detected_text)
+
+            detected_text = is_text_in_image(image_url)
 
             if detected_text:
                 data.append(("중복-문자있음", image_url))  # 문자 있음 상태로 데이터에 추가

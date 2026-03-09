@@ -701,7 +701,7 @@ def change_product_excel(first_sheet_data, output_file_path):
         download_images_per_product(
             df=first_sheet_data,
             output_file_path=output_file_path,
-            subfolder_name="파자마채널/가공"
+            subfolder_name="오늘담음/3엠이전팔린거"
         )
 
         

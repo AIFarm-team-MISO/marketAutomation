@@ -498,9 +498,9 @@ def filter_forbid_product(dataframe, product_name_column, product_code_column, f
         # 필터링 키워드에서 오탐 방지 단어 제외
         refined_filter_keywords = [kw for kw in filter_keywords if kw not in exception_keywords]
 
-        # 필터링 패턴 생성 (정확한 단어만 필터링하도록 개선)
-        name_pattern = r"\b(" + "|".join(map(re.escape, refined_filter_keywords)) + r")\b" if refined_filter_keywords else None
-        code_pattern = r"\b(" + "|".join(map(re.escape, filter_code_keywords)) + r")\b" if filter_code_keywords else None
+        # 필터링 패턴 생성 (필터링할 단어의 복합어까지 필터링하도록 개선)
+        name_pattern = "(" + "|".join(map(re.escape, refined_filter_keywords)) + ")" if refined_filter_keywords else None
+        code_pattern = "(" + "|".join(map(re.escape, filter_code_keywords)) + ")" if filter_code_keywords else None
 
         # 상품명 필터링 적용
         mask_name = dataframe[product_name_column].str.contains(name_pattern, case=False, na=False) if name_pattern else False
