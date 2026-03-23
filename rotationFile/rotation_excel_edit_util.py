@@ -6,6 +6,38 @@ import pandas as pd
 import random
 from utils.global_logger import logger
 
+def update_column_brand(dataframe: pd.DataFrame, column_name: str, value) -> pd.DataFrame:
+    """
+    특정 열의 모든 값을 지정한 값으로 변경하는 함수.
+
+    :param dataframe: pandas DataFrame
+    :param column_name: 값을 변경할 열 이름
+    :param value: 입력할 값
+    :return: 값이 변경된 DataFrame
+    """
+    try:
+        # 열 이름 존재 여부 확인
+        if column_name not in dataframe.columns:
+            raise ValueError(f"'{column_name}' 열이 데이터프레임에 존재하지 않습니다.")
+
+        # 열 값을 지정한 값으로 변경
+        dataframe[column_name] = value
+
+        # 변경 완료 로그 출력
+        logger.log(
+            f"✅ '{column_name}' 열의 모든 값이 '{value}'로 변경되었습니다.",
+            level="INFO",
+            also_to_report=True,
+            separator="none"
+        )
+
+        return dataframe
+
+    except Exception as e:
+        raise ValueError(f"'{column_name}' 열의 값을 '{value}'로 변경하는 중 문제가 발생했습니다: {e}")
+
+
+
 def shuffle_keywords_in_column(dataframe: pd.DataFrame, column_name: str) -> pd.DataFrame:
     """
     특정 열의 문자열을 키워드로 나누어 무작위로 섞은 후 다시 결합하여 저장하는 함수.

@@ -197,10 +197,9 @@ def make_rotation_excel(file_path, base_file_name):
 
             
         elif market_platform == "네이버":
-            if market_name == "툴몬미정" and dome_name == "3MRO-가구인테리어" :
-            # if market_name == "툴몬스터" and dome_name == "3MRO-가구인테리어" :
-                
-                logger.log(f"{market_name} 는 상품명가공 시작.", level="INFO", also_to_report=True, separator="none")
+            if market_name == "PZ" and dome_name == "GPT가공" :
+                logger.log(f"{market_name} , {dome_name}는 상품명가공 시작.", level="INFO", also_to_report=True, separator="none")
+
                 naming_process_df = process_namingChange_excel_file(file_path, base_file_name, 'GPT조합', task_type="auto", sheets=image_filtered_df)
             else:
                 naming_process_df = image_filtered_df

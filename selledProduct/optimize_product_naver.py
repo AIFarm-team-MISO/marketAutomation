@@ -117,44 +117,88 @@ def get_excel_column_mapping(df):
     """
     return {get_column_letter(i+1): col for i, col in enumerate(df.columns)}
 
-# def get_column_by_excel_letter(df, letter, excel_mapping=None):
-#     """
-#     AZ 형식(A, B, C ...)으로 DataFrame 컬럼명을 가져오는 함수.
-    
-#     :param df: DataFrame
-#     :param letter: 엑셀 컬럼 (예: "C")
-#     :param excel_mapping: AZ 형식의 컬럼 매핑 (기본값: None → 내부에서 생성)
-#     :return: DataFrame 컬럼명 (예: "즉시할인 값(기본할인)")
-#     """
-#     if excel_mapping is None:
-#         excel_mapping = get_excel_column_mapping(df)  # 매핑이 없으면 생성
-    
-#     if letter.upper() not in excel_mapping:
-#         raise ValueError(f"❌ '{letter}'는 데이터프레임에 없는 컬럼입니다.")
-    
-#     return excel_mapping[letter.upper()]
+def normalize_column_name(col):
+    """
+    컬럼명을 비교용으로 정규화
+    - 줄바꿈, 탭, 특수공백 제거
+    - 연속 공백 1칸으로 통일
+    - 앞뒤 공백 제거
+    """
+    text = str(col)
+    text = text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ").replace("\t", " ")
+    text = text.replace("\xa0", " ")
+    text = " ".join(text.split())
+    return text.strip()
+
 
 def get_column_by_excel_letter(df, key, excel_mapping=None):
     """
     AZ 형식(A, B, C ...) 또는 실제 컬럼명으로 DataFrame 컬럼명을 가져오는 함수.
-    
-    :param df: DataFrame
+
+    동작 방식:
+    1. key가 실제 컬럼명과 정확히 일치하면 그대로 반환
+    2. 아니면 key와 df.columns를 모두 정규화해서 비교
+    3. AZ 형식(A, B, C ...)이면 excel_mapping으로 처리
+
+    :param df: pandas DataFrame
     :param key: 엑셀 컬럼(AZ 형식) 또는 실제 컬럼명
-    :param excel_mapping: AZ 형식 매핑 딕셔너리 (기본값: None → 내부에서 생성)
-    :return: DataFrame 컬럼명
+    :param excel_mapping: AZ 형식 매핑 딕셔너리
+    :return: 실제 DataFrame 컬럼명
     """
+
+    key = str(key).strip()
+
+    # 1) 정확히 일치하면 바로 반환
     if key in df.columns:
-        # 이미 실제 컬럼명이면 그대로 반환
         return key
-    
-    # AZ 형식인 경우
+
+    # 2) 정규화 비교용 매핑 생성
+    normalized_key = normalize_column_name(key)
+
+    normalized_column_map = {}
+    duplicate_normalized_cols = {}
+
+    for col in df.columns:
+        normalized_col = normalize_column_name(col)
+
+        if normalized_col in normalized_column_map:
+            duplicate_normalized_cols.setdefault(normalized_col, []).append(col)
+        else:
+            normalized_column_map[normalized_col] = col
+
+    # 정규화된 컬럼명이 중복되면 예외 처리
+    if normalized_key in duplicate_normalized_cols:
+        duplicated_list = [normalized_column_map[normalized_key]] + duplicate_normalized_cols[normalized_key]
+        raise ValueError(
+            f"❌ '{key}'는 정규화 기준으로 여러 컬럼과 중복됩니다: {duplicated_list}"
+        )
+
+    if normalized_key in normalized_column_map:
+        return normalized_column_map[normalized_key]
+
+    # 3) AZ 형식 처리
     if excel_mapping is None:
         excel_mapping = get_excel_column_mapping(df)
-    
-    if key.upper() not in excel_mapping:
-        raise ValueError(f"❌ '{key}'는 데이터프레임에 없는 컬럼(AZ 또는 실제명)입니다.")
-    
-    return excel_mapping[key.upper()]
+
+    upper_key = key.upper()
+    if upper_key in excel_mapping:
+        return excel_mapping[upper_key]
+
+    # 4) 유사 후보 찾기
+    similar_candidates = []
+    key_tokens = normalized_key.split()
+
+    for col in df.columns:
+        normalized_col = normalize_column_name(col)
+        if any(token in normalized_col for token in key_tokens):
+            similar_candidates.append(col)
+
+    raise ValueError(
+        f"❌ '{key}'는 데이터프레임에 없는 컬럼(AZ 또는 실제명)입니다.\n"
+        f"정규화 기준 검색값: '{normalized_key}'\n"
+        f"유사 후보 컬럼: {similar_candidates[:10]}\n"
+        f"현재 전체 컬럼 수: {len(df.columns)}"
+    )
 
 def calculate_margin_price(original_price):
     """
@@ -194,18 +238,47 @@ def round_to_nearest_ten(value):
 
 def apply_discount(df):
     """
-    AZ 형식(A, B, C ...)의 엑셀 컬럼명을 사용하여 각 행마다 랜덤 할인율을 적용하는 함수.
-    
-    ✅ 주요 기능:
-    1. AZ 형식의 열(A, B, C ...)을 실제 데이터프레임 컬럼명으로 변환
-    2. "판매가"를 숫자로 변환 후 가격대별 마진율 적용하여 기본 판매가 설정
-    3. "할인율(45~49%)"을 각 행마다 랜덤으로 적용하여 "변경된 판매가" 계산
-    4. "즉시할인 값(기본할인)"을 계산 (기존 판매가 - 변경된 판매가)
-    5. "즉시할인 단위(기본할인)"을 "원"으로 설정
-    6. 최종적으로 변경된 데이터를 데이터프레임에 반영
-    
-    :param df: DataFrame (엑셀 데이터)
-    :return: 할인율이 적용된 데이터프레임
+    엑셀 컬럼 식별을 위한 통합 컬럼 조회 함수
+
+    이 함수는 DataFrame에서 컬럼을 조회할 때 발생하는 다양한 문제를 해결하기 위해 설계됨.
+
+    [지원 기능]
+    1. 실제 컬럼명으로 조회
+    - df.columns에 존재하는 컬럼명을 그대로 입력하면 해당 컬럼명을 반환
+
+    2. 개행/공백/특수문자 차이 무시
+    - 엑셀에서 컬럼명이 줄바꿈(\n), 탭(\t), 특수공백(\xa0) 등으로 구성된 경우에도
+        사용자는 공백 기준으로 입력하면 정상적으로 매칭됨
+    - 예:
+        "즉시할인 값\n(기본할인)" → "즉시할인 값 (기본할인)" 로 입력 가능
+
+    3. AZ 형식 컬럼 지원
+    - "A", "B", "AA" 등 엑셀 컬럼 문자로도 접근 가능
+    - excel_mapping을 통해 실제 컬럼명으로 변환
+
+    [동작 방식]
+    1. 입력 key가 df.columns에 정확히 존재하면 그대로 반환
+    2. 존재하지 않으면, key와 df.columns를 동일한 규칙으로 정규화 후 비교
+    - 줄바꿈, 탭, 특수공백 제거
+    - 연속 공백을 1칸으로 통일
+    3. 정규화된 값 기준으로 일치하는 컬럼이 있으면 해당 원본 컬럼명 반환
+    4. AZ 형식인 경우 excel_mapping을 사용하여 컬럼명 반환
+    5. 모든 조건에서 찾지 못하면 에러 발생 + 유사 컬럼 후보 출력
+
+    [주의사항]
+    - 정규화 후 동일한 컬럼명이 2개 이상 존재할 경우 예외 발생
+    - 반환값은 항상 "원본 df.columns의 실제 컬럼명"이므로
+    이후 df[컬럼명] 접근 시 그대로 사용 가능
+
+    [사용 예시]
+    get_column_by_excel_letter(df, "상품명")
+    get_column_by_excel_letter(df, "즉시할인 값 (기본할인)")
+    get_column_by_excel_letter(df, "A")
+
+    :param df: pandas DataFrame
+    :param key: 엑셀 컬럼 문자(A, B, C...) 또는 실제 컬럼명 (공백 기준 입력 권장)
+    :param excel_mapping: AZ 형식 컬럼 매핑 딕셔너리 (None일 경우 내부 생성)
+    :return: df.columns에 존재하는 실제 컬럼명 (문자열)
     """
     try:
         # ✅ AZ 컬럼 매핑 가져오기
@@ -213,8 +286,12 @@ def apply_discount(df):
 
         # ✅ AZ 형식의 열을 실제 컬럼명으로 변환 (매핑을 재사용)
         price_column = get_column_by_excel_letter(df, "판매가", excel_mapping)
-        discount_value_column = get_column_by_excel_letter(df, "BA", excel_mapping)
-        discount_unit_column = get_column_by_excel_letter(df, "BB", excel_mapping)
+        discount_value_column = get_column_by_excel_letter(df, "즉시할인 값 (기본할인)", excel_mapping)
+        discount_unit_column = get_column_by_excel_letter(df, "즉시할인 단위 (기본할인)", excel_mapping)
+
+        logger.log(f"price_column : {price_column}", level="DEBUG")
+        logger.log(f"discount_value_column : {discount_value_column}", level="DEBUG")
+        logger.log(f"discount_unit_column : {discount_unit_column}", level="DEBUG")
 
         # ✅ "판매가" 열을 숫자로 변환 후 원래 값 저장
         df["_original_price"] = df[price_column].astype(str)  
@@ -674,7 +751,7 @@ def change_product_excel(first_sheet_data, output_file_path):
 
     try:
         # ✅ "판매자 상품코드" 접두사 추가 함수 호출
-        first_sheet_data = add_prefix_to_seller_code(first_sheet_data, "판매자 상품코드", "SP-")
+        first_sheet_data = add_prefix_to_seller_code(first_sheet_data, "판매자 상품코드", "SP-") 
 
         # ✅ "상품명" 필터링 적용
         first_sheet_data = filter_words_in_product_name(first_sheet_data, "상품명", remove_words)

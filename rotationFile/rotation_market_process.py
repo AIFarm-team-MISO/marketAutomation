@@ -4,7 +4,7 @@ from rotationFile.rotation_excel_edit_util import clear_column_data, add_prefix_
 from rotationFile.rotation_excel_edit_util import update_column_to_9999, adjust_column_by_percentage, swap_image_column, clear_image_columns, replace_base_url, shuffle_keywords_in_column, fill_column_with_value,sort_and_limit_rows_by_column, fill_columns_allwaysonly
 from config.settings import FILTER_KEYWORDS, FILTER_UNIT_KEYWORDS, FILTER_PRODUCT_CODE, FILTER_11_KEYWORDS, FILTER_11_PRODUCT_CODE, FILTER_BLAND_KEYWORDS
 from rotationFile.rotation_excel_edit_util import remove_empty_rows,remove_food_category_rows, remove_duplicate_rows
-from rotationFile.rotation_excel_edit_util import remove_options_rows, clean_search_keywords, update_column_value
+from rotationFile.rotation_excel_edit_util import remove_options_rows, clean_search_keywords, update_column_value, update_column_brand
 
 columns_to_update = ["목록 이미지*", "이미지1(대표/기본이미지)*", "이미지2", "이미지3", "이미지4", "이미지5"]
 
@@ -44,14 +44,17 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
 
             if market_name == "네스쳐GT" or market_name == "네스쳐GK" :
                 modify_count = update_column_to_9999(modify_sellercode, "수량*")                   # 수량변경
-                modify_price = adjust_column_by_percentage(modify_count, "판매가*", 20, "인하")      # 판매가변경
+                modify_price = adjust_column_by_percentage(modify_count, "판매가*", 5, "인하")      # 판매가변경
                 processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지5')
                 processed_sheet_data = shuffle_keywords_in_column(processed_sheet_data, '상품명*')
-            else:
-                modify_count = update_column_to_9999(modify_sellercode, "수량*")                   # 수량변경
-                modify_price = adjust_column_by_percentage(modify_count, "판매가*", 15, "인하")      # 판매가변경
-                processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지2')
-                processed_sheet_data = shuffle_keywords_in_column(processed_sheet_data, '상품명*')
+                processed_sheet_data = update_column_brand(processed_sheet_data, '브랜드', '(주)트리') # 브랜드입력
+                
+            # else:
+            #     modify_count = update_column_to_9999(modify_sellercode, "수량*")                   # 수량변경
+            #     modify_price = adjust_column_by_percentage(modify_count, "판매가*", 5, "인하")      # 판매가변경
+            #     processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지2')
+            #     processed_sheet_data = shuffle_keywords_in_column(processed_sheet_data, '상품명*')
+            #     processed_sheet_data = update_column_brand(processed_sheet_data, '브랜드', '(주)트리')# 브랜드입력
 
 
 
