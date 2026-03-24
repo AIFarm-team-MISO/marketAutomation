@@ -238,47 +238,38 @@ def round_to_nearest_ten(value):
 
 def apply_discount(df):
     """
-    엑셀 컬럼 식별을 위한 통합 컬럼 조회 함수
+        DataFrame 컬럼을 안전하게 찾기 위한 함수.
 
-    이 함수는 DataFrame에서 컬럼을 조회할 때 발생하는 다양한 문제를 해결하기 위해 설계됨.
+        이 함수는 엑셀 파일의 컬럼 순서가 변경되거나,
+        중간에 새로운 컬럼이 추가되는 경우에도
+        기존 코드가 깨지지 않도록 컬럼 위치(A, B, C ...) 대신
+        컬럼명 기준으로 컬럼을 조회하기 위해 사용한다.
 
-    [지원 기능]
-    1. 실제 컬럼명으로 조회
-    - df.columns에 존재하는 컬럼명을 그대로 입력하면 해당 컬럼명을 반환
+        또한, 엑셀 컬럼명에 포함될 수 있는 줄바꿈(\n), 탭(\t), 특수공백 등의 차이로 인해
+        같아 보이는 컬럼명을 찾지 못하는 문제를 방지하기 위해,
+        입력값과 실제 df.columns를 동일한 규칙으로 정규화하여 비교한다.
 
-    2. 개행/공백/특수문자 차이 무시
-    - 엑셀에서 컬럼명이 줄바꿈(\n), 탭(\t), 특수공백(\xa0) 등으로 구성된 경우에도
-        사용자는 공백 기준으로 입력하면 정상적으로 매칭됨
-    - 예:
-        "즉시할인 값\n(기본할인)" → "즉시할인 값 (기본할인)" 로 입력 가능
+        지원 기능:
+        1. 실제 컬럼명으로 조회
+        2. 줄바꿈/공백 차이가 있는 컬럼명도 정규화 후 조회
+        3. 기존 호환을 위한 AZ 형식(A, B, C ...) 조회 지원
 
-    3. AZ 형식 컬럼 지원
-    - "A", "B", "AA" 등 엑셀 컬럼 문자로도 접근 가능
-    - excel_mapping을 통해 실제 컬럼명으로 변환
+        동작 순서:
+        1. 입력 key가 실제 컬럼명과 정확히 일치하면 바로 반환
+        2. 일치하지 않으면 key와 df.columns를 정규화하여 비교
+        3. 정규화 후 일치하는 컬럼이 있으면 실제 원본 컬럼명 반환
+        4. AZ 형식이면 excel_mapping을 사용해 실제 컬럼명 반환
+        5. 찾지 못하면 에러 발생
 
-    [동작 방식]
-    1. 입력 key가 df.columns에 정확히 존재하면 그대로 반환
-    2. 존재하지 않으면, key와 df.columns를 동일한 규칙으로 정규화 후 비교
-    - 줄바꿈, 탭, 특수공백 제거
-    - 연속 공백을 1칸으로 통일
-    3. 정규화된 값 기준으로 일치하는 컬럼이 있으면 해당 원본 컬럼명 반환
-    4. AZ 형식인 경우 excel_mapping을 사용하여 컬럼명 반환
-    5. 모든 조건에서 찾지 못하면 에러 발생 + 유사 컬럼 후보 출력
+        주의:
+        - 반환값은 항상 df.columns에 실제로 존재하는 원본 컬럼명이다.
+        - 따라서 반환값은 바로 df[컬럼명] 형태로 사용할 수 있다.
+        - 정규화 후 동일한 이름의 컬럼이 여러 개가 되면 예외가 발생할 수 있다.
 
-    [주의사항]
-    - 정규화 후 동일한 컬럼명이 2개 이상 존재할 경우 예외 발생
-    - 반환값은 항상 "원본 df.columns의 실제 컬럼명"이므로
-    이후 df[컬럼명] 접근 시 그대로 사용 가능
-
-    [사용 예시]
-    get_column_by_excel_letter(df, "상품명")
-    get_column_by_excel_letter(df, "즉시할인 값 (기본할인)")
-    get_column_by_excel_letter(df, "A")
-
-    :param df: pandas DataFrame
-    :param key: 엑셀 컬럼 문자(A, B, C...) 또는 실제 컬럼명 (공백 기준 입력 권장)
-    :param excel_mapping: AZ 형식 컬럼 매핑 딕셔너리 (None일 경우 내부 생성)
-    :return: df.columns에 존재하는 실제 컬럼명 (문자열)
+        :param df: pandas DataFrame
+        :param key: 찾고자 하는 컬럼명 또는 엑셀 컬럼 문자(A, B, C ...)
+        :param excel_mapping: 엑셀 컬럼 문자와 실제 컬럼명을 매핑한 딕셔너리
+        :return: DataFrame의 실제 컬럼명
     """
     try:
         # ✅ AZ 컬럼 매핑 가져오기
@@ -434,26 +425,36 @@ def update_mapping_colums(df):
 
     :param df: DataFrame (엑셀 데이터)
     :return: 포인트 관련 컬럼이 변경된 데이터프레임
+
+    상품구매시 포인트 지급 값
+    상품구매시 포인트 지급 단위
+    텍스트리뷰 작성시 지급 포인트
+    포토/동영상 리뷰 작성시 지급 포인트
+    한달사용 텍스트리뷰 작성시 지급 포인트
+    한달사용 포토/동영상리뷰 작성시 지급 포인트
+    무이자 할부 개월
+    사은품
+
     """
 
     # ✅ 내부 변수 설정
     new_point = 50                    # 구매시 포인트 지급 값
 
-    point_value_column_letter = "BL"  # 포인트 지급 값이 들어있는 열 (BK)
-    point_unit_column_letter = "BM"   # 포인트 지급 단위가 들어있는 열 (BL)
+    point_value_column_letter = "상품구매시 포인트 지급 값"  # 포인트 지급 값이 들어있는 열 (BK)
+    point_unit_column_letter = "상품구매시 포인트 지급 단위"   # 포인트 지급 단위가 들어있는 열 (BL)
 
-    text_point_column_letter = "BN"   # 텍스트 포인트 지급 열
-    video_point_column_letter = "BO"   # 동영상 포인트 지급 열
+    text_point_column_letter = "텍스트리뷰 작성시 지급 포인트"   # 텍스트 포인트 지급 열
+    video_point_column_letter = "포토/동영상 리뷰 작성시 지급 포인트"   # 동영상 포인트 지급 열
 
     price_column_letter = "판매가"         # 판매가가 들어있는 열 (F)
     default_point_unit = "원"          # 기본 포인트 단위는 "원"
 
-    month_text_point_column_letter = "BP"   # 한달 텍스트리뷰
-    month_video_point_column_letter = "BQ"  # 한달 동영상리뷰
-    member_point_column_letter = "BR"       # 알림동의 회원 리뷰
+    month_text_point_column_letter = "한달사용 텍스트리뷰 작성시 지급 포인트"   # 한달 텍스트리뷰
+    month_video_point_column_letter = "한달사용 포토/동영상리뷰 작성시 지급 포인트"  # 한달 동영상리뷰
+    member_point_column_letter = "알림받기동의 고객 리뷰 작성 시 지급 포인트"       # 알림동의 회원 리뷰
 
-    muiza_column_letter = "BS"         # 무이자할부 열
-    freething_column_letter = "BT"     # 사은품 열
+    muiza_column_letter = "무이자 할부 개월"         # 무이자할부 열
+    freething_column_letter = "사은품"     # 사은품 열
 
     as_templet1_column_letter = "A/S 전화번호"     # A/S 템플릿 열 
     as_templet2_column_letter = "A/S 안내"         # A/S 안내
