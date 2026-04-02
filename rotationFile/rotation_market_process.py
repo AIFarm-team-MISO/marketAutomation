@@ -49,12 +49,12 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
                 processed_sheet_data = shuffle_keywords_in_column(processed_sheet_data, '상품명*')
                 processed_sheet_data = update_column_brand(processed_sheet_data, '브랜드', '(주)트리') # 브랜드입력
                 
-            # else:
-            #     modify_count = update_column_to_9999(modify_sellercode, "수량*")                   # 수량변경
-            #     modify_price = adjust_column_by_percentage(modify_count, "판매가*", 5, "인하")      # 판매가변경
-            #     processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지2')
-            #     processed_sheet_data = shuffle_keywords_in_column(processed_sheet_data, '상품명*')
-            #     processed_sheet_data = update_column_brand(processed_sheet_data, '브랜드', '(주)트리')# 브랜드입력
+            elif market_name == "메인":
+                modify_count = update_column_to_9999(modify_sellercode, "수량*")                   # 수량변경
+                modify_price = adjust_column_by_percentage(modify_count, "판매가*", 1, "인하")      # 판매가변경
+                processed_sheet_data = swap_image_column(modify_price, '목록 이미지*', '이미지2')
+                processed_sheet_data = shuffle_keywords_in_column(processed_sheet_data, '상품명*')
+                processed_sheet_data = update_column_brand(processed_sheet_data, '브랜드', '(주)트리')# 브랜드입력
 
 
 
