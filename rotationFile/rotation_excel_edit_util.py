@@ -436,8 +436,119 @@ def input_fixed_values(dataframe, column_value_dict):
 
     
   
+def normalize_category_number(value):
+    """
+    카테고리 번호 비교용 정규화 함수
 
+    예:
+    450105000      -> "450105000"
+    "450105000"    -> "450105000"
+    450105000.0    -> "450105000"
+    "450105000.0"  -> "450105000"
+    NaN            -> ""
+    """
+    if pd.isna(value):
+        return ""
 
+    value = str(value).strip()
+
+    # 엑셀에서 float 형태로 읽힌 450105000.0 처리
+    value = re.sub(r"\.0$", "", value)
+
+    return value
+
+from config.settings import YANGMAL_CATEGORIES_NUMBERS
+def filter_yangmal_category_rows(dataframe, column_name):
+    """
+    카테고리 번호가 양말 카테고리인 행만 남기는 함수
+
+    :param dataframe: 데이터프레임
+    :param column_name: 기준 열 이름
+    :return: 수정된 데이터프레임, 삭제된 행 수
+    """
+    try:
+        initial_count = len(dataframe)
+
+        # 양말 카테고리 번호를 문자열 기준으로 정규화
+        yangmal_categories = {
+            normalize_category_number(category)
+            for category in YANGMAL_CATEGORIES_NUMBERS
+        }
+
+        # 데이터프레임의 카테고리 번호도 문자열 기준으로 정규화
+        category_series = dataframe[column_name].apply(normalize_category_number)
+
+        # 양말 카테고리 매칭
+        mask = category_series.isin(yangmal_categories)
+
+        matched_count = int(mask.sum())
+        removed_count = initial_count - matched_count
+
+        matched_categories = sorted(set(category_series[mask]))
+
+        logger.log(
+            f"{column_name} 열 전체 행 수: {initial_count}개",
+            level="INFO",
+            also_to_report=True,
+            separator="none"
+        )
+
+        logger.log(
+            f"양말 카테고리 매칭 행 수: {matched_count}개",
+            level="INFO",
+            also_to_report=True,
+            separator="none"
+        )
+
+        logger.log(
+            f"실제 매칭된 양말 카테고리: {matched_categories}",
+            level="INFO",
+            also_to_report=True,
+            separator="none"
+        )
+
+        # 매칭 0개일 때 전체 삭제 방지
+        if matched_count == 0:
+            logger.log(
+                "⚠️ 양말 카테고리 매칭 행이 0개입니다. 전체 삭제 방지를 위해 필터를 중단합니다.",
+                level="WARNING",
+                also_to_report=True,
+                separator="none"
+            )
+
+            logger.log(
+                f"현재 데이터 카테고리 샘플: {list(category_series.dropna().unique()[:100])}",
+                level="WARNING",
+                also_to_report=True,
+                separator="none"
+            )
+
+            logger.log(
+                f"양말 기준 카테고리 샘플: {sorted(list(yangmal_categories))[:100]}",
+                level="WARNING",
+                also_to_report=True,
+                separator="none"
+            )
+
+            return dataframe, 0
+
+        # 양말 카테고리만 남김
+        dataframe = dataframe[mask].copy()
+
+        logger.log(
+            f"{column_name} 열에서 양말 카테고리가 아닌 {removed_count}개의 행이 삭제되었습니다. "
+            f"남은 행 수: {len(dataframe)}개",
+            level="INFO",
+            also_to_report=True,
+            separator="none"
+        )
+
+        return dataframe, removed_count
+
+    except Exception as e:
+        raise ValueError(
+            f"{column_name} 열에서 양말 카테고리 행만 남기는 중 문제가 발생했습니다: {e}"
+        )
 
 
 from config.settings import FOOD_CATEGORIES_NUMBERS

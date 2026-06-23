@@ -72,6 +72,22 @@ def filter_words_in_product_name(df, column_name="상품명", remove_words=None)
 
 def add_prefix_to_seller_code(df, column_name, prefix, skip_prefixes=None):
     """
+    
+    판매자 상품코드 접두사 추가 함수
+
+    prefix == 'SP-'  : 기존 일반상품 방식
+    prefix == 'GSP-' : 그룹상품용 새 방식
+
+    - 그룹상품용 새방식인 경우
+    
+    
+    :param df: pandas.DataFrame
+    :param column_name: 접두사를 붙일 열 이름
+    :param prefix: 새로 붙일 접두사 (예: 'SP-', 'GSP-')
+    :param skip_prefixes: 제외할 접두사 리스트
+    :return: 접두사가 적용된 데이터프레임
+    
+    - 기존의 방식인 경우
     접두사를 붙이되, 특정 접두사들(SP-, SPG-, SR- 등)이 이미 있는 경우는 제외.
     
     :param df: pandas.DataFrame
@@ -79,22 +95,83 @@ def add_prefix_to_seller_code(df, column_name, prefix, skip_prefixes=None):
     :param prefix: 새로 붙일 접두사 (예: 'SP-')
     :param skip_prefixes: 제외할 접두사 리스트 (예: ['SP-', 'SPG-', 'SR-'])
     :return: 접두사가 적용된 데이터프레임
+
+
+
     """
     try:
+
+        logger.log(f"판매자 상품코드 접두사 처리 시작 / column_name: {column_name}, prefix: {prefix}",level="INFO",also_to_report=True,separator="dash-1line")
+                
         if skip_prefixes is None:
             skip_prefixes = ['SP-', 'SPG-', 'SR-', 'SPSP-']
 
         if column_name not in df.columns:
             raise ValueError(f"❌ '{column_name}' 열이 존재하지 않습니다.")
+        
 
-        def add_if_not_prefixed(value):
-            value_str = str(value).strip()
-            for skip in skip_prefixes:
-                if value_str.startswith(skip):
+        # ✅ 1. 기존 일반상품 방식
+        if prefix == "SP-":
+
+            def add_if_not_prefixed(value):
+                value_str = str(value).strip()
+
+                # 빈값 / nan 방어
+                if value_str == "" or value_str.lower() == "nan":
                     return value_str
-            return prefix + value_str
 
-        df[column_name] = df[column_name].apply(add_if_not_prefixed)
+                # 보이지 않는 BOM 제거
+                value_str = value_str.replace("\ufeff", "")
+
+                # ✅ 잘못 중복된 접두사 보정
+                if value_str.startswith("SPSP-"):
+                    return "SP-" + value_str[len("SPSP-"):]
+
+                if value_str.startswith("SP-SP-"):
+                    return "SP-" + value_str[len("SP-SP-"):]
+
+                # ✅ 이미 정상 접두사가 있으면 그대로 유지
+                skip_prefixes = ['SPG-', 'SP-', 'SR-', 'GSP-']
+
+                for skip in skip_prefixes:
+                    if value_str.startswith(skip):
+                        return value_str
+
+                return prefix + value_str
+
+            df[column_name] = df[column_name].apply(add_if_not_prefixed)
+
+            logger.log(
+                f"✅ '{column_name}' 열에 기존상품 접두사 '{prefix}' 조건부 추가 완료",
+                level="INFO",
+                also_to_report=True
+            )
+
+        # ✅ 2. 그룹상품용 새 방식
+        elif prefix == "GSP-":
+            
+            def add_group_prefix(value):
+                value_str = str(value).strip()
+
+                # 빈값 / nan 방어
+                if value_str == "" or value_str.lower() == "nan":
+                    return value_str
+
+                # 이미 GSP-면 그대로 유지
+                if value_str.startswith("GSP-"):
+                    return value_str
+
+                # ✅ 앞쪽에 접두사 형태가 있으면 첫 번째 하이픈까지 제거
+                if "-" in value_str:
+                    value_str = value_str.split("-", 1)[1]
+
+                return "GSP-" + value_str
+
+            df[column_name] = df[column_name].apply(add_group_prefix)
+
+            logger.log(f"✅ '{column_name}' 열에 그룹상품 접두사 '{prefix}' 변환 완료",level="INFO",also_to_report=True)
+
+
 
         logger.log(f"✅ '{column_name}' 열에 접두사 '{prefix}' 조건부 추가 완료 (기존 접두사는 제외됨)", level="INFO")
         return df
@@ -238,38 +315,53 @@ def round_to_nearest_ten(value):
 
 def apply_discount(df):
     """
-        DataFrame 컬럼을 안전하게 찾기 위한 함수.
+    DataFrame 컬럼을 안전하게 찾고, 판매가/할인 관련 컬럼을 기준으로 가격설정을 적용하는 함수.
 
-        이 함수는 엑셀 파일의 컬럼 순서가 변경되거나,
-        중간에 새로운 컬럼이 추가되는 경우에도
-        기존 코드가 깨지지 않도록 컬럼 위치(A, B, C ...) 대신
-        컬럼명 기준으로 컬럼을 조회하기 위해 사용한다.
+    이 함수는 엑셀 파일의 컬럼 순서가 변경되거나,
+    중간에 새로운 컬럼이 추가되는 경우에도
+    기존 코드가 깨지지 않도록 컬럼 위치(A, B, C ...) 대신
+    컬럼명 기준으로 컬럼을 조회하기 위해 사용한다.
 
-        또한, 엑셀 컬럼명에 포함될 수 있는 줄바꿈(\n), 탭(\t), 특수공백 등의 차이로 인해
-        같아 보이는 컬럼명을 찾지 못하는 문제를 방지하기 위해,
-        입력값과 실제 df.columns를 동일한 규칙으로 정규화하여 비교한다.
+    또한, 엑셀 컬럼명에 포함될 수 있는 줄바꿈(\n), 탭(\t), 특수공백 등의 차이로 인해
+    같아 보이는 컬럼명을 찾지 못하는 문제를 방지하기 위해,
+    입력값과 실제 df.columns를 동일한 규칙으로 정규화하여 비교한다.
 
-        지원 기능:
-        1. 실제 컬럼명으로 조회
-        2. 줄바꿈/공백 차이가 있는 컬럼명도 정규화 후 조회
-        3. 기존 호환을 위한 AZ 형식(A, B, C ...) 조회 지원
+    지원 기능:
+    1. 실제 컬럼명으로 조회
+    2. 줄바꿈/공백 차이가 있는 컬럼명도 정규화 후 조회
+    3. 기존 호환을 위한 AZ 형식(A, B, C ...) 조회 지원
+    4. 판매가 컬럼 기준 가격 재계산
+    5. 즉시할인 값 / 즉시할인 단위 자동 입력
+    6. 판매자 상품코드 기준 가격설정 대상 분기
 
-        동작 순서:
-        1. 입력 key가 실제 컬럼명과 정확히 일치하면 바로 반환
-        2. 일치하지 않으면 key와 df.columns를 정규화하여 비교
-        3. 정규화 후 일치하는 컬럼이 있으면 실제 원본 컬럼명 반환
-        4. AZ 형식이면 excel_mapping을 사용해 실제 컬럼명 반환
-        5. 찾지 못하면 에러 발생
+    동작 순서:
+    1. 입력 key가 실제 컬럼명과 정확히 일치하면 바로 반환
+    2. 일치하지 않으면 key와 df.columns를 정규화하여 비교
+    3. 정규화 후 일치하는 컬럼이 있으면 실제 원본 컬럼명 반환
+    4. AZ 형식이면 excel_mapping을 사용해 실제 컬럼명 반환
+    5. 판매가 / 즉시할인 값 / 즉시할인 단위 / 판매자 상품코드 컬럼을 찾음
+    6. 판매가 컬럼을 숫자로 변환
+    7. 판매자 상품코드를 기준으로 가격설정 대상 행을 판별
+    8. SP-, GSP-로 시작하는 상품코드는 기존 가격이 설정된 상품으로 판단하여 가격 저장 대상에서 제외
+    9. 접두사가 없는 상품코드만 가격설정 대상으로 판단
+    10. 전체 행 기준으로 가격 계산은 수행하되, 최종 저장은 가격설정 대상 행에만 적용
+    11. 찾지 못한 필수 컬럼이 있으면 에러 발생
 
-        주의:
-        - 반환값은 항상 df.columns에 실제로 존재하는 원본 컬럼명이다.
-        - 따라서 반환값은 바로 df[컬럼명] 형태로 사용할 수 있다.
-        - 정규화 후 동일한 이름의 컬럼이 여러 개가 되면 예외가 발생할 수 있다.
+    가격설정 분기 기준:
+    - SP-  로 시작하는 판매자 상품코드: 기존상품으로 판단하여 가격 유지
+    - GSP- 로 시작하는 판매자 상품코드: 그룹상품 기존가격으로 판단하여 가격 유지
+    - 접두사가 없는 판매자 상품코드: 신규 또는 재가공 대상 상품으로 판단하여 가격 재설정
 
-        :param df: pandas DataFrame
-        :param key: 찾고자 하는 컬럼명 또는 엑셀 컬럼 문자(A, B, C ...)
-        :param excel_mapping: 엑셀 컬럼 문자와 실제 컬럼명을 매핑한 딕셔너리
-        :return: DataFrame의 실제 컬럼명
+    주의:
+    - 반환값은 항상 df.columns에 실제로 존재하는 원본 컬럼명을 기준으로 처리한다.
+    - 따라서 반환된 컬럼명은 바로 df[컬럼명] 형태로 사용할 수 있다.
+    - 정규화 후 동일한 이름의 컬럼이 여러 개가 되면 예외가 발생할 수 있다.
+    - 현재 가격 계산은 전체 df 기준으로 수행하지만, df에 저장할 때는 price_apply_mask 조건에 해당하는 행만 변경한다.
+    - SP-, GSP- 상품의 기존 판매가, 즉시할인 값, 즉시할인 단위는 유지된다.
+    - 접두사 없는 상품만 판매가, 즉시할인 값, 즉시할인 단위가 새로 저장된다.
+
+    :param df: pandas DataFrame
+    :return: 가격설정 조건이 적용된 pandas DataFrame
     """
     try:
         # ✅ AZ 컬럼 매핑 가져오기
@@ -279,6 +371,7 @@ def apply_discount(df):
         price_column = get_column_by_excel_letter(df, "판매가", excel_mapping)
         discount_value_column = get_column_by_excel_letter(df, "즉시할인 값 (기본할인)", excel_mapping)
         discount_unit_column = get_column_by_excel_letter(df, "즉시할인 단위 (기본할인)", excel_mapping)
+        seller_code_column = get_column_by_excel_letter(df, "판매자 상품코드", excel_mapping)
 
         logger.log(f"price_column : {price_column}", level="DEBUG")
         logger.log(f"discount_value_column : {discount_value_column}", level="DEBUG")
@@ -287,6 +380,16 @@ def apply_discount(df):
         # ✅ "판매가" 열을 숫자로 변환 후 원래 값 저장
         df["_original_price"] = df[price_column].astype(str)  
         numeric_price = pd.to_numeric(df[price_column], errors='coerce').fillna(0)
+
+        seller_code_series = df[seller_code_column].astype(str).str.strip()
+
+        # ✅ SP-, GSP-로 시작하지 않는 행만 가격설정 대상
+        price_apply_mask = ~seller_code_series.str.startswith(("SP-", "GSP-"))
+        logger.log(
+            f"가격설정 대상 행 수: {price_apply_mask.sum()} / 전체 {len(df)}",
+            level="INFO",
+            also_to_report=True
+        )
 
 
         # ✅ 가격대별 마진율을 적용한 새로운 기준 가격 계산
@@ -307,14 +410,14 @@ def apply_discount(df):
         discounted_price = discounted_price.apply(round_to_nearest_ten)
         discount_amount = discount_amount.apply(round_to_nearest_ten)
 
-        # ✅ 즉시할인 값 저장
-        df[discount_value_column] = discount_amount
+        
+        # # ✅ 즉시할인 값 저장
+        df.loc[price_apply_mask, discount_value_column] = discount_amount.loc[price_apply_mask]
+        # # ✅ 즉시할인 단위는 "원"으로 설정
+        df.loc[price_apply_mask, discount_unit_column] = "원"
+        # # ✅ 숫자로 변환한 값 → 다시 문자열로 복원
+        df.loc[price_apply_mask, price_column] = discounted_price.loc[price_apply_mask].astype(str)
 
-        # ✅ 즉시할인 단위는 "원"으로 설정
-        df[discount_unit_column] = "원"
-
-        # ✅ 숫자로 변환한 값 → 다시 문자열로 복원
-        df[price_column] = discounted_price.astype(str)
 
         # ✅ 최종 판매가격 = 할인 후 가격 (반올림 적용됨)
         final_price = discounted_price - discount_amount
@@ -735,7 +838,7 @@ def update_additional_images_column(df, thumbnail_column="대표이미지", addi
 
 
 
-def change_product_excel(first_sheet_data, output_file_path):
+def change_product_excel(first_sheet_data, output_file_path, optimize_mode):
     """
     상품 데이터에 여러 가지 필터를 적용하는 함수.
 
@@ -745,20 +848,74 @@ def change_product_excel(first_sheet_data, output_file_path):
     (추후 다른 필터 기능 추가 예정)
 
     :param first_sheet_data: 첫 번째 시트의 데이터프레임
+    :output_file_path : 출력 경로
+    :optimize_mode : 선택된 모드
+        GROUP_PRODUCT
+        NORMAL_PRODUCT
     :return: 변경된 데이터프레임
+
     """
+    # 최적화 모드 상수
     remove_words = ["한정", "할인"] 
+
+    mode_config = {
+        "GROUP_PRODUCT": {
+            "mode_name": "그룹상품 최적화",
+            "seller_code_prefix": "GSP-",
+            "is_group_product_mode": True,
+        },
+        "NORMAL_PRODUCT": {
+            "mode_name": "기존상품 최적화",
+            "seller_code_prefix": "SP-",
+            "is_group_product_mode": False,
+        },
+        "ETC": {
+            "mode_name": "기타",
+            "seller_code_prefix": "",
+            "is_group_product_mode": False,
+        },
+    }
+
+    if optimize_mode not in mode_config:
+        raise ValueError(f"지원하지 않는 optimize_mode 입니다: {optimize_mode}")
+
+    config = mode_config[optimize_mode]
+
+    logger.log(
+        f" ✅ 최적화 실행 모드: {config['mode_name']}",
+        level="INFO",
+        also_to_report=True,
+        separator="dash-2line"
+    )
+
+    # 이후 모드에 따른 내용이 추가될때 사용
+    is_group_product_mode = config["is_group_product_mode"]
+    seller_code_prefix = config["seller_code_prefix"]
+
+    logger.log(
+        f"판매자 상품코드 접두사 설정: {seller_code_prefix if seller_code_prefix else '없음'}",
+        level="INFO",
+        also_to_report=True
+    )
 
 
     try:
+
+        # TODO: 처리
+        # - 할인가격 적용을 접두사 앞쪽에 두어 SP- 일때는 할인설정 안되도록 셋팅 
+        # - 모드 중 하나의 선택지에 판매코드에 그룹상품코드를 엑셀에 붙여넣을수 있도록 출력할수 있게 PRINT로만 해서 출력하게 해서 만들자
+        
+        # ✅ 할인가격 적용
+        first_sheet_data = apply_discount(first_sheet_data)
+        
         # ✅ "판매자 상품코드" 접두사 추가 함수 호출
-        first_sheet_data = add_prefix_to_seller_code(first_sheet_data, "판매자 상품코드", "SP-") 
+        if seller_code_prefix:
+            first_sheet_data = add_prefix_to_seller_code(first_sheet_data, "판매자 상품코드", seller_code_prefix)
+
 
         # ✅ "상품명" 필터링 적용
         first_sheet_data = filter_words_in_product_name(first_sheet_data, "상품명", remove_words)
 
-        # ✅ 할인가격 적용
-        first_sheet_data = apply_discount(first_sheet_data)
 
         # ✅ 제조일자 변경 
         today_str = datetime.today().strftime("%Y-%m-%d")
@@ -779,7 +936,7 @@ def change_product_excel(first_sheet_data, output_file_path):
         download_images_per_product(
             df=first_sheet_data,
             output_file_path=output_file_path,
-            subfolder_name="오늘담음/3엠이전팔린거"
+            subfolder_name="원스톱리빙/그룹핑상품/3엠"
         )
 
         
@@ -797,11 +954,53 @@ def change_product_excel(first_sheet_data, output_file_path):
 
 
 
+def select_optimize_product_mode():
+    """
+    상품 최적화 작업 모드 선택 함수
+
+    0. 그룹상품 최적화
+    1. 기존상품 최적화
+    2. 기타
+    """
+
+    choices = {
+        "0": "그룹상품 최적화",
+        "1": "기존상품 최적화",
+        "2": "기타",
+    }
+
+    logger.log_choices(
+        choices,
+        message="상품 최적화 ",
+        also_to_report=True,
+        separator="2line"
+    )
+
+    
+    selected_mode = input("작업 번호 선택 [0=기본(엔터), 1, 2]: ").strip() or "0"
+
+    if selected_mode in choices:
+        logger.log(
+            f"선택된 작업 모드: {selected_mode}. {choices[selected_mode]}",
+            level="INFO",
+            also_to_report=True,
+            separator="dash-2line"
+        )
+        return selected_mode
+
+    logger.log(
+        f"잘못된 선택값입니다: {selected_mode} / 0, 1, 2 중에서 선택하세요.",
+        level="WARNING",
+        also_to_report=True
+    )
 
 def make_optimize_product_excel(file_path, base_file_name):
 
     # 리포트 파일명 생성
     logger.prepend_report_file_name(base_file_name)
+
+    # ✅ 작업 모드 선택
+    selected_mode = select_optimize_product_mode()
 
     # 읽을 파일경로 출력 파일 이름 설정
     excel_file_path = make_input_file_path(file_path, base_file_name)
@@ -820,9 +1019,42 @@ def make_optimize_product_excel(file_path, base_file_name):
     # ✅ 1. 첫 번째 행을 보관하면서 첫 번째 시트 데이터 가져오기
     first_sheet_name, first_row_values, first_sheet_data = get_naver_modified_excel(sheets)
 
-    # 마켓별 초기설정
-    processed_sheet_data = change_product_excel(first_sheet_data, output_file_path)
+
+    # ✅ 작업 모드 선택 (선택 모드별 분기)
+    OPTIMIZE_MODE_GROUP_PRODUCT = "GROUP_PRODUCT"
+    OPTIMIZE_MODE_NORMAL_PRODUCT = "NORMAL_PRODUCT"
+    OPTIMIZE_MODE_ETC = "ETC"
+
+    if selected_mode == "0":
+        logger.log("그룹상품 최적화 모드 실행", level="INFO", also_to_report=True)
+
+        # 마켓별 초기설정
+        processed_sheet_data = change_product_excel(first_sheet_data, output_file_path, optimize_mode = OPTIMIZE_MODE_GROUP_PRODUCT)
+        
+
+        # TODO: 그룹상품용 처리
+        # - 
+        # - 그룹상품명 기준
+        # - 옵션명 제거
+        # - 색상/사이즈/수량 옵션 분리
+        # - 그룹 작업용 컬럼 추가
+        # - 대표상품 기준 처리
+
+    elif selected_mode == "1":
+        logger.log("기존상품 최적화 모드 실행", level="INFO", also_to_report=True)
 
 
+        # 마켓별 초기설정
+        processed_sheet_data = change_product_excel(first_sheet_data, output_file_path,optimize_mode = OPTIMIZE_MODE_NORMAL_PRODUCT)
+
+        
+    elif selected_mode == "2":
+        logger.log("기타 모드 실행", level="INFO", also_to_report=True)
+        # TODO: 기타 본문 작성 예정
+        processed_sheet_data = first_sheet_data
+    
+    
     # 📄 **엑셀 파일 저장 (모든 시트 포함)**
     save_excel_modified_naver_xlsx(sheets, output_file_path, first_row_values, processed_sheet_data, first_sheet_name)
+
+

@@ -3,7 +3,7 @@ from utils.global_logger import logger
 from rotationFile.rotation_excel_edit_util import clear_column_data, add_prefix_to_column, remove_adult_category_rows, convert_http_to_https, convert_column_str,filter_product_name, filter_product_code, filter_forbid_product
 from rotationFile.rotation_excel_edit_util import update_column_to_9999, adjust_column_by_percentage, swap_image_column, clear_image_columns, replace_base_url, shuffle_keywords_in_column, fill_column_with_value,sort_and_limit_rows_by_column, fill_columns_allwaysonly
 from config.settings import FILTER_KEYWORDS, FILTER_UNIT_KEYWORDS, FILTER_PRODUCT_CODE, FILTER_11_KEYWORDS, FILTER_11_PRODUCT_CODE, FILTER_BLAND_KEYWORDS
-from rotationFile.rotation_excel_edit_util import remove_empty_rows,remove_food_category_rows, remove_duplicate_rows
+from rotationFile.rotation_excel_edit_util import remove_empty_rows,remove_food_category_rows, remove_duplicate_rows, filter_yangmal_category_rows
 from rotationFile.rotation_excel_edit_util import remove_options_rows, clean_search_keywords, update_column_value, update_column_brand
 
 columns_to_update = ["목록 이미지*", "이미지1(대표/기본이미지)*", "이미지2", "이미지3", "이미지4", "이미지5"]
@@ -23,7 +23,12 @@ def market_process(first_sheet_data, market_platform, market_name, dome_name):
     if market_platform == "네이버":
         if market_name == "파타르시스" and dome_name == "3MRO":
             # 3엠 우선판매의 경우 인증정보을 모두지움
-            forbid_df_code = clear_column_data(fitered_df, "인증정보")
+            fitered_df = clear_column_data(fitered_df, "인증정보")
+
+        if market_name == "네스쳐" and dome_name == "신우":
+            # 양말 카테고리만 남기기 
+            fitered_df, removed_count = filter_yangmal_category_rows(fitered_df, "카테고리 번호*")
+            # logger.log(f"!!삭제된 갯수 : {removed_count}, 마켓명 : {market_name}, 도매처 : {dome_name} ", also_to_report=True, separator="none")
 
 
         if dome_name == "도매토피아":
@@ -214,9 +219,6 @@ godo_market_config = {
     ("고도몰", "파타르시스", "3MR-생건"): {
         "option_remove" : True
     }
-   
-
-    
     ,
     ("고도몰", "블루채널", "파라브러"): {
         "option_remove" : True

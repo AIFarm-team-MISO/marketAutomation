@@ -1,45 +1,90 @@
-# driver_init.py
-from selenium.webdriver.common.by import By
+import os
+import sys
+
+PROJECT_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..")
+)
+
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from config.settings import CHROME_DRIVER_PATH
 from webdriver_manager.chrome import ChromeDriverManager
 
-def setup_driver():
-    # Chrome 옵션 설정
+from config.web_automation_settings import CHROME_PROFILE_ROOT, CHROME_OPTIONS
+
+
+def setup_driver(profile_name=None, download_dir=None):
+    """
+    Selenium Chrome Driver 생성 함수
+    """
+
+    if download_dir is None:
+        download_dir = CHROME_OPTIONS.get("download_dir", r"C:\download")
+
+    os.makedirs(download_dir, exist_ok=True)
+
     chrome_options = webdriver.ChromeOptions()
-    
-    # 브라우저 창을 최대화
-    chrome_options.add_argument("--start-maximized")
 
-    # 브라우저 로깅을 활성화
-    chrome_options.add_argument("--enable-logging")
-    chrome_options.add_argument("--v=1")
-    chrome_options.add_argument("--disable-gpu")  # GPU 가속 끄기
+    # 브라우저 창 크기 설정
+    if CHROME_OPTIONS.get("start_maximized"):
+        chrome_options.add_argument("--start-maximized")
+    else:
+        window_width = CHROME_OPTIONS["window_width"]
+        window_height = CHROME_OPTIONS["window_height"]
+        window_x = CHROME_OPTIONS.get("window_position_x", 0)
+        window_y = CHROME_OPTIONS.get("window_position_y", 0)
 
-    #"download.default_directory": r"f:\work\쇼핑몰\대량등록\상품순환 엑셀파일\상품순환필터링",  # 원하는 다운로드 경로
-    
-    # # 팝업 차단 해제 및 안전하지 않은 다운로드 허용 설정
+        chrome_options.add_argument(f"--window-size={window_width},{window_height}")
+        chrome_options.add_argument(f"--window-position={window_x},{window_y}")
+
+    if CHROME_OPTIONS.get("enable_logging", True):
+        chrome_options.add_argument("--enable-logging")
+        chrome_options.add_argument("--v=1")
+
+    if CHROME_OPTIONS.get("disable_gpu", True):
+        chrome_options.add_argument("--disable-gpu")
+
+    if CHROME_OPTIONS.get("allow_running_insecure_content", True):
+        chrome_options.add_argument("--allow-running-insecure-content")
+
+    if CHROME_OPTIONS.get("disable_automation_controlled", True):
+        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+
+    if CHROME_OPTIONS.get("headless", False):
+        chrome_options.add_argument("--headless=new")
+
+    if profile_name and CHROME_OPTIONS.get("use_chrome_profile", True):
+        profile_root = os.path.join(CHROME_PROFILE_ROOT, profile_name)
+        os.makedirs(profile_root, exist_ok=True)
+        chrome_options.add_argument(f"--user-data-dir={profile_root}")
+
     prefs = {
         "profile.default_content_settings.popups": 0,
-        "download.default_directory": r"C:\download",  # 다운로드 경로
-        "download.prompt_for_download": False,  # 다운로드 시 확인창 비활성화
-        "safebrowsing.enabled": False,  # 안전 브라우징 비활성화
-        "safebrowsing.disable_download_protection": True,  # 다운로드 보호 비활성화
-        "profile.content_settings.exceptions.automatic_downloads.*.setting": 1,  # 자동 다운로드 허용
+        "download.default_directory": download_dir,
+        "download.prompt_for_download": CHROME_OPTIONS.get("download_prompt", False),
+        "safebrowsing.enabled": CHROME_OPTIONS.get("safe_browsing", False),
+        "safebrowsing.disable_download_protection": True,
+        "profile.content_settings.exceptions.automatic_downloads.*.setting": 1,
     }
-    
+
     chrome_options.add_experimental_option("prefs", prefs)
-    
-    # chrome_options.add_argument("--ignore-certificate-errors")
-    chrome_options.add_argument("--allow-running-insecure-content")
 
+    driver = webdriver.Chrome(
+        service=Service(ChromeDriverManager().install()),
+        options=chrome_options,
+    )
 
-    # Headless 모드로 실행하려면 주석 해제
-    # chrome_options.add_argument("--headless")
+    # 브라우저 생성 후 창 크기 강제 적용
+    # 크롬 프로필이 이전 최대화 상태를 기억하는 경우를 방지
+    if not CHROME_OPTIONS.get("start_maximized"):
+        window_width = CHROME_OPTIONS["window_width"]
+        window_height = CHROME_OPTIONS["window_height"]
+        window_x = CHROME_OPTIONS.get("window_position_x", 0)
+        window_y = CHROME_OPTIONS.get("window_position_y", 0)
+        driver.set_window_position(window_x, window_y)
+        driver.set_window_size(window_width, window_height)
 
-    # 크롬 드라이버 초기화
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-    
     return driver

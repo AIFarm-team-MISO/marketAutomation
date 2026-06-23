@@ -156,8 +156,6 @@ def make_rotation_excel(file_path, base_file_name):
         # 마켓별 초기설정
         processed_sheet_data = market_process(first_sheet_data, market_platform, market_name, dome_name)
 
-
-
         # 설정 파일에 따라 작업 생성
         tasks = generate_tasks_from_config(market_config, details_config)
 
