@@ -14,21 +14,6 @@
 - 3MRO 메인페이지 검색창에 상품코드를 입력하고 엔터 검색한다.
 """
 
-import os
-import sys
-
-# -------------------------------------------------
-# 프로젝트 루트 경로 등록
-# -------------------------------------------------
-# 이 파일을 직접 실행하거나 다른 위치에서 import할 때
-# config, utils 같은 프로젝트 내부 모듈을 찾을 수 있게 한다.
-PROJECT_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..")
-)
-
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
 
 # -------------------------------------------------
 # 외부 라이브러리 import

@@ -31,3 +31,17 @@ secrets/
 
 # logs_reports 폴더를 제외하고 다른 모든 로그 파일을 무시
 logs_reports/
+
+
+### web_automation (웹자동화 폴더관련) ###
+
+# Web automation runtime data
+utils/web_automation/web_automation_data/
+
+# Web automation generated result files
+utils/web_automation/wholesale_status_checker/product_status_result.txt
+utils/web_automation/smartstore_review_checker/smartstore_review_result.txt
+
+# Python cache
+__pycache__/
+*.pyc
