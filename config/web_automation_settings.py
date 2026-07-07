@@ -1,5 +1,85 @@
 import os
 
+# ============================================================
+# 스마트스토어 리뷰 필터링 설정
+# ============================================================
+
+SMARTSTORE_REVIEW_ACTIVE_MARKET = "today_dameum"
+# SMARTSTORE_REVIEW_ACTIVE_MARKET = "onestop_living"
+# SMARTSTORE_REVIEW_ACTIVE_MARKET = "onestop_living"
+# SMARTSTORE_REVIEW_ACTIVE_MARKET = "salim_gijun"
+# SMARTSTORE_REVIEW_ACTIVE_MARKET = "pajama_channel"
+# SMARTSTORE_REVIEW_ACTIVE_MARKET = "tool_monster"
+# SMARTSTORE_REVIEW_ACTIVE_MARKET = "nature"
+
+SMARTSTORE_REVIEW_MARKETS = {
+    "onestop_living": {
+        "market_name": "onestop_living",
+        "market_display_name": "원스톱리빙",
+    },
+    "today_dameum": {
+        "market_name": "today_dameum",
+        "market_display_name": "오늘담음",
+    },
+    "salim_gijun": {
+        "market_name": "salim_gijun",
+        "market_display_name": "살림기준",
+    },
+    "pajama_channel": {
+        "market_name": "pajama_channel",
+        "market_display_name": "파자마채널",
+    },
+    "tool_monster": {
+        "market_name": "tool_monster",
+        "market_display_name": "툴몬스터",
+    },
+    "nature": {
+        "market_name": "nature",
+        "market_display_name": "네스쳐",
+    },
+}
+
+
+def get_smartstore_review_market_config(market_key=None):
+    """
+    스마트스토어 리뷰 필터링용 마켓 설정을 반환한다.
+    """
+
+    if market_key is None:
+        market_key = SMARTSTORE_REVIEW_ACTIVE_MARKET
+
+    if market_key not in SMARTSTORE_REVIEW_MARKETS:
+        raise ValueError(
+            f"등록되지 않은 스마트스토어 리뷰 필터링 마켓입니다: {market_key}"
+        )
+
+    return SMARTSTORE_REVIEW_MARKETS[market_key]
+
+
+def get_smartstore_review_market_config(market_key=None):
+    """
+    스마트스토어 리뷰 필터링용 마켓 설정을 반환한다.
+    """
+
+    if market_key is None:
+        market_key = SMARTSTORE_REVIEW_ACTIVE_MARKET
+
+    if market_key not in SMARTSTORE_REVIEW_MARKETS:
+        raise ValueError(
+            f"등록되지 않은 스마트스토어 리뷰 필터링 마켓입니다: {market_key}"
+        )
+
+    return SMARTSTORE_REVIEW_MARKETS[market_key]
+
+# =========================================================
+# 0. 엑셀파일 경로
+# =========================================================
+
+
+REVIEW_PRODUCTS_PATH = (
+    r"F:\work\#쇼핑몰\#대량등록\#상품순환 엑셀파일"
+    r"\6.리뷰필터링파일"
+)
 
 # =========================================================
 # 1. 프로젝트 경로
@@ -166,6 +246,7 @@ COMMON_SELLING_WORDS = [
 SALE_SITES = {
     "3mro": {
         "site_name": "3MRO",
+        
 
         # -------------------------------------------------
         # 기본 URL
@@ -225,6 +306,7 @@ SALE_SITES = {
 
         "download_dir": os.path.join(DEFAULT_DOWNLOAD_DIR, "3mro"),
         "profile_name": "3mro",
+        "headless": True,
 
 
         # -------------------------------------------------
@@ -254,3 +336,4 @@ SALE_SITES = {
 # 이 alias 덕분에 그대로 사용 가능.
 
 WHOLESALE_SITES = SALE_SITES
+

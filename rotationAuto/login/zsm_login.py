@@ -4,7 +4,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from config.settings import LOGIN_URL, MAIN_URL, USERNAME, PASSWORD
+# from config.settings import LOGIN_URL, MAIN_URL, USERNAME, PASSWORD
 from rotationAuto.driver.driver_init import setup_driver
 
 

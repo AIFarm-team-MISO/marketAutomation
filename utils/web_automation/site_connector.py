@@ -330,10 +330,12 @@ def create_web_driver(site_key):
 
     profile_name = site_config.get("profile_name", site_key)
     download_dir = site_config.get("download_dir", None)
+    headless = site_config.get("headless", None)
 
     driver = setup_driver(
         profile_name=profile_name,
         download_dir=download_dir,
+        headless=headless,
     )
 
     return driver

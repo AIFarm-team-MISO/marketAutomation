@@ -2,6 +2,7 @@ from utils.global_logger import logger
 
 from config.settings import EXCEL_IMAGE_FILTER_PATH, CATEGORY_CHECK_EXCEL_PATH, NAMING_EXCEL_PATH, CODE_EXCEL_PATH, EXCEL_FILTER_PATH, EXCEL_SPLIT_PATH,SELLED_PRODUCT_NAVER_PATH
 from config.settings import EXCEL_GODOMOLL_PATH
+from config.web_automation_settings import REVIEW_PRODUCTS_PATH
 # from imageFilter.excel.excel_handler import process_imageFiltering_excel_file #이전 이미지 필터링함수
 from imageFilter.excel.excel_handler_xlsx import process_imageFiltering_excel_file_xlsx
 from rotationAuto.login.zsm_login import login_and_navigate, close_driver
@@ -16,6 +17,7 @@ from rotationFile.rotation_zsm import make_rotation_excel
 from utils.excel.excel_split import split_excel_by_rows
 from rotationFile.godoRotation.rotation_godo import make_rotation_godo
 from selledProduct.optimize_product_naver import make_optimize_product_excel
+from utils.web_automation.smartstore_review_checker.checker_main import smartstore_review_checker
 
 
 
@@ -81,6 +83,8 @@ def execute_process(process_type, process_mapping):
         try:
             # print(f"파일 처리 중: {base_file_name}")  # 현재 처리 중인 파일 출력
             selected_function(file_path, base_file_name, *args, **kwargs)  # 함수 실행 (동적으로 인자 전달)
+
+            logger.log(f"base_file_name: {base_file_name} ", also_to_report=True)  # 개별 파일 처리 오류 출력
         except Exception as e:
             logger.log(f"{file_path} 처리 중 오류 발생: {e}", also_to_report=True)  # 개별 파일 처리 오류 출력
 
@@ -93,7 +97,7 @@ if __name__ == "__main__":
     process_mapping = {
         
         "네이버 팔린거 최적화": {
-            "path": SELLED_PRODUCT_NAVER_PATH,  # 처리할 파일 경로
+            "path": SELLED_PRODUCT_NAVER_PATH,  # 처리할 파일 경로6
             "function": make_optimize_product_excel,  # 실행할 함수
             "args": [],  # 위치 인자
             "kwargs": {}  # 키워드 인자
@@ -140,6 +144,12 @@ if __name__ == "__main__":
             "function": make_rotation_godo,  # 실행할 함수
             "args": [],  # 위치 인자
             "kwargs": {}  # 키워드 인자
+        },
+            "리뷰 필터링 테스트": {
+            "path": REVIEW_PRODUCTS_PATH,  # 처리할 파일 경로
+            "function": smartstore_review_checker,  # 실행할 함수
+            "args": [],  # 위치 인자
+            "kwargs": {}  # 키워드 인자
         }
     }
 
@@ -153,7 +163,8 @@ if __name__ == "__main__":
             "3": "도매토피아 가공",
             "4": "순환 파일 테스트",
             "44": "파일분할 테스트",
-            "5": "고도몰 순환파일"
+            "5": "고도몰 순환파일",
+            "6": "리뷰 필터링 테스트"
         }
 
         # Logger를 사용해 선택지 출력

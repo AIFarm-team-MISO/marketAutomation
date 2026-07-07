@@ -16,7 +16,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from config.web_automation_settings import CHROME_PROFILE_ROOT, CHROME_OPTIONS
 
 
-def setup_driver(profile_name=None, download_dir=None):
+def setup_driver(profile_name=None, download_dir=None, headless=None):
     """
     Selenium Chrome Driver 생성 함수
     """
@@ -27,6 +27,14 @@ def setup_driver(profile_name=None, download_dir=None):
     os.makedirs(download_dir, exist_ok=True)
 
     chrome_options = webdriver.ChromeOptions()
+
+    if headless is None:
+        headless = CHROME_OPTIONS.get("headless", False)
+
+    if headless:
+        chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--window-size=2000,1600")
 
     # 브라우저 창 크기 설정
     if CHROME_OPTIONS.get("start_maximized"):

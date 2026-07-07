@@ -216,6 +216,10 @@ def test_web_automation(site_key="3mro"):
         site_config = SALE_SITES[site_key]
         site_name = site_config["site_name"]
 
+        is_headless = site_config.get("headless", False)
+
+
+
         # 로그인 완료 후 상품코드 검색 테스트
 
         raw_product_codes = get_raw_product_codes_from_text_file()
@@ -230,16 +234,24 @@ def test_web_automation(site_key="3mro"):
         save_grouped_product_status_results_to_text_file(results)
 
 
-
-
-
         print(f"[{site_name}] 웹 자동화 상품코드 상태 확인 테스트 완료")
         print(f"현재 URL: {driver.current_url}")
-        print("브라우저 창을 닫으면 프로그램도 종료됩니다.")
+        
+        print("=" * 80)
+        print(f"[{site_config.get('site_name', site_key)}] 웹 자동화 상품코드 상태 확인 테스트 완료")
+        print(f"현재 URL: {driver.current_url}")
 
+        if is_headless:
+            print("Headless 모드이므로 브라우저 대기 없이 종료합니다.")
+        else:
+            print("브라우저 창을 닫으면 프로그램도 종료됩니다.")
+            wait_until_browser_closed(driver)
+
+        
 
         # 사용자가 브라우저 창을 직접 닫을 때까지 대기
-        wait_until_browser_closed(driver)
+        # print("브라우저 창을 닫으면 프로그램도 종료됩니다.")
+        # wait_until_browser_closed(driver)
 
     finally:
         # 테스트가 끝나면 driver 종료

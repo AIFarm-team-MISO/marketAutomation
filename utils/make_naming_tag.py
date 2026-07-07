@@ -21,6 +21,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 
 
+
 # 현재 스크립트의 경로를 기준으로 utils 폴더 추가
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils.global_logger import logger
