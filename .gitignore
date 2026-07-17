@@ -45,3 +45,7 @@ utils/web_automation/smartstore_review_checker/smartstore_review_result.txt
 # Python cache
 __pycache__/
 *.pyc
+
+
+# 네이버 쇼핑 키워드 관찰 실행 데이터
+keywordObservation/data/

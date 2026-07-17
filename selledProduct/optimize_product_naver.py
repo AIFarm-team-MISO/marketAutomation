@@ -61,114 +61,171 @@ def filter_words_in_product_name(df, column_name="상품명", remove_words=None)
         logger.log(f"❌ '{column_name}' 필터링 중 오류 발생: {e}", level="ERROR")
         raise
 
-def add_prefix_to_seller_code(df, column_name, prefix, skip_prefixes=None):
+import pandas as pd
+
+
+def add_prefix_to_seller_code(
+    df,
+    column_name,
+    prefix,
+    skip_prefixes=None,
+):
     """
-    
-    판매자 상품코드 접두사 추가 함수
+    판매자 상품코드에 SP- 또는 GSP- 접두사를 추가한다.
 
-    prefix == 'SP-'  : 기존 일반상품 방식
-    prefix == 'GSP-' : 그룹상품용 새 방식
+    변환 예시
+    ----------
+    3MR_81345
+        -> SP-3MR-81345
 
-    - 그룹상품용 새방식인 경우
-    
-    
-    :param df: pandas.DataFrame
-    :param column_name: 접두사를 붙일 열 이름
-    :param prefix: 새로 붙일 접두사 (예: 'SP-', 'GSP-')
-    :param skip_prefixes: 제외할 접두사 리스트
-    :return: 접두사가 적용된 데이터프레임
-    
-    - 기존의 방식인 경우
-    접두사를 붙이되, 특정 접두사들(SP-, SPG-, SR- 등)이 이미 있는 경우는 제외.
-    
-    :param df: pandas.DataFrame
-    :param column_name: 접두사를 붙일 열 이름
-    :param prefix: 새로 붙일 접두사 (예: 'SP-')
-    :param skip_prefixes: 제외할 접두사 리스트 (예: ['SP-', 'SPG-', 'SR-'])
-    :return: 접두사가 적용된 데이터프레임
+    ZEN_1234
+        -> GSP-ZEN-1234
 
+    이미 아래와 같은 접두사가 붙은 코드는 변경하지 않는다.
+    SP-, GSP-, SPG-, SR-, SPSP-
 
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        처리할 데이터프레임.
 
+    column_name : str
+        판매자 상품코드 열 이름.
+
+    prefix : str
+        추가할 접두사. "SP-" 또는 "GSP-"
+
+    skip_prefixes : list[str] | None
+        변환에서 제외할 기존 접두사 목록.
+
+    Returns
+    -------
+    pandas.DataFrame
+        판매자 상품코드가 변환된 데이터프레임.
     """
+
     try:
-
-        logger.log(f"판매자 상품코드 접두사 처리 시작 / column_name: {column_name}, prefix: {prefix}",level="INFO",also_to_report=True,separator="dash-1line")
-                
-        if skip_prefixes is None:
-            skip_prefixes = ['SP-', 'SPG-', 'SR-', 'SPSP-']
+        logger.log(
+            (
+                "판매자 상품코드 접두사 처리 시작"
+                f" / column_name: {column_name}"
+                f" / prefix: {prefix}"
+            ),
+            level="INFO",
+            also_to_report=True,
+            separator="dash-1line",
+        )
 
         if column_name not in df.columns:
-            raise ValueError(f"❌ '{column_name}' 열이 존재하지 않습니다.")
-        
-
-        # ✅ 1. 기존 일반상품 방식
-        if prefix == "SP-":
-
-            def add_if_not_prefixed(value):
-                value_str = str(value).strip()
-
-                # 빈값 / nan 방어
-                if value_str == "" or value_str.lower() == "nan":
-                    return value_str
-
-                # 보이지 않는 BOM 제거
-                value_str = value_str.replace("\ufeff", "")
-
-                # ✅ 잘못 중복된 접두사 보정
-                if value_str.startswith("SPSP-"):
-                    return "SP-" + value_str[len("SPSP-"):]
-
-                if value_str.startswith("SP-SP-"):
-                    return "SP-" + value_str[len("SP-SP-"):]
-
-                # ✅ 이미 정상 접두사가 있으면 그대로 유지
-                skip_prefixes = ['SPG-', 'SP-', 'SR-', 'GSP-']
-
-                for skip in skip_prefixes:
-                    if value_str.startswith(skip):
-                        return value_str
-
-                return prefix + value_str
-
-            df[column_name] = df[column_name].apply(add_if_not_prefixed)
-
-            logger.log(
-                f"✅ '{column_name}' 열에 기존상품 접두사 '{prefix}' 조건부 추가 완료",
-                level="INFO",
-                also_to_report=True
+            raise ValueError(
+                f"❌ '{column_name}' 열이 존재하지 않습니다."
             )
 
-        # ✅ 2. 그룹상품용 새 방식
-        elif prefix == "GSP-":
-            
-            def add_group_prefix(value):
-                value_str = str(value).strip()
+        if prefix not in ("SP-", "GSP-"):
+            raise ValueError(
+                f"❌ 지원하지 않는 접두사입니다: {prefix}"
+            )
 
-                # 빈값 / nan 방어
-                if value_str == "" or value_str.lower() == "nan":
-                    return value_str
+        if skip_prefixes is None:
+            skip_prefixes = [
+                "SP-",
+                "GSP-",
+                "SPG-",
+                "SR-",
+                "SPSP-",
+            ]
 
-                # 이미 GSP-면 그대로 유지
-                if value_str.startswith("GSP-"):
-                    return value_str
+        stats = {
+            "total": 0,
+            "changed": 0,
+            "skipped": 0,
+            "blank": 0,
+            "invalid": 0,
+        }
 
-                # ✅ 앞쪽에 접두사 형태가 있으면 첫 번째 하이픈까지 제거
-                if "-" in value_str:
-                    value_str = value_str.split("-", 1)[1]
+        def convert_seller_code(value):
+            stats["total"] += 1
 
-                return "GSP-" + value_str
+            # None, NaN 방어
+            if pd.isna(value):
+                stats["blank"] += 1
+                return value
 
-            df[column_name] = df[column_name].apply(add_group_prefix)
+            value_str = str(value).strip()
 
-            logger.log(f"✅ '{column_name}' 열에 그룹상품 접두사 '{prefix}' 변환 완료",level="INFO",also_to_report=True)
+            # BOM 제거
+            value_str = value_str.replace("\ufeff", "")
 
+            # 빈값 방어
+            if value_str == "" or value_str.lower() == "nan":
+                stats["blank"] += 1
+                return value_str
 
+            # 기존 SP-, GSP-, SR- 등의 접두사가 있으면 변경하지 않음
+            if value_str.startswith(tuple(skip_prefixes)):
+                stats["skipped"] += 1
+                return value_str
 
-        logger.log(f"✅ '{column_name}' 열에 접두사 '{prefix}' 조건부 추가 완료 (기존 접두사는 제외됨)", level="INFO")
+            # 일반상품 코드에는 도매처 코드와 상품번호 사이에
+            # 언더바가 있어야 한다.
+            if "_" not in value_str:
+                stats["invalid"] += 1
+
+                logger.log(
+                    (
+                        "⚠ 접두사가 없지만 '_'도 없는 코드이므로 "
+                        f"변경하지 않음: {value_str}"
+                    ),
+                    level="WARNING",
+                )
+
+                return value_str
+
+            # 첫 번째 언더바만 하이픈으로 변경
+            supplier_code, product_code = value_str.split("_", 1)
+
+            if not supplier_code or not product_code:
+                stats["invalid"] += 1
+                return value_str
+
+            normalized_code = (
+                f"{supplier_code}-{product_code}"
+            )
+
+            result = prefix + normalized_code
+
+            stats["changed"] += 1
+
+            return result
+
+        df[column_name] = df[column_name].apply(
+            convert_seller_code
+        )
+
+        logger.log(
+            (
+                f"✅ '{column_name}' 접두사 처리 완료"
+                f"\n- 전체 검사: {stats['total']}개"
+                f"\n- 변환 완료: {stats['changed']}개"
+                f"\n- 기존 접두사 제외: {stats['skipped']}개"
+                f"\n- 빈값: {stats['blank']}개"
+                f"\n- 형식 이상: {stats['invalid']}개"
+            ),
+            level="INFO",
+            also_to_report=True,
+        )
+
         return df
 
     except Exception as e:
-        logger.log(f"❌ '{column_name}' 접두사 추가 중 오류 발생: {e}", level="ERROR")
+        logger.log(
+            (
+                f"❌ '{column_name}' 접두사 추가 중 "
+                f"오류 발생: {e}"
+            ),
+            level="ERROR",
+            also_to_report=True,
+        )
         raise
 
 
@@ -892,9 +949,6 @@ def change_product_excel(first_sheet_data, output_file_path, optimize_mode):
 
     try:
 
-        # TODO: 처리
-        # - 할인가격 적용을 접두사 앞쪽에 두어 SP- 일때는 할인설정 안되도록 셋팅 
-        # - 모드 중 하나의 선택지에 판매코드에 그룹상품코드를 엑셀에 붙여넣을수 있도록 출력할수 있게 PRINT로만 해서 출력하게 해서 만들자
         
         # ✅ 할인가격 적용
         first_sheet_data = apply_discount(first_sheet_data)
@@ -984,6 +1038,8 @@ def select_optimize_product_mode():
         level="WARNING",
         also_to_report=True
     )
+
+
 
 def make_optimize_product_excel(file_path, base_file_name):
 
