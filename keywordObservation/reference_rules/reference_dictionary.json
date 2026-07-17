@@ -1,0 +1,31 @@
+{
+  "dictionary_version": "1.0",
+  "description": "참고정보 자동분류에서 추가로 인정하거나 제외할 표현을 관리합니다. approved의 값은 상품명에 동일한 표현이 있을 때 해당 분류로 추가되고, ignored_candidates는 미분류 후보에서 제외됩니다.",
+  "approved": {
+    "quantity": [
+      "1+1",
+      "2+1"
+    ],
+    "measurement": [],
+    "specification": [
+      "A3",
+      "A4",
+      "A5",
+      "B4",
+      "B5"
+    ],
+    "option": [
+      "대/중/소",
+      "S/M/L"
+    ],
+    "english": [],
+    "model_code": []
+  },
+  "aliases": {
+    "대·중·소": "대/중/소",
+    "대중소": "대/중/소",
+    "에이포": "A4",
+    "에이쓰리": "A3"
+  },
+  "ignored_candidates": []
+}
