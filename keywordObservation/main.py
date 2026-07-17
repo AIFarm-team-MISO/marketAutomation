@@ -50,6 +50,16 @@ from keywordObservation.observation_store import (
     find_latest_observation,
 )
 
+from keywordObservation.observation_integrity import (
+    check_observation_file,
+    print_integrity_report,
+)
+
+from keywordObservation.observation_backup import (
+    create_observation_backup,
+    print_backup_result,
+)
+
 
 # =========================================================
 # 실행 설정
@@ -65,6 +75,10 @@ EXIT_COMMANDS = {
 }
 
 LOOKUP_COMMAND = "조회"
+
+INTEGRITY_COMMAND = "검사"
+BACKUP_COMMAND = "백업"
+FORCE_BACKUP_COMMAND = "백업 강제"
 
 KEYWORD_ITEMS_PER_LINE = 7
 DISTRIBUTION_ITEMS_PER_LINE = 5
@@ -1352,6 +1366,90 @@ def handle_lookup_command(
 
 
 # =========================================================
+# 무결성 검사 및 백업
+# =========================================================
+
+def handle_integrity_command() -> None:
+    """
+    관찰이력 JSONL 전체의 무결성을 검사한다.
+
+    파일 내용은 수정하지 않는다.
+    """
+    _log(
+        "🔎 관찰이력 무결성 검사를 시작합니다."
+    )
+
+    result = check_observation_file()
+
+    print_integrity_report(
+        result
+    )
+
+    if result.get(
+        "is_healthy"
+    ):
+        _log(
+            "✅ 관찰이력 무결성 검사 완료: 정상"
+        )
+
+    else:
+        _log(
+            (
+                "⚠️ 관찰이력 무결성 검사 완료: "
+                "확인이 필요한 문제가 있습니다."
+            ),
+            level="WARNING",
+        )
+
+
+def handle_backup_command(
+    *,
+    force: bool = False,
+) -> None:
+    """
+    관찰이력 JSONL을 gzip으로 압축 백업한다.
+
+    force=True이면 같은 내용의 백업이 있어도
+    새 백업을 생성한다.
+    """
+    if force:
+        _log(
+            "💾 관찰이력 강제 백업을 시작합니다."
+        )
+
+    else:
+        _log(
+            "💾 관찰이력 백업을 시작합니다."
+        )
+
+    result = create_observation_backup(
+        force=force
+    )
+
+    print_backup_result(
+        result
+    )
+
+    if result.get(
+        "created"
+    ):
+        _log(
+            (
+                "✅ 관찰이력 백업 생성 완료: "
+                f"{result.get('backup_path', '')}"
+            )
+        )
+
+    else:
+        _log(
+            (
+                "ℹ️ 동일한 내용의 백업이 이미 있어 "
+                "새 백업 생성을 생략했습니다."
+            )
+        )
+
+
+# =========================================================
 # API 오류 출력
 # =========================================================
 
@@ -1687,16 +1785,28 @@ def process_command(
     ).strip()
 
     if not normalized_command:
-        _log(
-            "빈 검색어가 입력되었습니다.",
-            level="WARNING",
-        )
-        return True
+        return False
 
     if normalized_command.lower() in (
         EXIT_COMMANDS
     ):
         return False
+
+    if normalized_command == INTEGRITY_COMMAND:
+        handle_integrity_command()
+        return True
+
+    if normalized_command == BACKUP_COMMAND:
+        handle_backup_command(
+            force=False
+        )
+        return True
+
+    if normalized_command == FORCE_BACKUP_COMMAND:
+        handle_backup_command(
+            force=True
+        )
+        return True
 
     if normalized_command == LOOKUP_COMMAND:
         _log(
@@ -1735,6 +1845,54 @@ def process_command(
 
 
 # =========================================================
+# 메인 메뉴
+# =========================================================
+
+def print_main_menu() -> None:
+    """
+    사용 가능한 명령을 보기 좋게 출력한다.
+
+    프로그램 시작 시와 각 명령 처리 후
+    다음 입력을 받기 전에 매번 표시한다.
+    """
+    _separator(
+        char="=",
+    )
+
+    _log(
+        "📌 네이버 쇼핑 관찰데이터 메뉴"
+    )
+
+    _log(
+        "   [키워드 입력]     신규 검색결과 수집"
+    )
+
+    _log(
+        "   조회 [키워드]     저장된 최신자료 조회"
+    )
+
+    _log(
+        "   검사              관찰이력 무결성 검사"
+    )
+
+    _log(
+        "   백업              변경된 관찰이력 압축 백업"
+    )
+
+    _log(
+        "   백업 강제         동일 내용도 새 백업 생성"
+    )
+
+    _log(
+        "   Enter / q / exit / 종료   프로그램 종료"
+    )
+
+    _separator(
+        char="=",
+    )
+
+
+# =========================================================
 # 메인 실행
 # =========================================================
 
@@ -1743,22 +1901,12 @@ def main() -> None:
         " 네이버 쇼핑 관찰데이터 수집 프로그램"
     )
 
-    _separator(
-        char="=",
-    )
-
-    _log(
-        (
-            "새로 수집: 키워드만 입력 / "
-            "저장자료 조회: '조회 키워드' / "
-            "종료: '종료', 'exit', 'q'"
-        )
-    )
-
     while True:
         try:
+            print_main_menu()
+
             command = input(
-                "\n🔍 메인 키워드를 입력해 주세요: "
+                "\n🔍 명령 또는 키워드를 입력해 주세요: "
             )
 
             should_continue = process_command(
