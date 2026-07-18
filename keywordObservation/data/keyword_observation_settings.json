@@ -1,0 +1,15 @@
+{
+  "settings_version": "1.0",
+  "api_collection_enabled": true,
+  "display_count": 20,
+  "default_sort": "sim",
+  "keyword_column": "키워드",
+  "supported_excel_extensions": [
+    ".xlsx",
+    ".xls",
+    ".xlsm"
+  ],
+  "skip_existing_on_dictionary_add": true,
+  "bulk_collection_delay_seconds": 0.5,
+  "bulk_output_mode": "compact"
+}

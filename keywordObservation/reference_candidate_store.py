@@ -8,12 +8,13 @@ from pathlib import Path
 from typing import Any
 
 
-PACKAGE_DIR = Path(__file__).resolve().parent
-DATA_DIR = PACKAGE_DIR / "data"
+from keywordObservation.keyword_observation_paths import (
+    REFERENCE_CANDIDATE_REGISTRY_FILE,
+)
+
 
 CANDIDATE_REGISTRY_FILE = (
-    DATA_DIR
-    / "reference_candidate_registry.json"
+    REFERENCE_CANDIDATE_REGISTRY_FILE
 )
 
 REGISTRY_SCHEMA_VERSION = "1.0"

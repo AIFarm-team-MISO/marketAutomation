@@ -11,11 +11,13 @@ from typing import Any, Iterable
 
 CLASSIFIER_VERSION = "0.1.0"
 
-PACKAGE_DIR = Path(__file__).resolve().parent
+from keywordObservation.keyword_observation_paths import (
+    REFERENCE_DICTIONARY_FILE,
+)
+
+
 DEFAULT_DICTIONARY_PATH = (
-    PACKAGE_DIR
-    / "reference_rules"
-    / "reference_dictionary.json"
+    REFERENCE_DICTIONARY_FILE
 )
 
 REFERENCE_CATEGORIES = (

@@ -48,8 +48,23 @@ __pycache__/
 
 
 # 네이버 쇼핑 키워드 관찰 실행 데이터
-keywordObservation/data/
+# keywordObservation/data 전체를 제외하는 기존 규칙이 있다면
+# .gitignore의 마지막 부분에 아래 예외를 추가합니다.
 
-# 참고정보 사용자 사전은 Git으로 관리
-!keywordObservation/reference_rules/
-!keywordObservation/reference_rules/reference_dictionary.json
+!keywordObservation/data/
+keywordObservation/data/*
+
+# 코드와 함께 관리할 설정·사전·입력양식만 다시 포함
+!keywordObservation/data/keyword_observation_settings.json
+!keywordObservation/data/reference_dictionary.json
+!keywordObservation/data/keyword_inputs/
+keywordObservation/data/keyword_inputs/*
+!keywordObservation/data/keyword_inputs/키워드_입력_양식.xlsx
+
+# 아래 운영자료는 계속 제외
+keywordObservation/data/naver_shopping_observations.jsonl
+keywordObservation/data/reference_candidate_registry.json
+keywordObservation/data/dictionary_collection_history.jsonl
+keywordObservation/data/unresolved_keywords.jsonl
+keywordObservation/data/readable/
+keywordObservation/data/backup/

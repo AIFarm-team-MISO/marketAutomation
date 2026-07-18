@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import sys
+import time
 import traceback
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +22,34 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 from utils.global_logger import logger
+
+from keywordObservation.keyword_observation_paths import (
+    DICTIONARY_COLLECTION_HISTORY_FILE,
+    KEYWORD_INPUT_DIR,
+    ensure_data_layout,
+)
+
+from keywordObservation.keyword_observation_settings import (
+    KeywordObservationSettingsError,
+    load_keyword_observation_settings,
+)
+
+from keywordObservation.keyword_input_loader import (
+    load_keywords_from_input_folder,
+)
+
+from keywordObservation.observation_keyword_index import (
+    load_observed_keyword_index,
+)
+
+from keywordObservation.dictionary_add_controller import (
+    run_dictionary_add,
+)
+
+from keywordObservation.dictionary_collection_history import (
+    DictionaryCollectionHistoryError,
+    append_dictionary_collection_history,
+)
 
 from keywordObservation.naver_shopping_client import (
     NaverShoppingApiError,
@@ -86,11 +116,105 @@ from keywordObservation.observation_backup import (
 
 
 # =========================================================
-# 실행 설정
+# 데이터 폴더와 실행 설정
 # =========================================================
 
-DISPLAY_COUNT = 20
-DEFAULT_SORT = "sim"
+DATA_LAYOUT_MESSAGES = (
+    ensure_data_layout()
+)
+
+SETTINGS_LOAD_ERROR = ""
+
+try:
+    SETTINGS = (
+        load_keyword_observation_settings()
+    )
+
+except KeywordObservationSettingsError as error:
+    SETTINGS_LOAD_ERROR = str(
+        error
+    )
+
+    SETTINGS = {
+        "display_count": 20,
+        "default_sort": "sim",
+        "api_collection_enabled": False,
+        "keyword_column": "키워드",
+        "supported_excel_extensions": [
+            ".xlsx",
+            ".xls",
+            ".xlsm",
+        ],
+        "skip_existing_on_dictionary_add": True,
+        "bulk_collection_delay_seconds": 0.5,
+        "bulk_output_mode": "compact",
+    }
+
+
+DISPLAY_COUNT = int(
+    SETTINGS.get(
+        "display_count",
+        20,
+    )
+)
+
+DEFAULT_SORT = str(
+    SETTINGS.get(
+        "default_sort",
+        "sim",
+    )
+)
+
+API_COLLECTION_ENABLED = bool(
+    SETTINGS.get(
+        "api_collection_enabled",
+        True,
+    )
+)
+
+KEYWORD_COLUMN = str(
+    SETTINGS.get(
+        "keyword_column",
+        "키워드",
+    )
+)
+
+SUPPORTED_EXCEL_EXTENSIONS = list(
+    SETTINGS.get(
+        "supported_excel_extensions",
+        [
+            ".xlsx",
+            ".xls",
+            ".xlsm",
+        ],
+    )
+)
+
+SKIP_EXISTING_ON_DICTIONARY_ADD = bool(
+    SETTINGS.get(
+        "skip_existing_on_dictionary_add",
+        True,
+    )
+)
+
+BULK_COLLECTION_DELAY_SECONDS = float(
+    SETTINGS.get(
+        "bulk_collection_delay_seconds",
+        0.5,
+    )
+)
+
+BULK_OUTPUT_MODE = str(
+    SETTINGS.get(
+        "bulk_output_mode",
+        "compact",
+    )
+).strip().lower()
+
+
+# =========================================================
+# 명령 설정
+# =========================================================
 
 EXIT_COMMANDS = {
     "종료",
@@ -99,6 +223,8 @@ EXIT_COMMANDS = {
 }
 
 LOOKUP_COMMAND = "조회"
+SEARCH_COMMAND = "검색"
+DICTIONARY_ADD_COMMAND = "사전추가"
 INTEGRITY_COMMAND = "검사"
 BACKUP_COMMAND = "백업"
 FORCE_BACKUP_COMMAND = "백업 강제"
@@ -115,14 +241,20 @@ def _safe_int(
     try:
         return int(value)
 
-    except (TypeError, ValueError):
+    except (
+        TypeError,
+        ValueError,
+    ):
         return default
 
 
 def _safe_dict(
     value: Any,
 ) -> dict[str, Any]:
-    if isinstance(value, dict):
+    if isinstance(
+        value,
+        dict,
+    ):
         return value
 
     return {}
@@ -131,7 +263,10 @@ def _safe_dict(
 def _safe_list(
     value: Any,
 ) -> list[Any]:
-    if isinstance(value, list):
+    if isinstance(
+        value,
+        list,
+    ):
         return value
 
     return []
@@ -152,10 +287,8 @@ def _prepare_observation_for_display(
     observation: dict[str, Any],
 ) -> dict[str, Any]:
     """
-    과거 저장자료에 카테고리 집중도 값이 없으면
-    기존 카테고리 집계로 화면 출력용 결과를 계산한다.
-
-    원본 JSONL은 수정하지 않는다.
+    기존 JSONL 원본은 수정하지 않고
+    최신 참고정보 사전 기준으로 화면 출력값을 다시 계산한다.
     """
     display_observation = dict(
         observation
@@ -200,8 +333,6 @@ def _prepare_observation_for_display(
     )
 
     if samples:
-        # 사전이 수정된 뒤에도 기존 JSONL 원본은 건드리지 않고,
-        # 조회할 때 현재 사전 기준으로 참고정보 분류를 다시 계산한다.
         analysis[
             "reference_token_distribution"
         ] = build_enhanced_reference_distribution(
@@ -224,7 +355,7 @@ def _prepare_observation_for_display(
 
 def handle_lookup_command(
     keyword: str,
-) -> None:
+) -> bool:
     normalized_keyword = " ".join(
         str(keyword).split()
     )
@@ -233,11 +364,11 @@ def handle_lookup_command(
         _log(
             (
                 "조회할 키워드를 입력해 주세요. "
-                "예: 조회 박스테이프"
+                "예: 박스테이프"
             ),
             level="WARNING",
         )
-        return
+        return False
 
     observation = find_latest_observation(
         normalized_keyword
@@ -251,7 +382,27 @@ def handle_lookup_command(
             ),
             level="WARNING",
         )
-        return
+
+        if API_COLLECTION_ENABLED:
+            _log(
+                (
+                    "   └ 신규 수집이 필요하면 "
+                    f"'검색 {normalized_keyword}'를 "
+                    "입력해 주세요."
+                ),
+                level="WARNING",
+            )
+
+        else:
+            _log(
+                (
+                    "   └ 현재 네이버 쇼핑 신규검색 "
+                    "기능은 비활성화되어 있습니다."
+                ),
+                level="WARNING",
+            )
+
+        return False
 
     readable_path, repaired = (
         ensure_latest_pretty_file(
@@ -260,7 +411,10 @@ def handle_lookup_command(
         )
     )
 
-    if repaired and readable_path is not None:
+    if (
+        repaired
+        and readable_path is not None
+    ):
         _log(
             (
                 "♻️ 누락되거나 오래된 읽기용 "
@@ -275,6 +429,8 @@ def handle_lookup_command(
             observation
         )
     )
+
+    return True
 
 
 # =========================================================
@@ -356,16 +512,58 @@ def handle_backup_command(
 
 def collect_keyword(
     input_keyword: str,
-) -> None:
+    *,
+    output_mode: str = "full",
+) -> dict[str, Any]:
+    """
+    네이버 쇼핑 검색부터 분석·저장까지 한 키워드를 처리한다.
+
+    output_mode='full':
+        기존 단일검색처럼 상세결과 전체 출력
+
+    output_mode='compact':
+        사전추가용으로 진행상황만 간단히 출력
+    """
+    normalized_output_mode = (
+        str(output_mode)
+        .strip()
+        .lower()
+    )
+
+    show_full_output = (
+        normalized_output_mode
+        == "full"
+    )
+
+    if not API_COLLECTION_ENABLED:
+        message = (
+            "네이버 쇼핑 신규검색 기능이 "
+            "비활성화되어 있습니다."
+        )
+
+        _log(
+            message,
+            level="WARNING",
+        )
+
+        return {
+            "status": "api_disabled",
+            "input_keyword": input_keyword,
+            "normalized_keyword": "",
+            "sample_count": 0,
+            "message": message,
+        }
+
     format_validation = (
         validate_keyword_format(
             input_keyword
         )
     )
 
-    print_format_validation(
-        format_validation
-    )
+    if show_full_output:
+        print_format_validation(
+            format_validation
+        )
 
     can_search = bool(
         format_validation.get(
@@ -375,14 +573,23 @@ def collect_keyword(
     )
 
     if not can_search:
+        message = (
+            "잘못된 검색어이므로 API 호출과 "
+            "관찰데이터 저장을 생략합니다."
+        )
+
         _log(
-            (
-                "잘못된 검색어이므로 API 호출과 "
-                "관찰데이터 저장을 생략합니다."
-            ),
+            message,
             level="WARNING",
         )
-        return
+
+        return {
+            "status": "invalid_keyword",
+            "input_keyword": input_keyword,
+            "normalized_keyword": "",
+            "sample_count": 0,
+            "message": message,
+        }
 
     normalized_keyword = str(
         format_validation.get(
@@ -392,18 +599,30 @@ def collect_keyword(
     ).strip()
 
     if not normalized_keyword:
+        message = (
+            "정규화된 검색어가 비어 있습니다."
+        )
+
         _log(
-            "정규화된 검색어가 비어 있습니다.",
+            message,
             level="ERROR",
         )
-        return
 
-    _log(
-        (
-            "네이버 쇼핑 검색 시작: "
-            f"'{normalized_keyword}'"
+        return {
+            "status": "invalid_keyword",
+            "input_keyword": input_keyword,
+            "normalized_keyword": "",
+            "sample_count": 0,
+            "message": message,
+        }
+
+    if show_full_output:
+        _log(
+            (
+                "네이버 쇼핑 검색 시작: "
+                f"'{normalized_keyword}'"
+            )
         )
-    )
 
     try:
         shopping_response = (
@@ -415,10 +634,29 @@ def collect_keyword(
         )
 
     except NaverShoppingApiError as error:
-        print_api_error(
-            error
-        )
-        return
+        if show_full_output:
+            print_api_error(
+                error
+            )
+
+        else:
+            _log(
+                (
+                    "네이버 쇼핑 API 오류: "
+                    f"'{normalized_keyword}' / {error}"
+                ),
+                level="ERROR",
+            )
+
+        return {
+            "status": "api_error",
+            "input_keyword": input_keyword,
+            "normalized_keyword": (
+                normalized_keyword
+            ),
+            "sample_count": 0,
+            "message": str(error),
+        }
 
     attempt_count = _safe_int(
         shopping_response.get(
@@ -428,7 +666,10 @@ def collect_keyword(
         1,
     )
 
-    if attempt_count > 1:
+    if (
+        attempt_count > 1
+        and show_full_output
+    ):
         _log(
             (
                 "네이버 쇼핑 API가 "
@@ -446,37 +687,42 @@ def collect_keyword(
                 [],
             )
         )
-        if isinstance(item, dict)
+        if isinstance(
+            item,
+            dict,
+        )
     ]
 
-    if items:
-        _log(
-            (
-                "네이버 쇼핑 상품 "
-                f"{len(items)}개 수신 완료"
+    if show_full_output:
+        if items:
+            _log(
+                (
+                    "네이버 쇼핑 상품 "
+                    f"{len(items)}개 수신 완료"
+                )
             )
-        )
 
-    else:
-        _log(
-            (
-                "네이버 쇼핑 검색결과 없음: "
-                "빈 결과를 정상 관찰기록으로 "
-                "저장합니다."
-            ),
-            level="WARNING",
-        )
+        else:
+            _log(
+                (
+                    "네이버 쇼핑 검색결과 없음: "
+                    "빈 결과를 정상 관찰기록으로 "
+                    "저장합니다."
+                ),
+                level="WARNING",
+            )
 
     samples = build_samples(
         items
     )
 
-    _log(
-        (
-            "관찰용 상품 데이터 "
-            f"{len(samples)}개 변환 완료"
+    if show_full_output:
+        _log(
+            (
+                "관찰용 상품 데이터 "
+                f"{len(samples)}개 변환 완료"
+            )
         )
-    )
 
     analysis = analyze_samples(
         samples=samples,
@@ -500,10 +746,6 @@ def collect_keyword(
         analysis
     )
 
-    _log(
-        "키워드 및 카테고리 분석 완료"
-    )
-
     query_validation = (
         evaluate_search_result(
             keyword=normalized_keyword,
@@ -511,35 +753,42 @@ def collect_keyword(
         )
     )
 
-    if samples:
-        print_samples(
-            keyword=normalized_keyword,
-            samples=samples,
-        )
-
-    else:
+    if show_full_output:
         _log(
-            (
-                f"'{normalized_keyword}'의 "
-                "상품 상세출력은 생략합니다."
-            ),
-            level="WARNING",
+            "키워드 및 카테고리 분석 완료"
         )
 
-    print_analysis(
-        keyword=normalized_keyword,
-        analysis=analysis,
-    )
+        if samples:
+            print_samples(
+                keyword=normalized_keyword,
+                samples=samples,
+            )
 
-    print_query_validation(
-        query_validation
-    )
+        else:
+            _log(
+                (
+                    f"'{normalized_keyword}'의 "
+                    "상품 상세출력은 생략합니다."
+                ),
+                level="WARNING",
+            )
 
-    print_final_observation_summary(
-        keyword=normalized_keyword,
-        analysis=analysis,
-        query_validation=query_validation,
-    )
+        print_analysis(
+            keyword=normalized_keyword,
+            analysis=analysis,
+        )
+
+        print_query_validation(
+            query_validation
+        )
+
+        print_final_observation_summary(
+            keyword=normalized_keyword,
+            analysis=analysis,
+            query_validation=(
+                query_validation
+            ),
+        )
 
     observation_record = (
         build_observation_record(
@@ -561,13 +810,6 @@ def collect_keyword(
         observation_record
     )
 
-    _log(
-        (
-            "💾 관찰이력 저장 완료: "
-            f"{observation_path}"
-        )
-    )
-
     readable_path, _ = (
         ensure_latest_pretty_file(
             keyword=normalized_keyword,
@@ -581,12 +823,23 @@ def collect_keyword(
             "읽기용 최신파일을 생성하지 못했습니다."
         )
 
-    _log(
-        (
-            "📖 읽기용 최신파일 저장 완료: "
-            f"{readable_path}"
+    if show_full_output:
+        _log(
+            (
+                "💾 관찰이력 저장 완료: "
+                f"{observation_path}"
+            )
         )
-    )
+
+        _log(
+            (
+                "📖 읽기용 최신파일 저장 완료: "
+                f"{readable_path}"
+            )
+        )
+
+    candidate_count = 0
+    candidate_path = ""
 
     try:
         candidate_path, candidate_count = (
@@ -602,7 +855,10 @@ def collect_keyword(
             )
         )
 
-        if candidate_count > 0:
+        if (
+            candidate_count > 0
+            and show_full_output
+        ):
             _log(
                 (
                     "🧪 미분류 참고정보 후보 "
@@ -620,6 +876,45 @@ def collect_keyword(
             ),
             level="WARNING",
         )
+
+    return {
+        "status": "success",
+        "input_keyword": input_keyword,
+        "normalized_keyword": (
+            normalized_keyword
+        ),
+        "sample_count": len(
+            samples
+        ),
+        "observation_path": str(
+            observation_path
+        ),
+        "readable_path": str(
+            readable_path
+        ),
+        "reference_candidate_count": (
+            candidate_count
+        ),
+        "reference_candidate_path": str(
+            candidate_path
+        ),
+        "attempt_count": attempt_count,
+        "message": "",
+    }
+
+
+# =========================================================
+# 엑셀 기반 키워드 관찰사전 일괄 추가
+# =========================================================
+
+def handle_dictionary_add_command() -> bool:
+    """
+    사전추가 실행 전 엑셀 내용을 검토하고,
+    실행 또는 취소 후 프로그램 종료 여부를 반환한다.
+    """
+    return run_dictionary_add(
+        collect_keyword
+    )
 
 
 # =========================================================
@@ -657,6 +952,56 @@ def process_command(
         )
         return True
 
+    if normalized_command == DICTIONARY_ADD_COMMAND:
+        should_exit = (
+            handle_dictionary_add_command()
+        )
+
+        return not should_exit
+
+    if normalized_command.startswith(
+        DICTIONARY_ADD_COMMAND + " "
+    ):
+        _log(
+            (
+                "사전추가는 별도 파일경로를 입력하지 않습니다. "
+                f"엑셀파일을 {KEYWORD_INPUT_DIR}에 넣은 뒤 "
+                "'사전추가'만 입력해 주세요."
+            ),
+            level="WARNING",
+        )
+        return True
+
+    if normalized_command == SEARCH_COMMAND:
+        _log(
+            (
+                "검색할 키워드를 함께 입력해 주세요. "
+                "예: 검색 박스테이프"
+            ),
+            level="WARNING",
+        )
+        return True
+
+    search_prefix = (
+        SEARCH_COMMAND + " "
+    )
+
+    if normalized_command.startswith(
+        search_prefix
+    ):
+        search_keyword = (
+            normalized_command[
+                len(search_prefix):
+            ].strip()
+        )
+
+        collect_keyword(
+            search_keyword,
+            output_mode="full",
+        )
+
+        return True
+
     if normalized_command == LOOKUP_COMMAND:
         _log(
             (
@@ -686,7 +1031,8 @@ def process_command(
 
         return True
 
-    collect_keyword(
+    # 명령어가 아닌 일반 입력은 기본적으로 사전조회한다.
+    handle_lookup_command(
         normalized_command
     )
 
@@ -699,15 +1045,46 @@ def process_command(
 
 def main() -> None:
     _log(
-        " 네이버 쇼핑 관찰데이터 수집 프로그램"
+        " 네이버 쇼핑 키워드 관찰사전 프로그램"
     )
+
+    if SETTINGS_LOAD_ERROR:
+        _log(
+            (
+                "키워드 관찰사전 설정 오류: "
+                f"{SETTINGS_LOAD_ERROR}"
+            ),
+            level="ERROR",
+        )
+
+        _log(
+            (
+                "data/keyword_observation_settings.json을 "
+                "수정한 뒤 다시 실행해 주세요."
+            ),
+            level="ERROR",
+        )
+
+        return
+
+    for message in DATA_LAYOUT_MESSAGES:
+        _log(
+            (
+                "♻️ "
+                f"{message}"
+            ),
+            level="WARNING",
+        )
 
     while True:
         try:
             print_main_menu()
 
             command = input(
-                "\n🔍 명령 또는 키워드를 입력해 주세요: "
+                (
+                    "\n📖 조회할 키워드 또는 "
+                    "명령을 입력해 주세요: "
+                )
             )
 
             should_continue = process_command(
