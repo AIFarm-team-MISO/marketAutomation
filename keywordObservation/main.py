@@ -51,6 +51,17 @@ from keywordObservation.dictionary_collection_history import (
     append_dictionary_collection_history,
 )
 
+from keywordObservation.keyword_knowledge_reporter import (
+    print_keyword_knowledge,
+)
+
+from keywordObservation.tag_command_controller import (
+    run_manual_tag_add,
+    run_optimization_import,
+    run_tag_check,
+    run_tag_search,
+)
+
 from keywordObservation.naver_shopping_client import (
     NaverShoppingApiError,
     fetch_shopping_response,
@@ -148,6 +159,15 @@ except KeywordObservationSettingsError as error:
         "skip_existing_on_dictionary_add": True,
         "bulk_collection_delay_seconds": 0.5,
         "bulk_output_mode": "compact",
+        "tag_api_enabled": False,
+        "tag_check_delay_seconds": 0.2,
+        "show_manual_tag_limit": 30,
+        "show_optimization_example_limit": 3,
+        "optimization_input_extensions": [
+            ".xlsx",
+            ".xlsm",
+            ".xls",
+        ],
     }
 
 
@@ -212,6 +232,46 @@ BULK_OUTPUT_MODE = str(
 ).strip().lower()
 
 
+TAG_API_ENABLED = bool(
+    SETTINGS.get(
+        "tag_api_enabled",
+        True,
+    )
+)
+
+TAG_CHECK_DELAY_SECONDS = float(
+    SETTINGS.get(
+        "tag_check_delay_seconds",
+        0.2,
+    )
+)
+
+SHOW_MANUAL_TAG_LIMIT = int(
+    SETTINGS.get(
+        "show_manual_tag_limit",
+        30,
+    )
+)
+
+SHOW_OPTIMIZATION_EXAMPLE_LIMIT = int(
+    SETTINGS.get(
+        "show_optimization_example_limit",
+        3,
+    )
+)
+
+OPTIMIZATION_INPUT_EXTENSIONS = list(
+    SETTINGS.get(
+        "optimization_input_extensions",
+        [
+            ".xlsx",
+            ".xlsm",
+            ".xls",
+        ],
+    )
+)
+
+
 # =========================================================
 # 명령 설정
 # =========================================================
@@ -225,6 +285,10 @@ EXIT_COMMANDS = {
 LOOKUP_COMMAND = "조회"
 SEARCH_COMMAND = "검색"
 DICTIONARY_ADD_COMMAND = "사전추가"
+TAG_SEARCH_COMMAND = "태그검색"
+TAG_ADD_COMMAND = "태그추가"
+TAG_CHECK_COMMAND = "태그검사"
+OPTIMIZATION_IMPORT_COMMAND = "가공자료추가"
 INTEGRITY_COMMAND = "검사"
 BACKUP_COMMAND = "백업"
 FORCE_BACKUP_COMMAND = "백업 강제"
@@ -370,14 +434,44 @@ def handle_lookup_command(
         )
         return False
 
+    found_any_data = False
+
     observation = find_latest_observation(
         normalized_keyword
     )
 
-    if observation is None:
+    if observation is not None:
+        readable_path, repaired = (
+            ensure_latest_pretty_file(
+                keyword=normalized_keyword,
+                observation=observation,
+            )
+        )
+
+        if (
+            repaired
+            and readable_path is not None
+        ):
+            _log(
+                (
+                    "♻️ 누락되거나 오래된 읽기용 "
+                    "최신파일 복구 완료: "
+                    f"{readable_path}"
+                ),
+                level="WARNING",
+            )
+
+        print_saved_observation(
+            _prepare_observation_for_display(
+                observation
+            )
+        )
+        found_any_data = True
+
+    else:
         _log(
             (
-                "저장된 관찰자료가 없습니다: "
+                "저장된 네이버 쇼핑 관찰자료가 없습니다: "
                 f"'{normalized_keyword}'"
             ),
             level="WARNING",
@@ -386,51 +480,38 @@ def handle_lookup_command(
         if API_COLLECTION_ENABLED:
             _log(
                 (
-                    "   └ 신규 수집이 필요하면 "
+                    "   └ 신규 쇼핑검색이 필요하면 "
                     f"'검색 {normalized_keyword}'를 "
                     "입력해 주세요."
                 ),
                 level="WARNING",
             )
 
-        else:
-            _log(
-                (
-                    "   └ 현재 네이버 쇼핑 신규검색 "
-                    "기능은 비활성화되어 있습니다."
-                ),
-                level="WARNING",
-            )
-
-        return False
-
-    readable_path, repaired = (
-        ensure_latest_pretty_file(
-            keyword=normalized_keyword,
-            observation=observation,
-        )
+    knowledge_found = print_keyword_knowledge(
+        normalized_keyword,
+        manual_tag_limit=SHOW_MANUAL_TAG_LIMIT,
+        optimization_example_limit=(
+            SHOW_OPTIMIZATION_EXAMPLE_LIMIT
+        ),
+        show_empty_sections=True,
     )
 
-    if (
-        repaired
-        and readable_path is not None
-    ):
+    found_any_data = (
+        found_any_data
+        or knowledge_found
+    )
+
+    if not found_any_data:
         _log(
             (
-                "♻️ 누락되거나 오래된 읽기용 "
-                "최신파일 복구 완료: "
-                f"{readable_path}"
+                "이 키워드와 연결된 저장자료가 아직 없습니다. "
+                f"쇼핑자료: '검색 {normalized_keyword}', "
+                f"태그자료: '태그검색 {normalized_keyword}'"
             ),
             level="WARNING",
         )
 
-    print_saved_observation(
-        _prepare_observation_for_display(
-            observation
-        )
-    )
-
-    return True
+    return found_any_data
 
 
 # =========================================================
@@ -935,6 +1016,71 @@ def process_command(
         EXIT_COMMANDS
     ):
         return False
+
+    if normalized_command == TAG_SEARCH_COMMAND:
+        _log(
+            "태그검색 키워드를 함께 입력해 주세요. 예: 태그검색 양면테이프",
+            level="WARNING",
+        )
+        return True
+
+    tag_search_prefix = TAG_SEARCH_COMMAND + " "
+
+    if normalized_command.startswith(tag_search_prefix):
+        run_tag_search(
+            normalized_command[len(tag_search_prefix):].strip(),
+            tag_api_enabled=TAG_API_ENABLED,
+        )
+        return True
+
+    if normalized_command == TAG_ADD_COMMAND:
+        _log(
+            "태그를 연결할 키워드를 함께 입력해 주세요. 예: 태그추가 양면테이프",
+            level="WARNING",
+        )
+        return True
+
+    tag_add_prefix = TAG_ADD_COMMAND + " "
+
+    if normalized_command.startswith(tag_add_prefix):
+        run_manual_tag_add(
+            normalized_command[len(tag_add_prefix):].strip()
+        )
+        return True
+
+    if normalized_command == TAG_CHECK_COMMAND:
+        _log(
+            "검사할 태그를 함께 입력해 주세요. 예: 태그검사 강력테이프, 투명테이프",
+            level="WARNING",
+        )
+        return True
+
+    tag_check_prefix = TAG_CHECK_COMMAND + " "
+
+    if normalized_command.startswith(tag_check_prefix):
+        run_tag_check(
+            normalized_command[len(tag_check_prefix):].strip(),
+            tag_api_enabled=TAG_API_ENABLED,
+            delay_seconds=TAG_CHECK_DELAY_SECONDS,
+        )
+        return True
+
+    if normalized_command == OPTIMIZATION_IMPORT_COMMAND:
+        run_optimization_import(
+            supported_extensions=OPTIMIZATION_INPUT_EXTENSIONS,
+        )
+        return True
+
+    if normalized_command.startswith(OPTIMIZATION_IMPORT_COMMAND + " "):
+        _log(
+            (
+                "가공자료추가는 별도 파일경로를 입력하지 않습니다. "
+                "data/optimization_inputs 폴더에 엑셀을 넣은 뒤 "
+                "'가공자료추가'만 입력해 주세요."
+            ),
+            level="WARNING",
+        )
+        return True
 
     if normalized_command == INTEGRITY_COMMAND:
         handle_integrity_command()

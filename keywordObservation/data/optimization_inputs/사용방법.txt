@@ -1,0 +1,12 @@
+최적화가공틀 엑셀파일을 이 폴더에 넣습니다.
+
+지원 확장자
+- .xlsx
+- .xlsm
+- .xls (pandas와 xlrd 필요)
+
+프로그램 명령
+가공자료추가
+
+가공자료추가는 파일을 먼저 분석하고 정상기록·중복·불완전행을 요약한 뒤
+Enter를 누른 경우에만 optimization_records.jsonl과 tag_registry.json에 저장합니다.
